@@ -100,8 +100,15 @@
             <form action="/loans/<%= loan.id %>/payments" method="POST" class="inline-form loan-pay-form">
               <input type="number" name="amount" step="0.01" min="0.01" placeholder="Payment" required />
               <input type="date" name="paidOn" value="<%= today %>" />
+              <select name="accountId" title="Pay from">
+                <option value="">No account</option>
+                <% accounts.forEach((a) => { %>
+                  <option value="<%= a.id %>"><%= a.name %></option>
+                <% }) %>
+              </select>
               <button type="submit" class="btn btn-ghost btn-sm">Log payment</button>
             </form>
+            <small class="muted">Logs an expense in the “Loan Payment” category.</small>
           <% } %>
           <form action="/loans/<%= loan.id %>/delete" method="POST" class="inline-form">
             <button type="submit" class="btn btn-ghost btn-sm" title="Delete loan">✕ Remove</button>

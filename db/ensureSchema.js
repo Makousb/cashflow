@@ -122,14 +122,28 @@ const SCHEMA_SQL = `
     id SERIAL PRIMARY KEY,
     loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
     amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
     paid_on DATE NOT NULL DEFAULT CURRENT_DATE,
     note TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
+  -- transaction_id links a payment to the expense it posts to the ledger
+  -- (added after loan_payments shipped, so backfill existing tables).
+  ALTER TABLE loan_payments
+    ADD COLUMN IF NOT EXISTS transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL;
+
   CREATE INDEX IF NOT EXISTS idx_loan_payments_loan
     ON loan_payments (loan_id, paid_on);
+
+  -- Category used when a loan payment posts as an expense. Idempotent so it
+  -- exists even on databases seeded before this category was added.
+  INSERT INTO categories (user_id, name, kind, icon)
+  SELECT NULL, 'Loan Payment', 'expense', '🏦'
+  WHERE NOT EXISTS (
+    SELECT 1 FROM categories WHERE user_id IS NULL AND name = 'Loan Payment'
+  );
 `;
 
 const DEFAULT_CATEGORIES = [
@@ -142,6 +156,7 @@ const DEFAULT_CATEGORIES = [
   ["Health", "expense", "⚕️"],
   ["Education", "expense", "📚"],
   ["Other", "expense", "🧾"],
+  ["Loan Payment", "expense", "🏦"],
   ["Salary", "income", "💼"],
   ["Business", "income", "🏪"],
   ["Gifts", "income", "🎁"],

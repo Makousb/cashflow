@@ -1,3 +1,5 @@
+import { listAccounts } from "../db/queries/accounts.js";
+import { getDefaultCategoryId } from "../db/queries/categories.js";
 import {
   addLoanPayment,
   createLoan,
@@ -7,6 +9,7 @@ import {
   listLoans,
   monthlySpendByCategory
 } from "../db/queries/loans.js";
+import { createTransaction } from "../db/queries/transactions.js";
 import { getLoanPlan } from "../services/analytics.js";
 import { toBase } from "../services/fx.js";
 import { today } from "../utils/dates.js";
@@ -40,7 +43,10 @@ async function loansWithMetrics(userId) {
 
 export async function showLoansPage(req, res, next) {
   try {
-    const loans = await loansWithMetrics(req.session.user.id);
+    const [loans, accounts] = await Promise.all([
+      loansWithMetrics(req.session.user.id),
+      listAccounts(req.session.user.id)
+    ]);
 
     const totals = loans.reduce(
       (acc, l) => {
@@ -55,6 +61,7 @@ export async function showLoansPage(req, res, next) {
     res.render("loans", {
       title: "Loans",
       loans,
+      accounts,
       totals,
       today: today()
     });
@@ -103,21 +110,43 @@ export async function addPayment(req, res, next) {
   }
 
   try {
-    const loan = await getLoan(Number(req.params.id), req.session.user.id);
+    const userId = req.session.user.id;
+    const loan = await getLoan(Number(req.params.id), userId);
     if (!loan) {
       req.flash("error", "Loan not found.");
       return res.redirect("/loans");
     }
 
-    await addLoanPayment({
-      loanId: loan.id,
-      userId: req.session.user.id,
-      amount: toBase(req.session.user, amount),
-      paidOn: req.body.paidOn || today(),
-      note: (req.body.note || "").trim() || null
+    const baseAmount = toBase(req.session.user, amount);
+    const paidOn = req.body.paidOn || today();
+    const userNote = (req.body.note || "").trim();
+    const note = userNote
+      ? `Loan payment: ${loan.name} — ${userNote}`
+      : `Loan payment: ${loan.name}`;
+
+    // Post the payment as an expense in the ledger (and deduct the chosen
+    // wallet's balance), then record it against the loan and link the two.
+    const categoryId = await getDefaultCategoryId("Loan Payment");
+    const transaction = await createTransaction({
+      userId,
+      accountId: req.body.accountId || null,
+      categoryId,
+      kind: "expense",
+      amount: baseAmount,
+      note,
+      occurredOn: paidOn
     });
 
-    req.flash("success", "Payment recorded.");
+    await addLoanPayment({
+      loanId: loan.id,
+      userId,
+      amount: baseAmount,
+      paidOn,
+      note: userNote || null,
+      transactionId: transaction.id
+    });
+
+    req.flash("success", "Payment recorded and logged as an expense.");
     return res.redirect("/loans");
   } catch (error) {
     return next(error);

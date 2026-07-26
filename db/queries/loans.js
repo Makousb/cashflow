@@ -55,12 +55,19 @@ export async function listLoanPayments(userId) {
   return rows;
 }
 
-export async function addLoanPayment({ loanId, userId, amount, paidOn, note }) {
+export async function addLoanPayment({
+  loanId,
+  userId,
+  amount,
+  paidOn,
+  note,
+  transactionId = null
+}) {
   const { rows } = await pool.query(
-    `INSERT INTO loan_payments (loan_id, user_id, amount, paid_on, note)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO loan_payments (loan_id, user_id, amount, paid_on, note, transaction_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [loanId, userId, amount, paidOn, note]
+    [loanId, userId, amount, paidOn, note, transactionId]
   );
   return rows[0];
 }

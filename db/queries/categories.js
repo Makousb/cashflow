@@ -10,3 +10,12 @@ export async function listCategories(userId) {
   );
   return rows;
 }
+
+// Id of a built-in default category by name (e.g. "Loan Payment").
+export async function getDefaultCategoryId(name) {
+  const { rows } = await pool.query(
+    "SELECT id FROM categories WHERE user_id IS NULL AND name = $1 LIMIT 1",
+    [name]
+  );
+  return rows[0]?.id || null;
+}
