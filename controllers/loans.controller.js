@@ -158,7 +158,9 @@ export async function removeLoan(req, res, next) {
     const removed = await deleteLoan(Number(req.params.id), req.session.user.id);
     req.flash(
       removed ? "success" : "error",
-      removed ? "Loan deleted." : "Loan not found."
+      removed
+        ? "Loan deleted, along with its payments and their ledger expenses."
+        : "Loan not found."
     );
     return res.redirect("/loans");
   } catch (error) {

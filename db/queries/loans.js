@@ -34,12 +34,53 @@ export async function createLoan({
   return rows[0];
 }
 
+// Deleting a loan also removes the expenses its payments posted to the ledger,
+// restoring any wallet balances those expenses deducted. Done in one
+// transaction so the loan, its payments, and their expenses go together.
 export async function deleteLoan(id, userId) {
-  const { rowCount } = await pool.query(
-    "DELETE FROM loans WHERE id = $1 AND user_id = $2",
-    [id, userId]
-  );
-  return rowCount > 0;
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Remove the ledger expenses this loan's payments created, reversing their
+    // effect on account balances.
+    const { rows } = await client.query(
+      `DELETE FROM transactions
+       WHERE user_id = $1
+         AND id IN (
+           SELECT transaction_id FROM loan_payments
+           WHERE loan_id = $2 AND transaction_id IS NOT NULL
+         )
+       RETURNING account_id, kind, amount`,
+      [userId, id]
+    );
+
+    for (const tx of rows) {
+      if (tx.account_id) {
+        const amount = Number(tx.amount);
+        const delta = tx.kind === "income" ? -amount : amount;
+        await client.query(
+          "UPDATE accounts SET balance = balance + $1 WHERE id = $2",
+          [delta, tx.account_id]
+        );
+      }
+    }
+
+    // Delete the loan itself (cascades its loan_payments).
+    const { rowCount } = await client.query(
+      "DELETE FROM loans WHERE id = $1 AND user_id = $2",
+      [id, userId]
+    );
+
+    await client.query("COMMIT");
+    return rowCount > 0;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // All of a user's loan payments (used to compute per-loan metrics in one pass).
