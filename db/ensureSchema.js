@@ -122,17 +122,33 @@ const SCHEMA_SQL = `
     id SERIAL PRIMARY KEY,
     loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE CASCADE,
     amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
     paid_on DATE NOT NULL DEFAULT CURRENT_DATE,
     note TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
-  -- transaction_id links a payment to the expense it posts to the ledger
-  -- (added after loan_payments shipped, so backfill existing tables).
+  -- transaction_id links a payment to the expense it posts to the ledger.
+  -- ON DELETE CASCADE: removing that expense removes the payment too, so the
+  -- loan balance stays in sync. (Added after loan_payments shipped.)
   ALTER TABLE loan_payments
-    ADD COLUMN IF NOT EXISTS transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL;
+    ADD COLUMN IF NOT EXISTS transaction_id INTEGER REFERENCES transactions(id) ON DELETE CASCADE;
+  -- Migrate databases where this FK originally shipped as ON DELETE SET NULL.
+  DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'loan_payments_transaction_id_fkey'
+        AND conrelid = 'loan_payments'::regclass
+        AND confdeltype <> 'c'
+    ) THEN
+      ALTER TABLE loan_payments DROP CONSTRAINT loan_payments_transaction_id_fkey;
+      ALTER TABLE loan_payments
+        ADD CONSTRAINT loan_payments_transaction_id_fkey
+        FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE;
+    END IF;
+  END $$;
 
   CREATE INDEX IF NOT EXISTS idx_loan_payments_loan
     ON loan_payments (loan_id, paid_on);
