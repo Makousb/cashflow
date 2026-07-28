@@ -18,6 +18,13 @@ import {
   restockProduct,
   showInventory
 } from "../controllers/inventory.controller.js";
+import {
+  addEmployee,
+  removeEmployee,
+  removePayRun,
+  runPayroll,
+  showPayroll
+} from "../controllers/payroll.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -39,5 +46,12 @@ router.post("/:id/inventory/reorder", createReorder);
 router.post("/:id/inventory/order", orderProduct);
 router.post("/:id/inventory/orders/:oid/receive", receiveOrder);
 router.post("/:id/inventory/orders/:oid/delete", removeOrder);
+
+// Payroll
+router.get("/:id/payroll", showPayroll);
+router.post("/:id/payroll/employees", addEmployee);
+router.post("/:id/payroll/employees/:eid/delete", removeEmployee);
+router.post("/:id/payroll/run", runPayroll);
+router.post("/:id/payroll/runs/:rid/delete", removePayRun);
 
 export default router;

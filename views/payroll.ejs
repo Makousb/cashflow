@@ -1,0 +1,186 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1><%= business.name %> · Payroll</h1>
+  <p class="muted">
+    Employees, pay runs, and deductions ·
+    <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+  </p>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">👥</span>
+    <span class="stat-body">
+      <span class="stat-label">Active employees</span>
+      <span class="stat-value"><%= activeCount %></span>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon tint-red">🧾</span>
+    <span class="stat-body">
+      <span class="stat-label">Payroll / period</span>
+      <span class="stat-value negative"><%= money(monthlyCost) %></span>
+      <small class="muted">gross</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">💵</span>
+    <span class="stat-body">
+      <span class="stat-label">Last net paid</span>
+      <span class="stat-value positive"><%= latestRun ? money(latestRun.net_total) : money(0) %></span>
+      <% if (latestRun) { %><small class="muted"><%= latestRun.period %></small><% } %>
+    </span>
+  </div>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Add an employee</h2>
+    <form action="/business/<%= business.id %>/payroll/employees" method="POST" class="stacked-form">
+      <label>Name<input type="text" name="name" required maxlength="120" placeholder="e.g. Grace Wanjiru" /></label>
+      <label>Role (optional)<input type="text" name="role" maxlength="80" placeholder="e.g. Shop attendant" /></label>
+      <div class="segmented" role="radiogroup" aria-label="Pay type">
+        <label>
+          <input type="radio" name="payType" value="monthly" id="pay-monthly" checked />
+          <span>📅 Monthly</span>
+        </label>
+        <label>
+          <input type="radio" name="payType" value="hourly" id="pay-hourly" />
+          <span>⏱️ Hourly</span>
+        </label>
+      </div>
+      <label>
+        <span id="rate-label">Monthly salary</span>
+        <input type="number" name="payRate" step="0.01" min="0" required />
+      </label>
+      <label id="hours-field" style="display:none;">
+        Hours per period
+        <input type="number" name="hours" step="0.01" min="0" value="0" />
+      </label>
+      <label>
+        Deductions (%)
+        <input type="number" name="deductionRate" step="0.01" min="0" max="100" value="0" />
+        <small class="muted">Withheld for tax and statutory contributions.</small>
+      </label>
+      <button type="submit" class="btn btn-primary">Add employee</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Team</h2>
+      <% if (activeCount > 0) { %>
+        <form action="/business/<%= business.id %>/payroll/run" method="POST" class="inline-form">
+          <input type="hidden" name="period" value="<%= defaultPeriod %>" />
+          <button type="submit" class="btn btn-primary btn-sm">Run payroll · <%= defaultPeriod %></button>
+        </form>
+      <% } %>
+    </div>
+    <% if (employees.length === 0) { %>
+      <p class="empty-state">No employees yet — add someone to run payroll.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% employees.forEach((e) => { %>
+          <% const slip = e.pay_type === "hourly"
+               ? { gross: Number(e.pay_rate) * Number(e.hours) }
+               : { gross: Number(e.pay_rate) }; %>
+          <li class="tx-row">
+            <span class="tx-icon">🧑‍💼</span>
+            <span class="tx-meta">
+              <strong><%= e.name %></strong>
+              <small class="muted">
+                <%= e.role || "Staff" %> ·
+                <% if (e.pay_type === "hourly") { %>
+                  <%= money(e.pay_rate) %>/hr × <%= Number(e.hours) %>h
+                <% } else { %>
+                  <%= money(e.pay_rate) %>/mo
+                <% } %>
+                <%= Number(e.deduction_rate) > 0 ? " · " + Number(e.deduction_rate) + "% deductions" : "" %>
+              </small>
+            </span>
+            <span class="tx-amount negative"><%= money(slip.gross) %></span>
+            <form action="/business/<%= business.id %>/payroll/employees/<%= e.id %>/delete" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Remove">✕</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<div class="two-col" style="margin-top:1.5rem;">
+  <section class="card">
+    <h2>Latest payslips</h2>
+    <% if (!latestRun) { %>
+      <p class="empty-state">Run payroll to generate payslips.</p>
+    <% } else { %>
+      <p class="muted"><%= latestRun.period %> · paid <%= formatDate(latestRun.run_on) %></p>
+      <ul class="tx-list">
+        <% latestPayslips.forEach((p) => { %>
+          <li class="tx-row">
+            <span class="tx-icon">🧾</span>
+            <span class="tx-meta">
+              <strong><%= p.name %></strong>
+              <small class="muted">gross <%= money(p.gross) %> − <%= money(p.deductions) %> deductions</small>
+            </span>
+            <span class="tx-amount positive"><%= money(p.net) %></span>
+          </li>
+        <% }) %>
+      </ul>
+      <div class="budget-row" style="margin-top:0.6rem;">
+        <strong>Totals</strong>
+        <span class="muted">
+          gross <%= money(latestRun.gross_total) %> · net <%= money(latestRun.net_total) %>
+        </span>
+      </div>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <h2>Pay run history</h2>
+    <% if (runs.length === 0) { %>
+      <p class="empty-state">No pay runs yet.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% runs.forEach((r) => { %>
+          <li class="tx-row">
+            <span class="tx-icon">💵</span>
+            <span class="tx-meta">
+              <strong><%= r.period %></strong>
+              <small class="muted">
+                <%= r.employee_count %> paid · <%= formatDate(r.run_on) %> ·
+                <%= money(r.deduction_total) %> deducted
+              </small>
+            </span>
+            <span class="tx-amount negative"><%= money(r.gross_total) %></span>
+            <form action="/business/<%= business.id %>/payroll/runs/<%= r.id %>/delete" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Delete run (reverses ledger cost)">✕</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<script>
+  // Toggle the pay-rate label and hours field for monthly vs hourly.
+  (function () {
+    var monthly = document.getElementById("pay-monthly");
+    var hourly = document.getElementById("pay-hourly");
+    var label = document.getElementById("rate-label");
+    var hoursField = document.getElementById("hours-field");
+    function sync() {
+      var isHourly = hourly.checked;
+      label.textContent = isHourly ? "Hourly rate" : "Monthly salary";
+      hoursField.style.display = isHourly ? "" : "none";
+    }
+    monthly.addEventListener("change", sync);
+    hourly.addEventListener("change", sync);
+    sync();
+  })();
+</script>
+
+<%- include("partials/footer") %>

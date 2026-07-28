@@ -32,7 +32,7 @@ export const MODULES = [
     desc: "Record income and expenses and track profit & loss." },
   { name: "Budgeting & planning", icon: "📊", status: "planned",
     desc: "Set targets and forecast cash flow." },
-  { name: "Payroll", icon: "👥", status: "planned",
+  { name: "Payroll", icon: "👥", status: "active", href: "payroll",
     desc: "Pay employees and track deductions." },
   { name: "Tax preparation", icon: "🧾", status: "planned",
     desc: "Estimate tax owed and set it aside." },

@@ -59,8 +59,10 @@ JavaScript (Chart.js).
   - **Inventory & ordering** — track products, stock levels, and stock value;
     get low-stock alerts; raise purchase orders (one click reorders everything
     low), then receive them to add stock and post the cost to the ledger
-  - Budgeting, payroll, and tax preparation are planned modules shown on the
-    dashboard
+  - **Payroll** — manage employees (monthly or hourly, with deductions), run
+    payroll for a period to generate payslips (gross, deductions, net), and
+    post the wage bill to the business ledger
+  - Budgeting and tax preparation are planned modules shown on the dashboard
 
 ### Roadmap
 

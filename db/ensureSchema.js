@@ -226,6 +226,47 @@ const SCHEMA_SQL = `
     quantity NUMERIC(12, 2) NOT NULL,
     unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0
   );
+
+  -- Payroll: employees and the pay runs that pay them. pay_rate is a monthly
+  -- salary or an hourly rate; deduction_rate is the % withheld for tax and
+  -- statutory contributions. Money fields are base currency.
+  CREATE TABLE IF NOT EXISTS employees (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    role TEXT,
+    pay_type TEXT NOT NULL DEFAULT 'monthly' CHECK (pay_type IN ('monthly', 'hourly')),
+    pay_rate NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    hours NUMERIC(8, 2) NOT NULL DEFAULT 0,
+    deduction_rate NUMERIC(5, 2) NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS pay_runs (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    transaction_id INTEGER REFERENCES business_transactions(id) ON DELETE SET NULL,
+    period TEXT NOT NULL,
+    gross_total NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    deduction_total NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    net_total NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    employee_count INTEGER NOT NULL DEFAULT 0,
+    run_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS payslips (
+    id SERIAL PRIMARY KEY,
+    pay_run_id INTEGER NOT NULL REFERENCES pay_runs(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    gross NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    deductions NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    net NUMERIC(14, 2) NOT NULL DEFAULT 0
+  );
 `;
 
 const DEFAULT_CATEGORIES = [
