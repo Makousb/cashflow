@@ -185,6 +185,47 @@ const SCHEMA_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_business_tx_business
     ON business_transactions (business_id, occurred_on DESC);
+
+  -- Inventory: stock items for a business. quantity is on-hand units;
+  -- reorder_point is the low-stock threshold; reorder_qty is how many to
+  -- order when restocking. Money fields are base currency.
+  CREATE TABLE IF NOT EXISTS products (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    sku TEXT,
+    quantity NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    sale_price NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    reorder_point NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    reorder_qty NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    supplier TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  -- Purchase orders and their line items. Receiving an order adds its
+  -- quantities to stock and posts its cost to the business ledger.
+  CREATE TABLE IF NOT EXISTS purchase_orders (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    supplier TEXT,
+    status TEXT NOT NULL DEFAULT 'ordered' CHECK (status IN ('ordered', 'received')),
+    total NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    note TEXT,
+    received_on DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS purchase_order_items (
+    id SERIAL PRIMARY KEY,
+    po_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    quantity NUMERIC(12, 2) NOT NULL,
+    unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0
+  );
 `;
 
 const DEFAULT_CATEGORIES = [

@@ -1,0 +1,163 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1><%= business.name %> · Inventory</h1>
+  <p class="muted">
+    Stock levels, value, and reordering ·
+    <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+  </p>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">📦</span>
+    <span class="stat-body">
+      <span class="stat-label">Stock value</span>
+      <span class="stat-value"><%= money(summary.stock_value) %></span>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">🏷️</span>
+    <span class="stat-body">
+      <span class="stat-label">Products</span>
+      <span class="stat-value"><%= summary.product_count %></span>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon <%= summary.low_count > 0 ? "tint-red" : "" %>">⚠️</span>
+    <span class="stat-body">
+      <span class="stat-label">Low / out of stock</span>
+      <span class="stat-value <%= summary.low_count > 0 ? "negative" : "" %>"><%= summary.low_count %></span>
+    </span>
+  </div>
+</section>
+
+<% if (lowStock.length) { %>
+  <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
+    <span class="alert-icon">🛒</span>
+    <div class="alert-body" style="flex:1;">
+      <strong><%= lowStock.length %> item(s) need reordering</strong>
+      <div class="alert-detail">
+        <%= lowStock.map((p) => p.name + " (" + Number(p.quantity) + " left → order " + Number(p.order_qty) + ")").join(" · ") %>
+      </div>
+      <form action="/business/<%= business.id %>/inventory/reorder" method="POST" style="margin-top:0.6rem;">
+        <button type="submit" class="btn btn-primary btn-sm">Create purchase order for all low stock</button>
+      </form>
+    </div>
+  </section>
+<% } %>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Add a product</h2>
+    <form action="/business/<%= business.id %>/inventory/products" method="POST" class="stacked-form">
+      <label>Name<input type="text" name="name" required maxlength="120" placeholder="e.g. Sugar 2kg" /></label>
+      <label>SKU (optional)<input type="text" name="sku" maxlength="60" placeholder="e.g. SUG-2KG" /></label>
+      <label>Quantity in stock<input type="number" name="quantity" step="0.01" min="0" value="0" /></label>
+      <label>Unit cost (what you pay)<input type="number" name="unitCost" step="0.01" min="0" placeholder="0" /></label>
+      <label>Sale price (what you charge)<input type="number" name="salePrice" step="0.01" min="0" placeholder="0" /></label>
+      <label>Reorder point (low-stock at)<input type="number" name="reorderPoint" step="0.01" min="0" value="0" /></label>
+      <label>Reorder quantity<input type="number" name="reorderQty" step="0.01" min="0" value="0" /></label>
+      <label>Supplier (optional)<input type="text" name="supplier" maxlength="120" placeholder="e.g. Kicheko Wholesalers" /></label>
+      <button type="submit" class="btn btn-primary">Add product</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Products</h2>
+    <% if (products.length === 0) { %>
+      <p class="empty-state">No products yet — add your first stock item.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% products.forEach((p) => { %>
+          <%
+            const qty = Number(p.quantity);
+            const status = qty <= 0 ? "out" : (qty <= Number(p.reorder_point) ? "low" : "ok");
+          %>
+          <li class="tx-row">
+            <span class="tx-icon">📦</span>
+            <span class="tx-meta">
+              <strong>
+                <%= p.name %>
+                <% if (status === "out") { %><span class="badge badge-danger">out</span>
+                <% } else if (status === "low") { %><span class="badge badge-warn">low</span><% } %>
+              </strong>
+              <small class="muted">
+                <%= Number(p.quantity) %> in stock ·
+                cost <%= money(p.unit_cost) %> · sells <%= money(p.sale_price) %>
+                <%= p.supplier ? " · " + p.supplier : "" %>
+              </small>
+            </span>
+            <span class="tx-amount"><%= money(Number(p.quantity) * Number(p.unit_cost)) %></span>
+            <form action="/business/<%= business.id %>/inventory/products/<%= p.id %>/restock" method="POST" class="inline-form">
+              <input type="number" name="delta" step="0.01" placeholder="±qty" style="width:80px;" required />
+              <button type="submit" class="btn btn-ghost btn-sm" title="Adjust stock (+ add, − remove)">Update</button>
+            </form>
+            <form action="/business/<%= business.id %>/inventory/products/<%= p.id %>/delete" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Delete">✕</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<div class="two-col" style="margin-top:1.5rem;">
+  <section class="card">
+    <h2>Order a product</h2>
+    <% if (products.length === 0) { %>
+      <p class="empty-state">Add products first, then you can order more.</p>
+    <% } else { %>
+      <form action="/business/<%= business.id %>/inventory/order" method="POST" class="stacked-form">
+        <label>
+          Product
+          <select name="productId" required>
+            <% products.forEach((p) => { %>
+              <option value="<%= p.id %>"><%= p.name %> (<%= money(p.unit_cost) %> each)</option>
+            <% }) %>
+          </select>
+        </label>
+        <label>Quantity<input type="number" name="quantity" step="0.01" min="0.01" required /></label>
+        <button type="submit" class="btn btn-ghost">Create purchase order</button>
+      </form>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <h2>Purchase orders</h2>
+    <% if (orders.length === 0) { %>
+      <p class="empty-state">No orders yet. Reorder low stock or order a product to get started.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% orders.forEach((o) => { %>
+          <li class="tx-row">
+            <span class="tx-icon"><%= o.status === "received" ? "✅" : "🚚" %></span>
+            <span class="tx-meta">
+              <strong>
+                PO #<%= o.id %>
+                <span class="badge <%= o.status === "received" ? "badge-done" : "badge-warn" %>"><%= o.status %></span>
+              </strong>
+              <small class="muted">
+                <%= o.item_count %> item(s), <%= Number(o.unit_count) %> units
+                <%= o.supplier ? " · " + o.supplier : "" %>
+                <%= o.status === "received" && o.received_on ? " · received " + formatDate(o.received_on) : "" %>
+              </small>
+            </span>
+            <span class="tx-amount"><%= money(o.total) %></span>
+            <% if (o.status === "ordered") { %>
+              <form action="/business/<%= business.id %>/inventory/orders/<%= o.id %>/receive" method="POST" class="inline-form">
+                <button type="submit" class="btn btn-ghost btn-sm" title="Mark received (adds to stock, records cost)">Receive</button>
+              </form>
+            <% } %>
+            <form action="/business/<%= business.id %>/inventory/orders/<%= o.id %>/delete" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Delete">✕</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

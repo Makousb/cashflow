@@ -52,10 +52,15 @@ JavaScript (Chart.js).
   an avalanche repayment schedule showing your debt-free date and the interest
   you'd save versus paying only the minimums
 - **Business** — a separate area for running a business's books apart from your
-  personal money. The bookkeeping module records income and expenses by
-  category and tracks live profit & loss (revenue, expenses, net profit,
-  margin, and an expense breakdown). Payroll, tax preparation, inventory
-  management, and ordering are planned modules shown on the business dashboard
+  personal money, with modules on the business dashboard:
+  - **Bookkeeping** — record income and expenses by category and track live
+    profit & loss (revenue, expenses, net profit, margin, and an expense
+    breakdown)
+  - **Inventory & ordering** — track products, stock levels, and stock value;
+    get low-stock alerts; raise purchase orders (one click reorders everything
+    low), then receive them to add stock and post the cost to the ledger
+  - Budgeting, payroll, and tax preparation are planned modules shown on the
+    dashboard
 
 ### Roadmap
 

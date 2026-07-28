@@ -36,9 +36,9 @@ export const MODULES = [
     desc: "Pay employees and track deductions." },
   { name: "Tax preparation", icon: "🧾", status: "planned",
     desc: "Estimate tax owed and set it aside." },
-  { name: "Inventory", icon: "📦", status: "planned",
+  { name: "Inventory", icon: "📦", status: "active", href: "inventory",
     desc: "Track stock levels, value, and cost of goods." },
-  { name: "Ordering", icon: "🚚", status: "planned",
+  { name: "Ordering", icon: "🚚", status: "active", href: "inventory",
     desc: "Low-stock alerts and purchase orders." }
 ];
 

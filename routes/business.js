@@ -8,6 +8,16 @@ import {
   showBusinessDashboard,
   showBusinessHub
 } from "../controllers/business.controller.js";
+import {
+  addProduct,
+  createReorder,
+  orderProduct,
+  receiveOrder,
+  removeOrder,
+  removeProduct,
+  restockProduct,
+  showInventory
+} from "../controllers/inventory.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -19,5 +29,15 @@ router.get("/:id", showBusinessDashboard);
 router.post("/:id/entries", addEntry);
 router.post("/:id/entries/:entryId/delete", removeEntry);
 router.post("/:id/delete", removeBusiness);
+
+// Inventory management + ordering
+router.get("/:id/inventory", showInventory);
+router.post("/:id/inventory/products", addProduct);
+router.post("/:id/inventory/products/:pid/restock", restockProduct);
+router.post("/:id/inventory/products/:pid/delete", removeProduct);
+router.post("/:id/inventory/reorder", createReorder);
+router.post("/:id/inventory/order", orderProduct);
+router.post("/:id/inventory/orders/:oid/receive", receiveOrder);
+router.post("/:id/inventory/orders/:oid/delete", removeOrder);
 
 export default router;

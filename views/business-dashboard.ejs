@@ -46,7 +46,10 @@
   <h2>Business tools</h2>
   <div class="feature-grid" style="margin-top:0.5rem;">
     <% modules.forEach((m) => { %>
-      <div class="card feature-card module-card <%= m.status %>">
+      <% const link = m.status === "active" && m.href; %>
+      <<%= link ? "a" : "div" %>
+        <% if (link) { %>href="/business/<%= business.id %>/<%= m.href %>"<% } %>
+        class="card feature-card module-card <%= m.status %><%= link ? " module-link" : "" %>">
         <span class="feature-icon"><%= m.icon %></span>
         <h3>
           <%= m.name %>
@@ -57,7 +60,7 @@
           <% } %>
         </h3>
         <p><%= m.desc %></p>
-      </div>
+      </<%= link ? "a" : "div" %>>
     <% }) %>
   </div>
 </section>
