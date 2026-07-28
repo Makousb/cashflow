@@ -168,8 +168,13 @@ const SCHEMA_SQL = `
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     industry TEXT,
+    income_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 30,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  -- income_tax_rate added after businesses shipped; backfill existing rows.
+  ALTER TABLE businesses
+    ADD COLUMN IF NOT EXISTS income_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 30;
 
   CREATE TABLE IF NOT EXISTS business_transactions (
     id SERIAL PRIMARY KEY,
@@ -266,6 +271,17 @@ const SCHEMA_SQL = `
     gross NUMERIC(14, 2) NOT NULL DEFAULT 0,
     deductions NUMERIC(14, 2) NOT NULL DEFAULT 0,
     net NUMERIC(14, 2) NOT NULL DEFAULT 0
+  );
+
+  -- Money a business sets aside toward its tax bill. Amounts are base currency.
+  CREATE TABLE IF NOT EXISTS tax_provisions (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+    note TEXT,
+    set_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 `;
 

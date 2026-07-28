@@ -25,6 +25,12 @@ import {
   runPayroll,
   showPayroll
 } from "../controllers/payroll.controller.js";
+import {
+  removeProvision,
+  setAside,
+  showTax,
+  updateSettings
+} from "../controllers/tax.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -53,5 +59,11 @@ router.post("/:id/payroll/employees", addEmployee);
 router.post("/:id/payroll/employees/:eid/delete", removeEmployee);
 router.post("/:id/payroll/run", runPayroll);
 router.post("/:id/payroll/runs/:rid/delete", removePayRun);
+
+// Tax preparation
+router.get("/:id/tax", showTax);
+router.post("/:id/tax/settings", updateSettings);
+router.post("/:id/tax/provisions", setAside);
+router.post("/:id/tax/provisions/:provId/delete", removeProvision);
 
 export default router;

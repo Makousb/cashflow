@@ -34,7 +34,7 @@ export const MODULES = [
     desc: "Set targets and forecast cash flow." },
   { name: "Payroll", icon: "👥", status: "active", href: "payroll",
     desc: "Pay employees and track deductions." },
-  { name: "Tax preparation", icon: "🧾", status: "planned",
+  { name: "Tax preparation", icon: "🧾", status: "active", href: "tax",
     desc: "Estimate tax owed and set it aside." },
   { name: "Inventory", icon: "📦", status: "active", href: "inventory",
     desc: "Track stock levels, value, and cost of goods." },

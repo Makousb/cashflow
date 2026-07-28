@@ -62,7 +62,10 @@ JavaScript (Chart.js).
   - **Payroll** — manage employees (monthly or hourly, with deductions), run
     payroll for a period to generate payslips (gross, deductions, net), and
     post the wage bill to the business ledger
-  - Budgeting and tax preparation are planned modules shown on the dashboard
+  - **Tax preparation** — estimate income tax from your profit (configurable
+    rate) plus payroll deductions to remit, then set money aside toward the
+    bill and track your coverage
+  - Budgeting is a planned module shown on the dashboard
 
 ### Roadmap
 
