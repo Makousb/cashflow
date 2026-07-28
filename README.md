@@ -65,7 +65,9 @@ JavaScript (Chart.js).
   - **Tax preparation** — estimate income tax from your profit (configurable
     rate) plus payroll deductions to remit, then set money aside toward the
     bill and track your coverage
-  - Budgeting is a planned module shown on the dashboard
+  - **Budgeting & planning** — set a monthly revenue target and per-category
+    expense budgets, track this month's actuals against them, and project a
+    six-month cash-flow forecast from your run rate
 
 ### Roadmap
 

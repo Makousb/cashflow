@@ -1,0 +1,108 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1><%= business.name %> · Planning</h1>
+  <p class="muted">
+    Budget targets and a cash-flow forecast ·
+    <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+  </p>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">🎯</span>
+    <span class="stat-body">
+      <span class="stat-label">Revenue target</span>
+      <span class="stat-value positive"><%= money(budgetedRevenue) %></span>
+      <small class="muted">per month</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon tint-red">📉</span>
+    <span class="stat-body">
+      <span class="stat-label">Expense budget</span>
+      <span class="stat-value negative"><%= money(budgetedExpenses) %></span>
+      <small class="muted">per month</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📈</span>
+    <span class="stat-body">
+      <span class="stat-label">Projected monthly net</span>
+      <span class="stat-value <%= projectedNet >= 0 ? "positive" : "negative" %>"><%= money(projectedNet) %></span>
+    </span>
+  </div>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Set a target</h2>
+    <form action="/business/<%= business.id %>/planning/budgets" method="POST" class="stacked-form">
+      <label>
+        Budget for
+        <select name="target">
+          <option value="Revenue">🎯 Revenue (monthly target)</option>
+          <% expenseCategories.forEach((c) => { %>
+            <option value="<%= c %>"><%= c %></option>
+          <% }) %>
+        </select>
+      </label>
+      <label>Monthly amount<input type="number" name="amount" step="0.01" min="0" required /></label>
+      <button type="submit" class="btn btn-primary">Save target</button>
+      <small class="muted">Saving the same target again updates its amount.</small>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>This month vs. budget</h2>
+    <% if (!revenueBudget && expenseBudgets.length === 0) { %>
+      <p class="empty-state">No targets yet. Set a revenue goal and category budgets to plan the month.</p>
+    <% } else { %>
+      <% if (revenueBudget) { %>
+        <div class="budget-row">
+          <span>🎯 Revenue</span>
+          <span class="muted"><%= money(revenueActual) %> of <%= money(revenueBudget.amount) %></span>
+        </div>
+        <div class="progress"><div class="progress-fill goal" style="width: <%= Math.round(revenueRatio) %>%"></div></div>
+      <% } %>
+      <% expenseBudgets.forEach((b) => { %>
+        <div class="budget-row" style="margin-top:0.75rem;">
+          <span>
+            <%= b.category %>
+            <% if (b.over) { %><span class="badge badge-danger">over</span><% } %>
+          </span>
+          <span class="muted"><%= money(b.actual) %> of <%= money(b.amount) %></span>
+          <form action="/business/<%= business.id %>/planning/budgets/<%= b.id %>/delete" method="POST" class="inline-form">
+            <button type="submit" class="btn btn-ghost btn-sm" title="Remove target">✕</button>
+          </form>
+        </div>
+        <div class="progress"><div class="progress-fill <%= b.over ? "over" : "" %>" style="width: <%= Math.round(b.ratio) %>%"></div></div>
+      <% }) %>
+    <% } %>
+  </section>
+</div>
+
+<section class="card" style="margin-top:1.5rem;">
+  <h2>Cash-flow forecast</h2>
+  <p class="muted">
+    Six months ahead at <%= money(projectedNet) %>/month projected net, from your
+    current position of <%= money(currentNet) %>.
+  </p>
+  <ul class="tx-list">
+    <% forecast.forEach((f) => { %>
+      <li class="tx-row">
+        <span class="tx-icon">📅</span>
+        <span class="tx-meta">
+          <strong><%= f.label %></strong>
+          <small class="muted">projected net <%= money(f.projectedNet) %></small>
+        </span>
+        <span class="tx-amount <%= f.cumulative >= 0 ? "positive" : "negative" %>"><%= money(f.cumulative) %></span>
+      </li>
+    <% }) %>
+  </ul>
+  <% if (budgetedRevenue === 0 && budgetedExpenses === 0) { %>
+    <p class="muted" style="margin-top:0.5rem;">Set a revenue target and expense budgets above to project cash flow.</p>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>

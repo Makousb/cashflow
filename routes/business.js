@@ -31,6 +31,11 @@ import {
   showTax,
   updateSettings
 } from "../controllers/tax.controller.js";
+import {
+  removeBudget,
+  setBudget,
+  showPlanning
+} from "../controllers/planning.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -65,5 +70,10 @@ router.get("/:id/tax", showTax);
 router.post("/:id/tax/settings", updateSettings);
 router.post("/:id/tax/provisions", setAside);
 router.post("/:id/tax/provisions/:provId/delete", removeProvision);
+
+// Budgeting & planning
+router.get("/:id/planning", showPlanning);
+router.post("/:id/planning/budgets", setBudget);
+router.post("/:id/planning/budgets/:budgetId/delete", removeBudget);
 
 export default router;

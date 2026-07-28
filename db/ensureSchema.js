@@ -283,6 +283,19 @@ const SCHEMA_SQL = `
     set_on DATE NOT NULL DEFAULT CURRENT_DATE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  -- Monthly budget targets for a business: a revenue target (kind = income,
+  -- category = 'Revenue') and spending targets per expense category. Amounts
+  -- are base currency.
+  CREATE TABLE IF NOT EXISTS business_budgets (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('income', 'expense')),
+    category TEXT NOT NULL,
+    amount NUMERIC(14, 2) NOT NULL CHECK (amount >= 0),
+    UNIQUE (business_id, kind, category)
+  );
 `;
 
 const DEFAULT_CATEGORIES = [
