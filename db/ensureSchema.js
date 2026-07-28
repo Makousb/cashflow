@@ -160,6 +160,31 @@ const SCHEMA_SQL = `
   WHERE NOT EXISTS (
     SELECT 1 FROM categories WHERE user_id IS NULL AND name = 'Loan Payment'
   );
+
+  -- Business accounting: a user can run one or more businesses, each with its
+  -- own books kept separate from personal finances. Amounts are base currency.
+  CREATE TABLE IF NOT EXISTS businesses (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    industry TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS business_transactions (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('income', 'expense')),
+    amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+    category TEXT NOT NULL DEFAULT 'Other',
+    note TEXT,
+    occurred_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_business_tx_business
+    ON business_transactions (business_id, occurred_on DESC);
 `;
 
 const DEFAULT_CATEGORIES = [

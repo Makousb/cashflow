@@ -51,6 +51,11 @@ JavaScript (Chart.js).
   spending, flags over-budget and discretionary categories to trim, and builds
   an avalanche repayment schedule showing your debt-free date and the interest
   you'd save versus paying only the minimums
+- **Business** — a separate area for running a business's books apart from your
+  personal money. The bookkeeping module records income and expenses by
+  category and tracks live profit & loss (revenue, expenses, net profit,
+  margin, and an expense breakdown). Payroll, tax preparation, inventory
+  management, and ordering are planned modules shown on the business dashboard
 
 ### Roadmap
 

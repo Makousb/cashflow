@@ -13,6 +13,7 @@ import { handleError, notFound } from "./middlewares/error.middleware.js";
 import accountRoutes from "./routes/accounts.js";
 import authRoutes from "./routes/auth.js";
 import budgetRoutes from "./routes/budgets.js";
+import businessRoutes from "./routes/business.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import goalRoutes from "./routes/goals.js";
 import loanRoutes from "./routes/loans.js";
@@ -120,6 +121,7 @@ app.use("/loans", loanRoutes);
 app.use("/receipts", receiptRoutes);
 app.use("/reports", reportRoutes);
 app.use("/accounts", accountRoutes);
+app.use("/business", businessRoutes);
 app.use("/settings", settingsRoutes);
 
 app.use(notFound);

@@ -1,0 +1,152 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1><%= business.name %></h1>
+      <p class="muted">
+        <%= business.industry || "Business" %> ·
+        <a href="/business" class="link">← all businesses</a>
+      </p>
+    </div>
+    <form action="/business/<%= business.id %>/delete" method="POST" class="inline-form">
+      <button type="submit" class="btn btn-ghost btn-sm" title="Delete business">✕ Delete</button>
+    </form>
+  </div>
+</section>
+
+<!-- Profit & loss -->
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">💰</span>
+    <span class="stat-body">
+      <span class="stat-label">Revenue</span>
+      <span class="stat-value positive"><%= money(pnl.revenue) %></span>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon tint-red">🧾</span>
+    <span class="stat-body">
+      <span class="stat-label">Expenses</span>
+      <span class="stat-value negative"><%= money(pnl.expenses) %></span>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📈</span>
+    <span class="stat-body">
+      <span class="stat-label">Net profit</span>
+      <span class="stat-value <%= pnl.net >= 0 ? "positive" : "negative" %>"><%= money(pnl.net) %></span>
+      <small class="muted"><%= pnl.margin.toFixed(0) %>% margin</small>
+    </span>
+  </div>
+</section>
+
+<!-- Modules -->
+<section class="card" style="margin-bottom:1.5rem;">
+  <h2>Business tools</h2>
+  <div class="feature-grid" style="margin-top:0.5rem;">
+    <% modules.forEach((m) => { %>
+      <div class="card feature-card module-card <%= m.status %>">
+        <span class="feature-icon"><%= m.icon %></span>
+        <h3>
+          <%= m.name %>
+          <% if (m.status === "active") { %>
+            <span class="badge badge-done">active</span>
+          <% } else { %>
+            <span class="badge badge-warn">planned</span>
+          <% } %>
+        </h3>
+        <p><%= m.desc %></p>
+      </div>
+    <% }) %>
+  </div>
+</section>
+
+<!-- Bookkeeping -->
+<div class="two-col">
+  <section class="card">
+    <h2>Record a transaction</h2>
+    <form action="/business/<%= business.id %>/entries" method="POST" class="stacked-form">
+      <div class="segmented" role="radiogroup" aria-label="Type">
+        <label>
+          <input type="radio" name="kind" value="income" id="biz-income" checked />
+          <span>💰 Income</span>
+        </label>
+        <label>
+          <input type="radio" name="kind" value="expense" id="biz-expense" />
+          <span>🧾 Expense</span>
+        </label>
+      </div>
+      <label>
+        Amount
+        <input type="number" name="amount" step="0.01" min="0.01" required />
+      </label>
+      <label>
+        Category
+        <select name="category" id="biz-category"></select>
+      </label>
+      <label>
+        Date
+        <input type="date" name="occurredOn" value="<%= today %>" />
+      </label>
+      <label>
+        Note (optional)
+        <input type="text" name="note" maxlength="200" placeholder="e.g. Invoice #1024" />
+      </label>
+      <button type="submit" class="btn btn-primary">Record</button>
+    </form>
+
+    <% if (pnl.byCategory.length) { %>
+      <h2 style="margin-top:1.5rem;">Where the money goes</h2>
+      <% pnl.byCategory.forEach((c) => { %>
+        <% const share = pnl.expenses > 0 ? (Number(c.total) / pnl.expenses) * 100 : 0; %>
+        <div class="budget-row"><span><%= c.category %></span><span class="muted"><%= money(c.total) %></span></div>
+        <div class="progress"><div class="progress-fill over" style="width: <%= Math.round(share) %>%"></div></div>
+      <% }) %>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <h2>Ledger</h2>
+    <% if (entries.length === 0) { %>
+      <p class="empty-state">No entries yet — record your first sale or expense.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% entries.forEach((e) => { %>
+          <li class="tx-row">
+            <span class="tx-icon"><%= e.kind === "income" ? "💰" : "🧾" %></span>
+            <span class="tx-meta">
+              <strong><%= e.category %></strong>
+              <small class="muted"><%= formatDate(e.occurred_on) %><%= e.note ? " · " + e.note : "" %></small>
+            </span>
+            <span class="tx-amount <%= e.kind === "income" ? "positive" : "negative" %>">
+              <%= e.kind === "income" ? "+" : "−" %><%= money(e.amount) %>
+            </span>
+            <form action="/business/<%= business.id %>/entries/<%= e.id %>/delete" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Delete">✕</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<script>
+  // Swap the category options to match the selected income/expense type.
+  (function () {
+    var income = <%- JSON.stringify(incomeCategories) %>;
+    var expense = <%- JSON.stringify(expenseCategories) %>;
+    var select = document.getElementById("biz-category");
+    function fill(list) {
+      select.innerHTML = list.map(function (c) {
+        return '<option value="' + c + '">' + c + "</option>";
+      }).join("");
+    }
+    document.getElementById("biz-income").addEventListener("change", function () { fill(income); });
+    document.getElementById("biz-expense").addEventListener("change", function () { fill(expense); });
+    fill(income);
+  })();
+</script>
+
+<%- include("partials/footer") %>

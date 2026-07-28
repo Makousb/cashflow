@@ -1,0 +1,52 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1>Business</h1>
+  <p class="muted">
+    Keep your business's books separate from your personal money — accounting,
+    profit &amp; loss, and (soon) payroll, tax, and inventory.
+  </p>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Start a business</h2>
+    <form action="/business" method="POST" class="stacked-form">
+      <label>
+        Business name
+        <input type="text" name="name" required maxlength="120" placeholder="e.g. Mama Njeri Grocers" />
+      </label>
+      <label>
+        Industry (optional)
+        <input type="text" name="industry" maxlength="80" placeholder="e.g. Retail" />
+      </label>
+      <button type="submit" class="btn btn-primary">Create business</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Your businesses</h2>
+    <% if (businesses.length === 0) { %>
+      <p class="empty-state">No businesses yet — create one to start keeping its books.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% businesses.forEach((b) => { %>
+          <% const net = Number(b.revenue) - Number(b.expenses); %>
+          <li class="tx-row">
+            <span class="tx-icon">🏢</span>
+            <span class="tx-meta">
+              <strong><a href="/business/<%= b.id %>"><%= b.name %></a></strong>
+              <small class="muted"><%= b.industry || "Business" %></small>
+            </span>
+            <span class="tx-amount <%= net >= 0 ? "positive" : "negative" %>">
+              <%= money(net) %>
+              <br /><small class="muted">net</small>
+            </span>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<%- include("partials/footer") %>
