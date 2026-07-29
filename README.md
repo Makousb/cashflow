@@ -56,6 +56,13 @@ JavaScript (Chart.js).
   - **Bookkeeping** — record income and expenses by category and track live
     profit & loss (revenue, expenses, net profit, margin, and an expense
     breakdown)
+  - **Financial statements** — a structured income statement (revenue, COGS,
+    gross profit, operating expenses, net profit), a balance sheet (assets,
+    liabilities, owner's equity), and a cash flow statement
+  - **Invoices (accounts receivable)** — track money customers owe you; marking
+    an invoice paid records the income
+  - **Bills (accounts payable)** — track vendor bills you owe; marking a bill
+    paid records the expense
   - **Inventory & ordering** — track products, stock levels, and stock value;
     get low-stock alerts; raise purchase orders (one click reorders everything
     low), then receive them to add stock and post the cost to the ledger

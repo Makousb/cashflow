@@ -1,0 +1,80 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1><%= business.name %> · Invoices</h1>
+  <p class="muted">
+    Accounts receivable — money customers owe you ·
+    <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+  </p>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">📥</span>
+    <span class="stat-body">
+      <span class="stat-label">Outstanding receivable</span>
+      <span class="stat-value positive"><%= money(outstanding) %></span>
+      <small class="muted">unpaid invoices</small>
+    </span>
+  </div>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>New invoice</h2>
+    <form action="/business/<%= business.id %>/invoices" method="POST" class="stacked-form">
+      <label>Customer<input type="text" name="customer" required maxlength="120" placeholder="e.g. Kilimani Cafe" /></label>
+      <label>Amount<input type="number" name="amount" step="0.01" min="0.01" required /></label>
+      <label>
+        Category
+        <select name="category">
+          <% incomeCategories.forEach((c) => { %><option value="<%= c %>"><%= c %></option><% }) %>
+        </select>
+      </label>
+      <label>Issued<input type="date" name="issuedOn" value="<%= today %>" /></label>
+      <label>Due (optional)<input type="date" name="dueOn" /></label>
+      <label>Note (optional)<input type="text" name="note" maxlength="200" placeholder="e.g. Invoice #1024" /></label>
+      <button type="submit" class="btn btn-primary">Create invoice</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Invoices</h2>
+    <% if (invoices.length === 0) { %>
+      <p class="empty-state">No invoices yet — bill a customer to start tracking receivables.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% invoices.forEach((inv) => { %>
+          <% const overdue = inv.status === "unpaid" && inv.due_on && formatDate(inv.due_on) && new Date(inv.due_on) < new Date(); %>
+          <li class="tx-row">
+            <span class="tx-icon"><%= inv.status === "paid" ? "✅" : "📄" %></span>
+            <span class="tx-meta">
+              <strong>
+                <%= inv.customer %>
+                <% if (inv.status === "paid") { %><span class="badge badge-done">paid</span>
+                <% } else if (overdue) { %><span class="badge badge-danger">overdue</span>
+                <% } else { %><span class="badge badge-warn">unpaid</span><% } %>
+              </strong>
+              <small class="muted">
+                <%= inv.category %> · issued <%= formatDate(inv.issued_on) %>
+                <%= inv.due_on ? " · due " + formatDate(inv.due_on) : "" %>
+                <%= inv.note ? " · " + inv.note : "" %>
+              </small>
+            </span>
+            <span class="tx-amount positive"><%= money(inv.amount) %></span>
+            <% if (inv.status === "unpaid") { %>
+              <form action="/business/<%= business.id %>/invoices/<%= inv.id %>/pay" method="POST" class="inline-form">
+                <button type="submit" class="btn btn-ghost btn-sm" title="Mark paid (records income)">Mark paid</button>
+              </form>
+            <% } %>
+            <form action="/business/<%= business.id %>/invoices/<%= inv.id %>/delete" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Delete">✕</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

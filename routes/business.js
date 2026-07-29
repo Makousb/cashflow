@@ -36,6 +36,17 @@ import {
   setBudget,
   showPlanning
 } from "../controllers/planning.controller.js";
+import {
+  addBill,
+  addInvoice,
+  payBill,
+  payInvoice,
+  removeBill,
+  removeInvoice,
+  showBills,
+  showInvoices,
+  showStatements
+} from "../controllers/accounting.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -75,5 +86,20 @@ router.post("/:id/tax/provisions/:provId/delete", removeProvision);
 router.get("/:id/planning", showPlanning);
 router.post("/:id/planning/budgets", setBudget);
 router.post("/:id/planning/budgets/:budgetId/delete", removeBudget);
+
+// Financial statements
+router.get("/:id/statements", showStatements);
+
+// Accounts receivable (invoices)
+router.get("/:id/invoices", showInvoices);
+router.post("/:id/invoices", addInvoice);
+router.post("/:id/invoices/:invId/pay", payInvoice);
+router.post("/:id/invoices/:invId/delete", removeInvoice);
+
+// Accounts payable (bills)
+router.get("/:id/bills", showBills);
+router.post("/:id/bills", addBill);
+router.post("/:id/bills/:billId/pay", payBill);
+router.post("/:id/bills/:billId/delete", removeBill);
 
 export default router;

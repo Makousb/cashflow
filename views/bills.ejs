@@ -1,0 +1,80 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1><%= business.name %> · Bills</h1>
+  <p class="muted">
+    Accounts payable — bills you owe vendors ·
+    <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+  </p>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon tint-red">📤</span>
+    <span class="stat-body">
+      <span class="stat-label">Outstanding payable</span>
+      <span class="stat-value negative"><%= money(outstanding) %></span>
+      <small class="muted">unpaid bills</small>
+    </span>
+  </div>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>New bill</h2>
+    <form action="/business/<%= business.id %>/bills" method="POST" class="stacked-form">
+      <label>Vendor<input type="text" name="vendor" required maxlength="120" placeholder="e.g. Bidco" /></label>
+      <label>Amount<input type="number" name="amount" step="0.01" min="0.01" required /></label>
+      <label>
+        Category
+        <select name="category">
+          <% expenseCategories.forEach((c) => { %><option value="<%= c %>"><%= c %></option><% }) %>
+        </select>
+      </label>
+      <label>Issued<input type="date" name="issuedOn" value="<%= today %>" /></label>
+      <label>Due (optional)<input type="date" name="dueOn" /></label>
+      <label>Note (optional)<input type="text" name="note" maxlength="200" placeholder="e.g. Delivery #88" /></label>
+      <button type="submit" class="btn btn-primary">Add bill</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Bills</h2>
+    <% if (bills.length === 0) { %>
+      <p class="empty-state">No bills yet — add a vendor bill to track what you owe.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% bills.forEach((bill) => { %>
+          <% const overdue = bill.status === "unpaid" && bill.due_on && new Date(bill.due_on) < new Date(); %>
+          <li class="tx-row">
+            <span class="tx-icon"><%= bill.status === "paid" ? "✅" : "🧾" %></span>
+            <span class="tx-meta">
+              <strong>
+                <%= bill.vendor %>
+                <% if (bill.status === "paid") { %><span class="badge badge-done">paid</span>
+                <% } else if (overdue) { %><span class="badge badge-danger">overdue</span>
+                <% } else { %><span class="badge badge-warn">unpaid</span><% } %>
+              </strong>
+              <small class="muted">
+                <%= bill.category %> · issued <%= formatDate(bill.issued_on) %>
+                <%= bill.due_on ? " · due " + formatDate(bill.due_on) : "" %>
+                <%= bill.note ? " · " + bill.note : "" %>
+              </small>
+            </span>
+            <span class="tx-amount negative"><%= money(bill.amount) %></span>
+            <% if (bill.status === "unpaid") { %>
+              <form action="/business/<%= business.id %>/bills/<%= bill.id %>/pay" method="POST" class="inline-form">
+                <button type="submit" class="btn btn-ghost btn-sm" title="Mark paid (records expense)">Mark paid</button>
+              </form>
+            <% } %>
+            <form action="/business/<%= business.id %>/bills/<%= bill.id %>/delete" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Delete">✕</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

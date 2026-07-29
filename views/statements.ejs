@@ -1,0 +1,74 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1><%= business.name %> · Financial statements</h1>
+  <p class="muted">
+    Income statement, balance sheet, and cash flow ·
+    <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+  </p>
+</section>
+
+<!-- Income statement -->
+<section class="card statement">
+  <h2>📑 Income statement</h2>
+  <p class="muted">Revenue less costs — your profit or loss to date.</p>
+  <div class="stmt-line"><span>Revenue</span><span class="positive"><%= money(income.revenue) %></span></div>
+  <div class="stmt-line"><span>Cost of goods sold</span><span class="negative">(<%= money(income.cogs) %>)</span></div>
+  <div class="stmt-line stmt-subtotal"><span>Gross profit</span><span><%= money(income.grossProfit) %></span></div>
+  <div class="stmt-heading">Operating expenses</div>
+  <% income.operating.forEach((e) => { %>
+    <div class="stmt-line stmt-indent"><span><%= e.category %></span><span class="negative">(<%= money(e.total) %>)</span></div>
+  <% }) %>
+  <% if (income.operating.length === 0) { %>
+    <div class="stmt-line stmt-indent muted"><span>None recorded</span><span>—</span></div>
+  <% } %>
+  <div class="stmt-line stmt-subtotal"><span>Total operating expenses</span><span class="negative">(<%= money(income.operatingTotal) %>)</span></div>
+  <div class="stmt-line stmt-total">
+    <span>Net <%= income.netProfit >= 0 ? "profit" : "loss" %></span>
+    <span class="<%= income.netProfit >= 0 ? "positive" : "negative" %>"><%= money(income.netProfit) %></span>
+  </div>
+</section>
+
+<div class="two-col">
+  <!-- Balance sheet -->
+  <section class="card statement">
+    <h2>⚖️ Balance sheet</h2>
+    <p class="muted">What you own, owe, and the owner's stake — as of today.</p>
+    <div class="stmt-heading">Assets</div>
+    <div class="stmt-line stmt-indent"><span>Cash on hand</span><span><%= money(balance.assets.cash) %></span></div>
+    <div class="stmt-line stmt-indent"><span>Accounts receivable</span><span><%= money(balance.assets.receivable) %></span></div>
+    <div class="stmt-line stmt-indent"><span>Inventory</span><span><%= money(balance.assets.inventory) %></span></div>
+    <div class="stmt-line stmt-subtotal"><span>Total assets</span><span><%= money(balance.assets.total) %></span></div>
+
+    <div class="stmt-heading">Liabilities</div>
+    <div class="stmt-line stmt-indent"><span>Accounts payable</span><span><%= money(balance.liabilities.payable) %></span></div>
+    <div class="stmt-line stmt-subtotal"><span>Total liabilities</span><span><%= money(balance.liabilities.total) %></span></div>
+
+    <div class="stmt-line stmt-total">
+      <span>Owner's equity</span>
+      <span class="<%= balance.equity >= 0 ? "positive" : "negative" %>"><%= money(balance.equity) %></span>
+    </div>
+    <p class="muted" style="margin-top:0.6rem;font-size:0.85rem;">
+      <%= balance.balanced ? "✅" : "⚠️" %> Assets <%= money(balance.assets.total) %>
+      = Liabilities + Equity <%= money(balance.liabilities.total + balance.equity) %>
+    </p>
+  </section>
+
+  <!-- Cash flow statement -->
+  <section class="card statement">
+    <h2>💵 Cash flow statement</h2>
+    <p class="muted">Actual cash in and out from operations.</p>
+    <div class="stmt-heading">Operating activities</div>
+    <div class="stmt-line stmt-indent"><span>Cash from customers</span><span class="positive"><%= money(cash.inflows) %></span></div>
+    <% cash.outflows.forEach((o) => { %>
+      <div class="stmt-line stmt-indent"><span><%= o.category %></span><span class="negative">(<%= money(o.total) %>)</span></div>
+    <% }) %>
+    <div class="stmt-line stmt-subtotal">
+      <span>Net cash from operations</span>
+      <span class="<%= cash.netOperating >= 0 ? "positive" : "negative" %>"><%= money(cash.netOperating) %></span>
+    </div>
+    <div class="stmt-line stmt-total"><span>Cash on hand</span><span><%= money(cashOnHand) %></span></div>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

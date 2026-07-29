@@ -296,6 +296,42 @@ const SCHEMA_SQL = `
     amount NUMERIC(14, 2) NOT NULL CHECK (amount >= 0),
     UNIQUE (business_id, kind, category)
   );
+
+  -- Accounts receivable: money owed to the business by customers. Marking an
+  -- invoice paid posts the income to the ledger (transaction_id links it).
+  CREATE TABLE IF NOT EXISTS invoices (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    transaction_id INTEGER REFERENCES business_transactions(id) ON DELETE SET NULL,
+    customer TEXT NOT NULL,
+    amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+    category TEXT NOT NULL DEFAULT 'Sales',
+    issued_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    due_on DATE,
+    status TEXT NOT NULL DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'paid')),
+    paid_on DATE,
+    note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  -- Accounts payable: bills the business owes to vendors. Marking a bill paid
+  -- posts the expense to the ledger.
+  CREATE TABLE IF NOT EXISTS bills (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    transaction_id INTEGER REFERENCES business_transactions(id) ON DELETE SET NULL,
+    vendor TEXT NOT NULL,
+    amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+    category TEXT NOT NULL DEFAULT 'Other',
+    issued_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    due_on DATE,
+    status TEXT NOT NULL DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'paid')),
+    paid_on DATE,
+    note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
 `;
 
 const DEFAULT_CATEGORIES = [

@@ -30,6 +30,12 @@ export const EXPENSE_CATEGORIES = [
 export const MODULES = [
   { name: "Bookkeeping", icon: "📒", status: "active", href: "",
     desc: "Record income and expenses and track profit & loss." },
+  { name: "Financial statements", icon: "📑", status: "active", href: "statements",
+    desc: "Income statement, balance sheet, and cash flow." },
+  { name: "Invoices (AR)", icon: "📥", status: "active", href: "invoices",
+    desc: "Track money customers owe you and mark it paid." },
+  { name: "Bills (AP)", icon: "📤", status: "active", href: "bills",
+    desc: "Track vendor bills you owe and settle them." },
   { name: "Budgeting & planning", icon: "📊", status: "active", href: "planning",
     desc: "Set targets and forecast cash flow." },
   { name: "Payroll", icon: "👥", status: "active", href: "payroll",
