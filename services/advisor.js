@@ -10,22 +10,49 @@ export function aiEnabled() {
   return Boolean(config.ai.apiKey && config.ai.baseUrl && config.ai.model);
 }
 
-// A compact plain-text snapshot of the business used to ground answers.
+function monthName(ym) {
+  if (!ym) return "";
+  const [year, month] = ym.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric"
+  });
+}
+
+// A full plain-text snapshot — the three statements plus the monthly trend —
+// used to ground the advisor's answers.
 function snapshotText(d, fmt) {
+  const s = d.statements;
   const lines = [
     `Business: ${d.name}${d.industry ? ` (${d.industry})` : ""}`,
-    `Revenue: ${fmt(d.revenue)}`,
-    `Expenses: ${fmt(d.expenses)}`,
-    `Net profit: ${fmt(d.netProfit)} (${d.margin.toFixed(0)}% margin)`,
-    `Cash on hand: ${fmt(d.cash)}`,
-    `Accounts receivable (owed to you): ${fmt(d.receivable)}`,
-    `Accounts payable (you owe): ${fmt(d.payable)}`,
-    `Inventory value: ${fmt(d.inventoryValue)} (${d.lowStockCount} items low/out of stock)`,
-    `Employees: ${d.employeeCount}, monthly payroll ${fmt(d.monthlyPayroll)}`,
-    `Estimated tax owed: ${fmt(d.estimatedTax)} (income tax rate ${d.taxRate}%)`,
-    `Top expenses: ${
-      d.topExpenses.map((e) => `${e.category} ${fmt(e.total)}`).join(", ") || "none"
-    }`
+    "",
+    "INCOME STATEMENT (to date):",
+    `  Revenue: ${fmt(s.income.revenue)}`,
+    `  Cost of goods sold: ${fmt(s.income.cogs)}`,
+    `  Gross profit: ${fmt(s.income.grossProfit)}`,
+    ...s.income.operating.map((e) => `  ${e.category}: ${fmt(e.total)}`),
+    `  Total operating expenses: ${fmt(s.income.operatingTotal)}`,
+    `  Net profit: ${fmt(s.income.netProfit)} (${d.margin.toFixed(0)}% margin)`,
+    "",
+    "BALANCE SHEET (as of today):",
+    `  Cash: ${fmt(s.balance.assets.cash)}`,
+    `  Accounts receivable: ${fmt(s.balance.assets.receivable)}`,
+    `  Inventory: ${fmt(s.balance.assets.inventory)}`,
+    `  Total assets: ${fmt(s.balance.assets.total)}`,
+    `  Accounts payable (liabilities): ${fmt(s.balance.liabilities.total)}`,
+    `  Owner's equity: ${fmt(s.balance.equity)}`,
+    "",
+    `CASH FLOW: net operating cash ${fmt(s.cashFlow.netOperating)}`,
+    "",
+    "MONTHLY TREND (revenue / expenses / net):",
+    ...d.trend.map(
+      (t) => `  ${monthName(t.month)}: ${fmt(t.revenue)} / ${fmt(t.expenses)} / ${fmt(t.net)}`
+    ),
+    "",
+    "OTHER:",
+    `  Inventory items low or out of stock: ${d.lowStockCount}`,
+    `  Employees: ${d.employeeCount}, monthly payroll ${fmt(d.monthlyPayroll)}`,
+    `  Estimated tax owed: ${fmt(d.estimatedTax)} (income tax rate ${d.taxRate}%)`
   ];
   return lines.join("\n");
 }
@@ -78,12 +105,41 @@ export function heuristicAnswer(question, d, fmt) {
   const q = question.toLowerCase();
   const has = (...words) => words.some((w) => q.includes(w));
   const top = d.topExpenses[0];
+  const s = d.statements;
 
-  if (has("profit", "margin", "profitable", "loss", "making money", "net")) {
-    return `${d.netProfit >= 0 ? "You're profitable" : "You're running at a loss"}: ` +
-      `revenue ${fmt(d.revenue)} minus expenses ${fmt(d.expenses)} leaves ` +
-      `${fmt(d.netProfit)} (${d.margin.toFixed(0)}% margin). Your biggest cost is ` +
-      `${top ? `${top.category} at ${fmt(top.total)}` : "not yet recorded"}.`;
+  if (has("trend", "grow", "growth", "last month", "this month", "compare",
+          "improving", "momentum", "over time", "month on month", "monthly", "sales going")) {
+    if (d.trend.length >= 2 && d.thisMonth && d.lastMonth) {
+      const rg = d.lastMonth.revenue > 0
+        ? ((d.thisMonth.revenue - d.lastMonth.revenue) / d.lastMonth.revenue) * 100
+        : 0;
+      const series = d.trend.map((t) => `${monthName(t.month)} ${fmt(t.net)}`).join(" → ");
+      return `Revenue is ${rg >= 0 ? "up" : "down"} ${Math.abs(rg).toFixed(0)}% ` +
+        `month-on-month — ${fmt(d.lastMonth.revenue)} in ${monthName(d.lastMonth.month)} ` +
+        `to ${fmt(d.thisMonth.revenue)} in ${monthName(d.thisMonth.month)}. ` +
+        `Net profit by month: ${series}.`;
+    }
+    return `There's only ${d.trend.length} month of data so far — keep recording ` +
+      `and I'll show you the trend.`;
+  }
+  if (has("balance sheet", "assets", "liabilit", "equity", "net worth", "worth", "own")) {
+    return `Balance sheet: assets ${fmt(s.balance.assets.total)} ` +
+      `(cash ${fmt(s.balance.assets.cash)} + receivables ${fmt(s.balance.assets.receivable)} ` +
+      `+ inventory ${fmt(s.balance.assets.inventory)}), liabilities ` +
+      `${fmt(s.balance.liabilities.total)}, so owner's equity is ${fmt(s.balance.equity)}.`;
+  }
+  if (has("profit", "margin", "profitable", "loss", "making money", "net", "gross")) {
+    let text = `${d.netProfit >= 0 ? "You're profitable" : "You're running at a loss"}: ` +
+      `revenue ${fmt(s.income.revenue)} − COGS ${fmt(s.income.cogs)} = gross profit ` +
+      `${fmt(s.income.grossProfit)}; after ${fmt(s.income.operatingTotal)} operating ` +
+      `expenses, net profit is ${fmt(s.income.netProfit)} (${d.margin.toFixed(0)}% margin). ` +
+      `Biggest cost: ${top ? `${top.category} at ${fmt(top.total)}` : "not yet recorded"}.`;
+    if (d.thisMonth && d.lastMonth) {
+      text += ` This month's net ${fmt(d.thisMonth.net)} is ` +
+        `${d.thisMonth.net >= d.lastMonth.net ? "up from" : "down from"} ` +
+        `${fmt(d.lastMonth.net)} last month.`;
+    }
+    return text;
   }
   if (has("cash", "liquid", "bank", "runway", "afford")) {
     return `Cash on hand is ${fmt(d.cash)}. Customers owe you ${fmt(d.receivable)} ` +
@@ -119,11 +175,15 @@ export function heuristicAnswer(question, d, fmt) {
       `month in gross pay — that's ${d.revenue > 0 ? Math.round((d.monthlyPayroll / d.revenue) * 100) : 0}% ` +
       `of revenue. Keep an eye on this ratio as you grow.`;
   }
-  // General health summary.
-  return `Here's where ${d.name} stands: ${fmt(d.revenue)} revenue, ${fmt(d.expenses)} ` +
-    `expenses, ${fmt(d.netProfit)} net profit (${d.margin.toFixed(0)}% margin). Cash ` +
-    `${fmt(d.cash)}, owed ${fmt(d.receivable)}, owing ${fmt(d.payable)}. ` +
-    `Ask about profit, cash, expenses to cut, tax, invoices, bills, inventory, or payroll.`;
+  // General health summary, with the latest month's trend.
+  const trendBit = d.thisMonth && d.lastMonth
+    ? ` This month's net ${fmt(d.thisMonth.net)} vs ${fmt(d.lastMonth.net)} last month.`
+    : "";
+  return `Here's where ${d.name} stands (to date): ${fmt(d.revenue)} revenue, ` +
+    `${fmt(d.expenses)} expenses, ${fmt(d.netProfit)} net profit (${d.margin.toFixed(0)}% ` +
+    `margin). Cash ${fmt(d.cash)}, owed ${fmt(d.receivable)}, owing ${fmt(d.payable)}.` +
+    `${trendBit} Ask about trends, profit, cash, costs to cut, tax, invoices, bills, ` +
+    `inventory, or payroll.`;
 }
 
 export async function ask(question, data, fmt) {

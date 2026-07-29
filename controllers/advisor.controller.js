@@ -1,10 +1,15 @@
 import { outstandingTotals } from "../db/queries/accounting.js";
-import { businessPnL, getBusiness } from "../db/queries/business.js";
+import {
+  businessPnL,
+  getBusiness,
+  monthlyTrend
+} from "../db/queries/business.js";
 import { inventorySummary } from "../db/queries/inventory.js";
 import { listEmployees } from "../db/queries/payroll.js";
 import { payrollDeductionsTotal } from "../db/queries/tax.js";
 import { aiEnabled, ask } from "../services/advisor.js";
 import { computePayslip } from "../utils/payroll.js";
+import { balanceSheet, cashFlow, incomeStatement } from "../utils/statements.js";
 
 async function requireBusiness(req, res) {
   const business = await getBusiness(Number(req.params.id), req.session.user.id);
@@ -27,10 +32,11 @@ export async function showAdvisor(req, res, next) {
       live: aiEnabled(),
       prompts: [
         "How's my business doing?",
+        "How are sales trending?",
         "Where should I cut costs?",
+        "What's my balance sheet?",
         "How much cash do I have?",
-        "What tax should I set aside?",
-        "Who owes me money?"
+        "What tax should I set aside?"
       ]
     });
   } catch (error) {
@@ -38,15 +44,18 @@ export async function showAdvisor(req, res, next) {
   }
 }
 
-// Assemble the current financial picture the advisor reasons over.
+// Assemble the full financial picture the advisor reasons over: headline
+// figures, the three statements, and a month-by-month trend.
 async function buildSnapshot(business, userId) {
-  const [pnl, outstanding, inventory, employees, payrollDeductions] = await Promise.all([
-    businessPnL(business.id, userId),
-    outstandingTotals(business.id, userId),
-    inventorySummary(business.id, userId),
-    listEmployees(business.id, userId),
-    payrollDeductionsTotal(business.id, userId)
-  ]);
+  const [pnl, outstanding, inventory, employees, payrollDeductions, trend] =
+    await Promise.all([
+      businessPnL(business.id, userId),
+      outstandingTotals(business.id, userId),
+      inventorySummary(business.id, userId),
+      listEmployees(business.id, userId),
+      payrollDeductionsTotal(business.id, userId),
+      monthlyTrend(business.id, userId, 6)
+    ]);
 
   const active = employees.filter((e) => e.active);
   const monthlyPayroll = active.reduce((s, e) => s + computePayslip(e).gross, 0);
@@ -71,7 +80,21 @@ async function buildSnapshot(business, userId) {
     estimatedTax,
     topExpenses: pnl.byCategory
       .slice(0, 5)
-      .map((c) => ({ category: c.category, total: Number(c.total) }))
+      .map((c) => ({ category: c.category, total: Number(c.total) })),
+    // Full financial statements (to date) + monthly trend.
+    statements: {
+      income: incomeStatement(pnl.revenue, pnl.byCategory),
+      balance: balanceSheet({
+        cash: pnl.net,
+        receivable: outstanding.receivable,
+        inventory: Number(inventory.stock_value),
+        payable: outstanding.payable
+      }),
+      cashFlow: cashFlow(pnl.revenue, pnl.byCategory)
+    },
+    trend,
+    thisMonth: trend[trend.length - 1] || null,
+    lastMonth: trend.length >= 2 ? trend[trend.length - 2] : null
   };
 }
 

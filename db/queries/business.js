@@ -111,3 +111,25 @@ export async function businessPnL(businessId, userId) {
     byCategory: byCategory.rows
   };
 }
+
+// Revenue, expenses and net per month over the last `months`, chronological.
+export async function monthlyTrend(businessId, userId, months = 6) {
+  const { rows } = await pool.query(
+    `SELECT to_char(date_trunc('month', occurred_on), 'YYYY-MM') AS month,
+            COALESCE(SUM(amount) FILTER (WHERE kind = 'income'), 0) AS revenue,
+            COALESCE(SUM(amount) FILTER (WHERE kind = 'expense'), 0) AS expenses
+     FROM business_transactions
+     WHERE business_id = $1 AND user_id = $2
+       AND occurred_on >= date_trunc('month', CURRENT_DATE)
+                          - make_interval(months => $3 - 1)
+     GROUP BY 1
+     ORDER BY 1`,
+    [businessId, userId, months]
+  );
+  return rows.map((r) => ({
+    month: r.month,
+    revenue: Number(r.revenue),
+    expenses: Number(r.expenses),
+    net: Number(r.revenue) - Number(r.expenses)
+  }));
+}
