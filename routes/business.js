@@ -47,6 +47,24 @@ import {
   showInvoices,
   showStatements
 } from "../controllers/accounting.controller.js";
+import {
+  closeOrder,
+  confirmOrder,
+  connectSupplier,
+  disconnectPartner,
+  markDelivered,
+  placeOrder,
+  postMessage,
+  receiveOrder as receiveSupplyOrder,
+  respondToRequest,
+  saveSupplyProfile,
+  shipOrder,
+  showNewOrder,
+  showOrder,
+  showSupplyChain,
+  showSupplyReports,
+  streamUpdates
+} from "../controllers/supply.controller.js";
 import { askAdvisor, showAdvisor } from "../controllers/advisor.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
@@ -102,6 +120,24 @@ router.get("/:id/bills", showBills);
 router.post("/:id/bills", addBill);
 router.post("/:id/bills/:billId/pay", payBill);
 router.post("/:id/bills/:billId/delete", removeBill);
+
+// Supply chain: trading with other businesses, live
+router.get("/:id/supply", showSupplyChain);
+router.get("/:id/supply/stream", streamUpdates);
+router.get("/:id/supply/reports", showSupplyReports);
+router.post("/:id/supply/profile", saveSupplyProfile);
+router.post("/:id/supply/partners", connectSupplier);
+router.post("/:id/supply/partners/:partnerId/respond", respondToRequest);
+router.post("/:id/supply/partners/:partnerId/delete", disconnectPartner);
+router.get("/:id/supply/new", showNewOrder);
+router.post("/:id/supply/orders", placeOrder);
+router.get("/:id/supply/orders/:orderId", showOrder);
+router.post("/:id/supply/orders/:orderId/confirm", confirmOrder);
+router.post("/:id/supply/orders/:orderId/ship", shipOrder);
+router.post("/:id/supply/orders/:orderId/deliver", markDelivered);
+router.post("/:id/supply/orders/:orderId/receive", receiveSupplyOrder);
+router.post("/:id/supply/orders/:orderId/close", closeOrder);
+router.post("/:id/supply/orders/:orderId/messages", postMessage);
 
 // Business advisor
 router.get("/:id/advisor", showAdvisor);

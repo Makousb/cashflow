@@ -332,6 +332,101 @@ const SCHEMA_SQL = `
     note TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  -- Supply chain: businesses trade with each other inside MoneyTree. Any
+  -- business can buy; one that flips is_supplier on also sells, publishing its
+  -- products as a catalog. supply_code is the handle a buyer types to connect;
+  -- lead_time_days is the turnaround the supplier promises.
+  ALTER TABLE businesses ADD COLUMN IF NOT EXISTS supply_code TEXT;
+  ALTER TABLE businesses
+    ADD COLUMN IF NOT EXISTS is_supplier BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE businesses
+    ADD COLUMN IF NOT EXISTS lead_time_days INTEGER NOT NULL DEFAULT 3;
+
+  -- Deterministic backfill so existing businesses get a stable code.
+  UPDATE businesses
+  SET supply_code = 'MT-' || upper(substr(md5('moneytree-supply-' || id::text), 1, 6))
+  WHERE supply_code IS NULL;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_businesses_supply_code
+    ON businesses (supply_code);
+
+  -- A trading relationship, requested by the buyer and accepted by the
+  -- supplier. Both sides are businesses, which may belong to different users.
+  CREATE TABLE IF NOT EXISTS trade_partners (
+    id SERIAL PRIMARY KEY,
+    buyer_business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    supplier_business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending', 'active', 'declined')),
+    requested_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (buyer_business_id, supplier_business_id),
+    CHECK (buyer_business_id <> supplier_business_id)
+  );
+
+  -- A supply order travels: placed by the buyer, confirmed/shipped/delivered by
+  -- the supplier, then received by the buyer (which stocks it and raises the
+  -- bill). Amounts are stored in the buyer's base currency, recorded in
+  -- currency so the supplier can convert for their own display.
+  CREATE TABLE IF NOT EXISTS supply_orders (
+    id SERIAL PRIMARY KEY,
+    buyer_business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    buyer_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    supplier_business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    supplier_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'placed'
+      CHECK (status IN ('placed', 'confirmed', 'shipped', 'delivered',
+                        'received', 'cancelled', 'declined')),
+    currency TEXT NOT NULL DEFAULT 'KES',
+    total NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    note TEXT,
+    tracking TEXT,
+    expected_on DATE,
+    promised_on DATE,
+    placed_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    confirmed_at TIMESTAMPTZ,
+    shipped_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
+    received_at TIMESTAMPTZ,
+    closed_at TIMESTAMPTZ,
+    bill_id INTEGER REFERENCES bills(id) ON DELETE SET NULL,
+    invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_supply_orders_buyer
+    ON supply_orders (buyer_business_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_supply_orders_supplier
+    ON supply_orders (supplier_business_id, created_at DESC);
+
+  -- Line items reference the supplier's catalog product and, once the buyer
+  -- receives the goods, the buyer's own stock item.
+  CREATE TABLE IF NOT EXISTS supply_order_items (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES supply_orders(id) ON DELETE CASCADE,
+    supplier_product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    buyer_product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    sku TEXT,
+    quantity NUMERIC(12, 2) NOT NULL CHECK (quantity > 0),
+    unit_price NUMERIC(12, 2) NOT NULL DEFAULT 0
+  );
+
+  -- One thread per order carrying both sides' chat and the status events that
+  -- happen to it, so the conversation and the audit trail read together.
+  CREATE TABLE IF NOT EXISTS supply_messages (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES supply_orders(id) ON DELETE CASCADE,
+    business_id INTEGER REFERENCES businesses(id) ON DELETE SET NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    kind TEXT NOT NULL DEFAULT 'message' CHECK (kind IN ('message', 'event')),
+    body TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_supply_messages_order
+    ON supply_messages (order_id, id);
 `;
 
 const DEFAULT_CATEGORIES = [

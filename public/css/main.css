@@ -1205,3 +1205,320 @@ input[type="file"] {
   background-clip: text;
   color: transparent;
 }
+
+/* --- Supply chain --- */
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--green-800);
+  background: var(--green-50);
+  border: 1px solid var(--green-100);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  white-space: nowrap;
+}
+
+.live-pill.offline {
+  color: var(--ink-soft);
+  background: var(--paper);
+  border-color: var(--line);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green-500);
+  box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.6);
+}
+
+.live-pill.offline .live-dot {
+  background: var(--ink-faint);
+  animation: none;
+}
+
+.live-toast {
+  z-index: 60;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .live-dot {
+    animation: live-ping 2.4s ease-out infinite;
+  }
+
+  .just-changed {
+    animation: just-changed 1.4s ease-out;
+  }
+}
+
+@keyframes live-ping {
+  0% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(39, 174, 96, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0); }
+}
+
+@keyframes just-changed {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+.code-plate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  background: var(--green-50);
+  border: 1px dashed var(--green-100);
+  border-radius: var(--radius-sm);
+}
+
+.code-value {
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--green-900);
+}
+
+.code-inline {
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  font-size: 0.85rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  background: var(--green-50);
+  color: var(--green-800);
+}
+
+/* Wins over .stacked-form label, which stacks its control under its text. */
+.stacked-form label.check-row,
+.check-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+}
+
+.check-row input {
+  width: auto;
+  flex: none;
+  margin: 0;
+}
+
+.plain-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.93rem;
+}
+
+.request-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.chip-on {
+  background: var(--green-600);
+  border-color: var(--green-600);
+  color: #fff;
+}
+
+a.chip {
+  text-decoration: none;
+  display: inline-block;
+}
+
+.eta-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.eta-block {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.action-row .inline-form {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.inline-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.inline-label input {
+  width: auto;
+}
+
+/* Order progress trail */
+.supply-steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.6rem;
+  padding: 0;
+  margin: 1.1rem 0 0.5rem;
+}
+
+.supply-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  opacity: 0.55;
+}
+
+.supply-steps li.done {
+  opacity: 1;
+  background: var(--green-50);
+  border-color: var(--green-100);
+}
+
+.supply-steps li.current {
+  border-color: var(--green-600);
+  box-shadow: var(--shadow-sm);
+}
+
+.step-icon {
+  font-size: 1.1rem;
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 780px) {
+  .supply-steps {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Order thread */
+.chat-who {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 0.2rem;
+}
+
+.chat-time {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.65;
+  margin-top: 0.25rem;
+}
+
+.chat-event {
+  align-self: center;
+  max-width: 92%;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+}
+
+.chat-event small {
+  display: block;
+  font-size: 0.72rem;
+}
+
+/* Tables */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.6rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.data-table thead th {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.data-table tfoot th {
+  border-bottom: none;
+  border-top: 2px solid var(--line);
+  font-size: 0.95rem;
+}
+
+.data-table .num {
+  text-align: right;
+}
+
+.data-table tbody tr:hover {
+  background: var(--green-50);
+}
+
+.data-table input {
+  width: 90px;
+}

@@ -1,0 +1,251 @@
+<%- include("partials/header") %>
+<%
+  const pct = (value) => (value === null ? "—" : value.toFixed(0) + "%");
+  const days = (value) => (value === null ? "—" : value.toFixed(1) + " days");
+  const peak = (series) => Math.max(1, ...series.map((s) => s.value));
+%>
+
+<section class="page-head">
+  <h1><%= business.name %> · Supply chain reports</h1>
+  <p class="muted">
+    How your suppliers perform and what you trade ·
+    <a href="/business/<%= business.id %>/supply" class="link">← supply chain</a>
+  </p>
+</section>
+
+<% if (outgoingCount === 0 && incomingCount === 0) { %>
+  <section class="card">
+    <p class="empty-state">
+      No supply orders yet. Connect a supplier and place an order — the numbers
+      here fill in as orders move.
+    </p>
+  </section>
+<% } %>
+
+<% if (outgoingCount > 0) { %>
+  <h2 class="section-title">Buying</h2>
+  <section class="stat-grid">
+    <div class="card stat-card">
+      <span class="stat-icon tint-red">💸</span>
+      <span class="stat-body">
+        <span class="stat-label">Received &amp; billed</span>
+        <span class="stat-value"><%= money(buying.settledValue) %></span>
+        <small class="muted"><%= buying.settledCount %> order(s) closed out</small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon">📦</span>
+      <span class="stat-body">
+        <span class="stat-label">Open commitments</span>
+        <span class="stat-value"><%= money(buying.openValue) %></span>
+        <small class="muted"><%= buying.openCount %> order(s) in flight</small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon">⏱️</span>
+      <span class="stat-body">
+        <span class="stat-label">Delivered on time</span>
+        <span class="stat-value"><%= pct(buying.onTimeRate) %></span>
+        <small class="muted"><%= days(buying.avgTransitDays) %> door to door</small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon <%= buying.lateCount > 0 ? "tint-red" : "" %>">⚠️</span>
+      <span class="stat-body">
+        <span class="stat-label">Running late now</span>
+        <span class="stat-value <%= buying.lateCount > 0 ? "negative" : "" %>"><%= buying.lateCount %></span>
+        <small class="muted"><%= pct(buying.fulfillmentRate) %> of orders fulfilled</small>
+      </span>
+    </div>
+  </section>
+
+  <% if (lateOrders.length) { %>
+    <section class="alert-card alert-critical" style="margin-bottom:1.5rem;">
+      <span class="alert-icon">⏰</span>
+      <div class="alert-body" style="flex:1;">
+        <strong><%= lateOrders.length %> order(s) past their promised date</strong>
+        <div class="alert-detail">
+          <% lateOrders.forEach((o) => { %>
+            <a class="link" href="/business/<%= business.id %>/supply/orders/<%= o.id %>">#<%= o.id %></a>
+            from <%= o.supplier_name %> ·
+          <% }) %>
+        </div>
+      </div>
+    </section>
+  <% } %>
+
+  <div class="two-col">
+    <section class="card">
+      <h2>Supplier scorecard</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Supplier</th>
+              <th class="num">Orders</th>
+              <th class="num">Spend</th>
+              <th class="num">On time</th>
+              <th class="num">Lead</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% supplierCards.forEach((card) => { %>
+              <tr>
+                <td><strong><%= card.name %></strong></td>
+                <td class="num"><%= card.count %></td>
+                <td class="num"><%= money(card.totalValue) %></td>
+                <td class="num">
+                  <span class="badge <%= card.onTimeRate === null ? "badge-warn" : card.onTimeRate >= 80 ? "badge-done" : "badge-danger" %>">
+                    <%= pct(card.onTimeRate) %>
+                  </span>
+                </td>
+                <td class="num"><%= days(card.avgTransitDays) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted" style="font-size:0.85rem;">
+        On time compares delivery against the date the supplier committed to, or
+        the estimate at placement when they never committed to one.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Ordering by month</h2>
+      <% const buyPeak = peak(buyTrend); %>
+      <% buyTrend.forEach((month) => { %>
+        <div class="budget-row">
+          <span><%= month.month %></span>
+          <span class="muted"><%= money(month.value) %> · <%= month.count %> order(s)</span>
+        </div>
+        <div class="progress">
+          <div class="progress-fill" style="width: <%= Math.round((month.value / buyPeak) * 100) %>%"></div>
+        </div>
+      <% }) %>
+    </section>
+  </div>
+
+  <% if (boughtItems.length) { %>
+    <section class="card" style="margin-top:1.5rem;">
+      <h2>What you buy most</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Item</th><th class="num">Units</th><th class="num">Order lines</th><th class="num">Spend</th></tr>
+          </thead>
+          <tbody>
+            <% boughtItems.forEach((item) => { %>
+              <tr>
+                <td><%= item.name %></td>
+                <td class="num"><%= Number(item.quantity) %></td>
+                <td class="num"><%= item.orders %></td>
+                <td class="num"><%= money(item.value) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+<% } %>
+
+<% if (incomingCount > 0) { %>
+  <h2 class="section-title" style="margin-top:2rem;">Selling</h2>
+  <section class="stat-grid">
+    <div class="card stat-card">
+      <span class="stat-icon">💰</span>
+      <span class="stat-body">
+        <span class="stat-label">Order value won</span>
+        <span class="stat-value positive"><%= money(selling.totalValue) %></span>
+        <small class="muted"><%= selling.count %> order(s) received</small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon">🚚</span>
+      <span class="stat-body">
+        <span class="stat-label">To ship</span>
+        <span class="stat-value"><%= selling.openCount %></span>
+        <small class="muted"><%= money(selling.openValue) %> outstanding</small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon">⏱️</span>
+      <span class="stat-body">
+        <span class="stat-label">Your on-time rate</span>
+        <span class="stat-value"><%= pct(selling.onTimeRate) %></span>
+        <small class="muted"><%= days(selling.avgTransitDays) %> average turnaround</small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon">✅</span>
+      <span class="stat-body">
+        <span class="stat-label">Orders fulfilled</span>
+        <span class="stat-value"><%= pct(selling.fulfillmentRate) %></span>
+        <small class="muted"><%= selling.rejectedCount %> declined or cancelled</small>
+      </span>
+    </div>
+  </section>
+
+  <div class="two-col">
+    <section class="card">
+      <h2>Buyer scorecard</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Buyer</th><th class="num">Orders</th><th class="num">Value</th><th class="num">Fulfilled</th></tr>
+          </thead>
+          <tbody>
+            <% buyerCards.forEach((card) => { %>
+              <tr>
+                <td><strong><%= card.name %></strong></td>
+                <td class="num"><%= card.count %></td>
+                <td class="num"><%= money(card.totalValue) %></td>
+                <td class="num"><%= pct(card.fulfillmentRate) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Sales by month</h2>
+      <% const sellPeak = peak(sellTrend); %>
+      <% sellTrend.forEach((month) => { %>
+        <div class="budget-row">
+          <span><%= month.month %></span>
+          <span class="muted"><%= money(month.value) %> · <%= month.count %> order(s)</span>
+        </div>
+        <div class="progress">
+          <div class="progress-fill" style="width: <%= Math.round((month.value / sellPeak) * 100) %>%"></div>
+        </div>
+      <% }) %>
+    </section>
+  </div>
+
+  <% if (soldItems.length) { %>
+    <section class="card" style="margin-top:1.5rem;">
+      <h2>What you sell most</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Item</th><th class="num">Units</th><th class="num">Order lines</th><th class="num">Value</th></tr>
+          </thead>
+          <tbody>
+            <% soldItems.forEach((item) => { %>
+              <tr>
+                <td><%= item.name %></td>
+                <td class="num"><%= Number(item.quantity) %></td>
+                <td class="num"><%= item.orders %></td>
+                <td class="num"><%= money(item.value) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+<% } %>
+
+<%- include("partials/footer") %>

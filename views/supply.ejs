@@ -1,0 +1,247 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1><%= business.name %> · Supply chain</h1>
+      <p class="muted">
+        Order from your suppliers, fulfil orders from your buyers ·
+        <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+      </p>
+    </div>
+    <span class="live-pill" id="live-pill" title="Live connection">
+      <span class="live-dot"></span> live
+    </span>
+  </div>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">📤</span>
+    <span class="stat-body">
+      <span class="stat-label">Open orders placed</span>
+      <span class="stat-value"><%= buying.openCount %></span>
+      <small class="muted"><%= showAmount(buying.openValue) %> committed</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">🚚</span>
+    <span class="stat-body">
+      <span class="stat-label">In transit</span>
+      <span class="stat-value"><%= buying.inTransitCount %></span>
+      <small class="muted">
+        <%= buying.avgTransitDays === null ? "no history yet" : buying.avgTransitDays.toFixed(1) + " day average" %>
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon <%= buying.lateCount > 0 ? "tint-red" : "" %>">⏰</span>
+    <span class="stat-body">
+      <span class="stat-label">Running late</span>
+      <span class="stat-value <%= buying.lateCount > 0 ? "negative" : "" %>"><%= buying.lateCount %></span>
+      <small class="muted">
+        <%= buying.onTimeRate === null ? "no deliveries yet" : buying.onTimeRate.toFixed(0) + "% on time" %>
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📥</span>
+    <span class="stat-body">
+      <span class="stat-label">Orders to fulfil</span>
+      <span class="stat-value"><%= selling.openCount %></span>
+      <small class="muted"><%= showAmount(selling.openValue) %> to ship</small>
+    </span>
+  </div>
+</section>
+
+<% if (pendingRequests.length) { %>
+  <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
+    <span class="alert-icon">🤝</span>
+    <div class="alert-body" style="flex:1;">
+      <strong><%= pendingRequests.length %> business wants to buy from you</strong>
+      <% pendingRequests.forEach((p) => { %>
+        <div class="request-row">
+          <span><%= p.name %><%= p.industry ? " · " + p.industry : "" %></span>
+          <span class="row-actions">
+            <form action="/business/<%= business.id %>/supply/partners/<%= p.id %>/respond" method="POST" class="inline-form">
+              <input type="hidden" name="decision" value="accept" />
+              <button type="submit" class="btn btn-primary btn-sm">Accept</button>
+            </form>
+            <form action="/business/<%= business.id %>/supply/partners/<%= p.id %>/respond" method="POST" class="inline-form">
+              <input type="hidden" name="decision" value="decline" />
+              <button type="submit" class="btn btn-ghost btn-sm">Decline</button>
+            </form>
+          </span>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+<% } %>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Your supplier profile</h2>
+    <p class="muted" style="margin-top:-0.4rem;">
+      Share this code with businesses that want to order from you.
+    </p>
+    <div class="code-plate">
+      <span class="code-value"><%= business.supply_code %></span>
+      <span class="badge <%= business.is_supplier ? "badge-done" : "badge-warn" %>">
+        <%= business.is_supplier ? "accepting orders" : "not accepting orders" %>
+      </span>
+    </div>
+    <form action="/business/<%= business.id %>/supply/profile" method="POST" class="stacked-form">
+      <label class="check-row">
+        <input type="checkbox" name="isSupplier" <%= business.is_supplier ? "checked" : "" %> />
+        <span>Accept supply orders — publish my products as a catalog</span>
+      </label>
+      <label>
+        Lead time (days you promise from order to delivery)
+        <input type="number" name="leadTimeDays" min="0" max="365" value="<%= business.lead_time_days %>" />
+      </label>
+      <button type="submit" class="btn btn-ghost">Save profile</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Connect a supplier</h2>
+    <p class="muted" style="margin-top:-0.4rem;">
+      Enter the code the supplier gave you. They approve the request, then their
+      catalog opens up to you.
+    </p>
+    <form action="/business/<%= business.id %>/supply/partners" method="POST" class="stacked-form">
+      <label>
+        Supplier code
+        <input type="text" name="code" maxlength="20" placeholder="MT-A1B2C3" required />
+      </label>
+      <button type="submit" class="btn btn-primary">Send request</button>
+    </form>
+
+    <% if (otherBusinesses.length) { %>
+      <h3 style="margin-top:1.2rem;">Your other businesses</h3>
+      <ul class="plain-list">
+        <% otherBusinesses.forEach((b) => { %>
+          <li>
+            <strong><%= b.name %></strong>
+            <code class="code-inline"><%= b.supply_code %></code>
+            <% if (!b.is_supplier) { %><span class="badge badge-warn">not a supplier yet</span><% } %>
+          </li>
+        <% }) %>
+      </ul>
+      <p class="muted" style="font-size:0.85rem;">
+        Connecting two businesses you own is instant — no approval needed.
+      </p>
+    <% } %>
+  </section>
+</div>
+
+<div class="two-col" style="margin-top:1.5rem;">
+  <section class="card">
+    <div class="budget-row" style="margin-top:0;">
+      <h2 style="margin:0;">Suppliers</h2>
+      <a class="btn btn-primary btn-sm" href="/business/<%= business.id %>/supply/new">+ New order</a>
+    </div>
+    <% if (suppliers.length === 0) { %>
+      <p class="empty-state">No suppliers yet — connect one with their code.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% suppliers.forEach((s) => { %>
+          <li class="tx-row">
+            <span class="tx-icon">🏭</span>
+            <span class="tx-meta">
+              <strong>
+                <%= s.name %>
+                <span class="badge <%= s.status === "active" ? "badge-done" : s.status === "pending" ? "badge-warn" : "badge-danger" %>">
+                  <%= s.status %>
+                </span>
+              </strong>
+              <small class="muted">
+                <%= s.industry || "Supplier" %> · <%= s.catalog_size %> item(s) ·
+                <%= s.lead_time_days %>-day lead time · <%= s.supply_code %>
+              </small>
+            </span>
+            <% if (s.status === "active") { %>
+              <a class="btn btn-ghost btn-sm" href="/business/<%= business.id %>/supply/new?supplier=<%= s.supplier_business_id %>">Order</a>
+            <% } %>
+            <form action="/business/<%= business.id %>/supply/partners/<%= s.id %>/delete" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Disconnect">✕</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <h2>Buyers</h2>
+    <% if (buyers.length === 0) { %>
+      <p class="empty-state">
+        Nobody buys from you yet. Turn on “accept supply orders” and share your code.
+      </p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% buyers.forEach((b) => { %>
+          <li class="tx-row">
+            <span class="tx-icon">🛒</span>
+            <span class="tx-meta">
+              <strong>
+                <%= b.name %>
+                <span class="badge <%= b.status === "active" ? "badge-done" : b.status === "pending" ? "badge-warn" : "badge-danger" %>">
+                  <%= b.status %>
+                </span>
+              </strong>
+              <small class="muted"><%= b.industry || "Buyer" %> · <%= b.supply_code %></small>
+            </span>
+            <% if (b.status === "pending") { %>
+              <form action="/business/<%= business.id %>/supply/partners/<%= b.id %>/respond" method="POST" class="inline-form">
+                <input type="hidden" name="decision" value="accept" />
+                <button type="submit" class="btn btn-ghost btn-sm">Accept</button>
+              </form>
+            <% } %>
+            <form action="/business/<%= business.id %>/supply/partners/<%= b.id %>/delete" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Disconnect">✕</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<div class="two-col" style="margin-top:1.5rem;">
+  <section class="card">
+    <div class="budget-row" style="margin-top:0;">
+      <h2 style="margin:0;">Orders you placed</h2>
+      <a class="link" href="/business/<%= business.id %>/supply/reports">reports →</a>
+    </div>
+    <% if (outgoing.length === 0) { %>
+      <p class="empty-state">No orders placed yet.</p>
+    <% } else { %>
+      <ul class="tx-list" id="outgoing-orders">
+        <% outgoing.forEach((order) => { %>
+          <%- include("partials/supply-order-row", { order }) %>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <h2>Orders to fulfil</h2>
+    <% if (incoming.length === 0) { %>
+      <p class="empty-state">No incoming orders yet.</p>
+    <% } else { %>
+      <ul class="tx-list" id="incoming-orders">
+        <% incoming.forEach((order) => { %>
+          <%- include("partials/supply-order-row", { order }) %>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<script>
+  window.MONEYTREE_SUPPLY = { businessId: <%= business.id %> };
+</script>
+<script src="/js/supply.js" defer></script>
+
+<%- include("partials/footer") %>

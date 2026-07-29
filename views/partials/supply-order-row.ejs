@@ -1,0 +1,35 @@
+<%
+  const meta = statusMeta(order.status);
+  const target = targetDate(order);
+  const late = isLate(order);
+  let when;
+  if (order.status === "received") {
+    when = "received " + formatDate(order.received_at);
+  } else if (order.status === "delivered") {
+    when = "delivered " + formatDate(order.delivered_at);
+  } else if (order.status === "cancelled" || order.status === "declined") {
+    when = "closed" + (order.closed_at ? " " + formatDate(order.closed_at) : "");
+  } else if (target) {
+    when = (late ? "was due " : "ETA ") + formatDate(target);
+  } else {
+    when = "no date yet";
+  }
+%>
+<li class="tx-row" data-live-order="<%= order.id %>">
+  <span class="tx-icon" data-live-icon><%= meta.icon %></span>
+  <span class="tx-meta">
+    <strong>
+      <a class="link" href="/business/<%= business.id %>/supply/orders/<%= order.id %>">
+        Order #<%= order.id %>
+      </a>
+      <span class="badge <%= meta.badge %>" data-live-status><%= meta.label %></span>
+      <span class="badge badge-danger<%= late ? "" : " is-hidden" %>" data-live-late>late</span>
+    </strong>
+    <small class="muted">
+      <%= order.role === "buyer" ? "from " + order.supplier_name : "for " + order.buyer_name %>
+      · <%= order.item_count %> line(s), <%= Number(order.unit_count) %> unit(s)
+      · <span data-live-eta><%= when %></span>
+    </small>
+  </span>
+  <span class="tx-amount"><%= showAmount(order.total, order.currency) %></span>
+</li>

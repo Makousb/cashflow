@@ -1,0 +1,243 @@
+<%- include("partials/header") %>
+<%
+  const stamp = (value) =>
+    new Date(value).toLocaleString("en-US", {
+      month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+    });
+  const open = ["placed", "confirmed", "shipped", "delivered"].includes(order.status);
+%>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1>Order #<%= order.id %></h1>
+      <p class="muted">
+        <%= role === "buyer" ? "You are buying from" : "You are supplying" %>
+        <strong><%= counterparty %></strong> ·
+        <a href="/business/<%= business.id %>/supply" class="link">← supply chain</a>
+      </p>
+    </div>
+    <span class="live-pill" id="live-pill" title="Live connection">
+      <span class="live-dot"></span> live
+    </span>
+  </div>
+</section>
+
+<section class="card" style="margin-bottom:1.5rem;">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h2 style="margin:0;" data-live-icon><%= meta.icon %> <span data-live-label><%= meta.label %></span></h2>
+      <p class="muted" style="margin:0.2rem 0 0;" data-live-blurb><%= meta.blurb %></p>
+    </div>
+    <div style="text-align:right;">
+      <span class="stat-label"><%= order.status === "received" ? "Received" : order.delivered_at ? "Delivered" : "Expected" %></span>
+      <div class="stat-value" data-live-eta>
+        <%= target ? formatDate(target) : "not set" %>
+      </div>
+      <% if (late) { %>
+        <span class="badge badge-danger"><%= slip %> day(s) late</span>
+      <% } else if (order.delivered_at && slip !== null) { %>
+        <span class="badge <%= slip <= 0 ? "badge-done" : "badge-danger" %>">
+          <%= slip === 0 ? "on the promised day" : slip < 0 ? Math.abs(slip) + " day(s) early" : slip + " day(s) late" %>
+        </span>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="progress" style="margin-top:1rem;">
+    <div class="progress-fill" style="width: <%= progress %>%" data-live-progress></div>
+  </div>
+
+  <ol class="supply-steps">
+    <% steps.forEach((step) => { %>
+      <li class="<%= step.done ? "done" : "" %> <%= step.current ? "current" : "" %>">
+        <span class="step-icon"><%= step.icon %></span>
+        <span class="step-body">
+          <strong><%= step.label %></strong>
+          <small class="muted">
+            <%# placed_on is a date, the rest are timestamps. %>
+            <%= step.at ? (step.status === "placed" ? formatDate(step.at) : stamp(step.at)) : "—" %>
+          </small>
+        </span>
+      </li>
+    <% }) %>
+  </ol>
+
+  <p class="muted" style="margin-bottom:0;">
+    Placed <%= formatDate(order.placed_on) %>.
+    <% if (order.expected_on) { %>
+      Estimated on placement: <%= formatDate(order.expected_on) %> (<%= eta.basis %>).
+    <% } %>
+    <% if (order.promised_on) { %>
+      Supplier committed to <%= formatDate(order.promised_on) %>.
+    <% } %>
+    <% if (actualDays !== null) { %>
+      Took <%= actualDays %> day(s) door to door.
+    <% } %>
+    <% if (order.tracking) { %>
+      Tracking <strong><%= order.tracking %></strong>.
+    <% } %>
+  </p>
+</section>
+
+<% if (open) { %>
+  <section class="card action-card" style="margin-bottom:1.5rem;">
+    <h2>What you can do</h2>
+    <div class="action-row">
+      <% if (role === "supplier") { %>
+        <% if (order.status === "placed") { %>
+          <form action="/business/<%= business.id %>/supply/orders/<%= order.id %>/confirm" method="POST" class="inline-form">
+            <label class="inline-label">
+              Deliver by
+              <input type="date" name="promisedOn" value="<%= defaultPromise %>" />
+            </label>
+            <button type="submit" class="btn btn-primary">Confirm order</button>
+          </form>
+        <% } %>
+        <% if (order.status === "placed" || order.status === "confirmed") { %>
+          <form action="/business/<%= business.id %>/supply/orders/<%= order.id %>/ship" method="POST" class="inline-form">
+            <input type="text" name="tracking" maxlength="60" placeholder="Tracking / vehicle (optional)" />
+            <button type="submit" class="btn btn-primary">Mark shipped</button>
+          </form>
+          <form action="/business/<%= business.id %>/supply/orders/<%= order.id %>/close" method="POST" class="inline-form">
+            <input type="text" name="reason" maxlength="120" placeholder="Reason (optional)" />
+            <button type="submit" class="btn btn-ghost">Decline</button>
+          </form>
+        <% } %>
+        <% if (order.status === "shipped") { %>
+          <form action="/business/<%= business.id %>/supply/orders/<%= order.id %>/deliver" method="POST" class="inline-form">
+            <button type="submit" class="btn btn-primary">Mark delivered</button>
+          </form>
+        <% } %>
+      <% } else { %>
+        <% if (order.status === "placed" || order.status === "confirmed") { %>
+          <form action="/business/<%= business.id %>/supply/orders/<%= order.id %>/close" method="POST" class="inline-form">
+            <input type="text" name="reason" maxlength="120" placeholder="Reason (optional)" />
+            <button type="submit" class="btn btn-ghost">Cancel order</button>
+          </form>
+          <p class="muted" style="margin:0;">Waiting on <%= counterparty %> to move this along.</p>
+        <% } %>
+        <% if (order.status === "shipped") { %>
+          <form action="/business/<%= business.id %>/supply/orders/<%= order.id %>/deliver" method="POST" class="inline-form">
+            <button type="submit" class="btn btn-ghost">Mark delivered</button>
+          </form>
+        <% } %>
+        <% if (order.status === "shipped" || order.status === "delivered") { %>
+          <form action="/business/<%= business.id %>/supply/orders/<%= order.id %>/receive" method="POST" class="inline-form">
+            <button type="submit" class="btn btn-primary">Receive into stock</button>
+          </form>
+        <% } %>
+      <% } %>
+    </div>
+    <% if (role === "buyer" && (order.status === "shipped" || order.status === "delivered")) { %>
+      <p class="muted" style="margin-bottom:0;">
+        Receiving adds every line to your inventory and raises a bill in accounts
+        payable, due <%= termsDays %> days later.
+      </p>
+    <% } %>
+  </section>
+<% } %>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Items</h2>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>Item</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Line total</th></tr>
+        </thead>
+        <tbody>
+          <% items.forEach((item) => { %>
+            <tr>
+              <td>
+                <strong><%= item.name %></strong>
+                <% if (item.sku) { %><small class="muted"> · <%= item.sku %></small><% } %>
+              </td>
+              <td class="num"><%= Number(item.quantity) %></td>
+              <td class="num"><%= showAmount(item.unit_price, order.currency) %></td>
+              <td class="num"><%= showAmount(Number(item.quantity) * Number(item.unit_price), order.currency) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="3">Total</th>
+            <th class="num"><%= showAmount(order.total, order.currency) %></th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <% if (order.note) { %>
+      <p class="muted"><strong>Buyer's note:</strong> <%= order.note %></p>
+    <% } %>
+
+    <% if (order.currency !== displayCurrency) { %>
+      <p class="muted" style="font-size:0.85rem;">
+        Priced in <%= order.currency %> by the buyer; shown here in
+        <%= displayCurrency %> at today's rate.
+      </p>
+    <% } %>
+
+    <% if ((role === "supplier" && order.invoice_id) || (role === "buyer" && order.bill_id)) { %>
+      <h3>Paperwork</h3>
+      <ul class="plain-list">
+        <% if (role === "supplier" && order.invoice_id) { %>
+          <li>
+            📥 Invoice #<%= order.invoice_id %> raised for this order —
+            <a class="link" href="/business/<%= business.id %>/invoices">accounts receivable</a>
+          </li>
+        <% } %>
+        <% if (role === "buyer" && order.bill_id) { %>
+          <li>
+            📤 Bill #<%= order.bill_id %> raised for this order —
+            <a class="link" href="/business/<%= business.id %>/bills">accounts payable</a>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section class="card" data-live-detail="<%= order.id %>" data-current-status="<%= order.status %>">
+    <div class="advisor-head">
+      <span><strong>💬 Order chat</strong></span>
+      <span class="muted" style="font-size:0.85rem;">with <%= counterparty %></span>
+    </div>
+
+    <div class="chat-log" id="chat-log" aria-live="polite">
+      <% messages.forEach((m) => { %>
+        <% if (m.kind === "event") { %>
+          <div class="chat-event" data-msg-id="<%= m.id %>">
+            <%= m.body %>
+            <small class="muted"><%= stamp(m.created_at) %></small>
+          </div>
+        <% } else { %>
+          <div class="chat-msg <%= m.business_id === business.id ? "user" : "bot" %>" data-msg-id="<%= m.id %>">
+            <span class="chat-who"><%= m.business_name || "Someone" %><%= m.user_name ? " · " + m.user_name : "" %></span>
+            <%= m.body %>
+            <span class="chat-time"><%= stamp(m.created_at) %></span>
+          </div>
+        <% } %>
+      <% }) %>
+    </div>
+
+    <form id="chat-form" class="chat-input-row" autocomplete="off">
+      <input type="text" id="chat-input" placeholder="Message <%= counterparty %>…" maxlength="1000" required />
+      <button type="submit" class="btn btn-primary" id="chat-send">Send</button>
+    </form>
+    <p class="muted" style="margin-top:0.6rem;font-size:0.85rem;">
+      Messages and status changes appear on both sides instantly.
+    </p>
+  </section>
+</div>
+
+<script>
+  window.MONEYTREE_SUPPLY = {
+    businessId: <%= business.id %>,
+    orderId: <%= order.id %>,
+    status: "<%= order.status %>"
+  };
+</script>
+<script src="/js/supply.js" defer></script>
+
+<%- include("partials/footer") %>

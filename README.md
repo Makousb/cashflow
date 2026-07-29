@@ -80,6 +80,21 @@ JavaScript (Chart.js).
   - **Budgeting & planning** — set a monthly revenue target and per-category
     expense budgets, track this month's actuals against them, and project a
     six-month cash-flow forecast from your run rate
+  - **Supply chain** — trade with other businesses inside MoneyTree. Share your
+    connection code to let buyers find you, publish your products as a catalog,
+    and order from your own suppliers' catalogs (quantities pre-filled for
+    anything you're low on). Orders walk a two-sided workflow — placed,
+    confirmed with a committed date, shipped, delivered, received — where
+    shipping deducts the supplier's stock and raises their invoice, and
+    receiving stocks the buyer's inventory and raises the bill in payables.
+    Each order carries a live chat thread, and both sides see status changes and
+    messages the moment they happen (Server-Sent Events, no polling). Delivery
+    dates are estimated from the supplier's stated lead time, then from what
+    they actually deliver once there's history
+  - **Supply chain reports** — supplier scorecards (orders, spend, on-time
+    delivery, average lead time), open commitments, late orders, monthly
+    ordering trend, and what you buy and sell most — with a selling-side view of
+    the same numbers when you supply others
 
 ### Roadmap
 
@@ -179,7 +194,7 @@ moneytree/
 ├── middlewares/            # Auth guard, error handlers
 ├── routes/                 # Thin routers, one per feature area
 ├── controllers/            # Request handlers, one per feature area
-├── services/               # Clients for external services (analytics)
+├── services/               # Analytics & FX clients, live-update hub
 ├── views/                  # EJS templates (+ shared partials)
 ├── public/                 # Static assets (css, client-side js, charts)
 └── utils/                  # Currency & date formatting helpers

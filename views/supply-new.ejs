@@ -1,0 +1,168 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1>New supply order</h1>
+  <p class="muted">
+    Ordering for <%= business.name %> ·
+    <a href="/business/<%= business.id %>/supply" class="link">← supply chain</a>
+  </p>
+</section>
+
+<% if (partners.length > 1) { %>
+  <div class="chip-row">
+    <% partners.forEach((p) => { %>
+      <a class="chip <%= p.supplier_business_id === partner.supplier_business_id ? "chip-on" : "" %>"
+         href="/business/<%= business.id %>/supply/new?supplier=<%= p.supplier_business_id %>">
+        <%= p.name %>
+      </a>
+    <% }) %>
+  </div>
+<% } %>
+
+<section class="card eta-card">
+  <div>
+    <h2 style="margin:0;"><%= supplier.name %></h2>
+    <p class="muted" style="margin:0.2rem 0 0;">
+      <%= supplier.industry || "Supplier" %> · code <%= supplier.supply_code %> ·
+      prices shown in <%= displayCurrency %>
+    </p>
+  </div>
+  <div class="eta-block">
+    <span class="stat-label">Estimated delivery</span>
+    <span class="stat-value"><%= formatDate(eta.date) %></span>
+    <small class="muted"><%= eta.days %> day(s) · <%= eta.basis %></small>
+  </div>
+</section>
+
+<form action="/business/<%= business.id %>/supply/orders" method="POST" id="order-form">
+  <input type="hidden" name="supplierId" value="<%= partner.supplier_business_id %>" />
+
+  <section class="card" style="margin-bottom:1.5rem;">
+    <h2><%= supplier.name %>'s catalog</h2>
+    <% if (items.length === 0) { %>
+      <p class="empty-state">
+        This supplier has not listed any products yet — use the off-catalog line
+        below to order anyway.
+      </p>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="num">Their stock</th>
+              <th class="num">Unit price</th>
+              <th class="num">You hold</th>
+              <th class="num">Order qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% items.forEach((item) => { %>
+              <%
+                const mine = ownProducts.find((p) =>
+                  (item.sku && p.sku && p.sku.toUpperCase() === item.sku.toUpperCase()) ||
+                  p.name.toLowerCase() === item.name.toLowerCase()
+                );
+                const low = mine && Number(mine.quantity) <= Number(mine.reorder_point);
+                const suggested = low
+                  ? Math.max(Number(mine.reorder_qty) || 0, 1)
+                  : "";
+              %>
+              <tr>
+                <td>
+                  <strong><%= item.name %></strong>
+                  <% if (item.sku) { %><small class="muted"> · <%= item.sku %></small><% } %>
+                </td>
+                <td class="num"><%= Number(item.inStock) %></td>
+                <td class="num"><%= money(item.price) %></td>
+                <td class="num">
+                  <% if (mine) { %>
+                    <%= Number(mine.quantity) %>
+                    <% if (low) { %><span class="badge badge-warn">low</span><% } %>
+                  <% } else { %>
+                    <span class="muted">—</span>
+                  <% } %>
+                </td>
+                <td class="num">
+                  <input type="number" name="qty[p<%= item.id %>]" min="0" step="0.01"
+                         value="<%= suggested %>" placeholder="0"
+                         data-price="<%= toDisplayNumber(item.price) %>"
+                         class="qty-input" />
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted" style="font-size:0.85rem;">
+        Quantities are pre-filled for items you are low on.
+      </p>
+    <% } %>
+  </section>
+
+  <div class="two-col">
+    <section class="card">
+      <h2>Off-catalog item</h2>
+      <p class="muted" style="margin-top:-0.4rem;">
+        Something the supplier has not listed? Add it here and agree the details
+        in the order chat.
+      </p>
+      <div class="stacked-form">
+        <label>Item<input type="text" name="customName" maxlength="120" placeholder="e.g. Rice 25kg sack" /></label>
+        <label>Quantity<input type="number" name="customQuantity" min="0" step="0.01" placeholder="0" class="qty-input" data-price-field="customPrice" /></label>
+        <label>Unit price (<%= displayCurrency %>)<input type="number" name="customPrice" id="customPrice" min="0" step="0.01" placeholder="0" /></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Order summary</h2>
+      <div class="budget-row"><span>Estimated total</span><strong id="order-total"><%= money(0) %></strong></div>
+      <div class="budget-row"><span>Estimated delivery</span><strong><%= formatDate(eta.date) %></strong></div>
+      <div class="budget-row"><span>Payment terms</span><strong>30 days from receipt</strong></div>
+      <label style="display:block;margin-top:1rem;">
+        Note to the supplier (optional)
+        <input type="text" name="note" maxlength="200" placeholder="e.g. Deliver before Friday morning" />
+      </label>
+      <button type="submit" class="btn btn-primary" style="margin-top:1rem;">Place order</button>
+      <p class="muted" style="font-size:0.85rem;margin-top:0.6rem;">
+        The supplier is notified instantly and confirms with a delivery date.
+        Receiving the goods stocks your inventory and raises the bill.
+      </p>
+    </section>
+  </div>
+</form>
+
+<script>
+  // Running total, so the buyer sees the commitment before placing the order.
+  (function () {
+    var symbol = <%- JSON.stringify(currencyInfo.symbol) %>;
+    var decimals = <%= currencyInfo.decimals %>;
+    var separator = /[A-Za-z]$/.test(symbol) ? " " : "";
+    var totalEl = document.getElementById("order-total");
+    var form = document.getElementById("order-form");
+    var customPrice = document.getElementById("customPrice");
+
+    function render() {
+      var total = 0;
+      form.querySelectorAll(".qty-input").forEach(function (input) {
+        var qty = parseFloat(input.value) || 0;
+        var priceField = input.dataset.priceField;
+        var price = priceField
+          ? parseFloat(document.getElementById(priceField).value) || 0
+          : parseFloat(input.dataset.price) || 0;
+        total += qty * price;
+      });
+      totalEl.textContent =
+        symbol + separator + total.toLocaleString("en-US", {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals
+        });
+    }
+
+    form.addEventListener("input", render);
+    if (customPrice) customPrice.addEventListener("input", render);
+    render();
+  })();
+</script>
+
+<%- include("partials/footer") %>

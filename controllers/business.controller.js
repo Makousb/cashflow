@@ -47,7 +47,11 @@ export const MODULES = [
   { name: "Inventory", icon: "📦", status: "active", href: "inventory",
     desc: "Track stock levels, value, and cost of goods." },
   { name: "Ordering", icon: "🚚", status: "active", href: "inventory",
-    desc: "Low-stock alerts and purchase orders." }
+    desc: "Low-stock alerts and purchase orders." },
+  { name: "Supply chain", icon: "🔗", status: "active", href: "supply",
+    desc: "Order from suppliers, fulfil orders, and chat live as they move." },
+  { name: "Supply reports", icon: "📈", status: "active", href: "supply/reports",
+    desc: "Supplier scorecards, on-time delivery, and spend." }
 ];
 
 export async function showBusinessHub(req, res, next) {
