@@ -63,6 +63,11 @@ JavaScript (Chart.js).
     an invoice paid records the income
   - **Bills (accounts payable)** — track vendor bills you owe; marking a bill
     paid records the expense
+  - **Advisor** — a chat assistant that answers questions about the business
+    (profit, cash, costs to cut, tax, receivables, inventory, payroll) grounded
+    in its actual figures. Works out of the box with built-in insights; point
+    the optional `AI_*` settings at any standard chat-completions API for
+    open-ended conversation
   - **Inventory & ordering** — track products, stock levels, and stock value;
     get low-stock alerts; raise purchase orders (one click reorders everything
     low), then receive them to add stock and post the cost to the ledger

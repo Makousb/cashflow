@@ -1,0 +1,102 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1><%= business.name %> · Advisor</h1>
+  <p class="muted">
+    Ask about your business's finances ·
+    <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+  </p>
+</section>
+
+<section class="card advisor-card">
+  <div class="advisor-head">
+    <span><strong>💬 Advisor</strong></span>
+    <span class="badge <%= live ? "badge-done" : "badge-warn" %>">
+      <%= live ? "live" : "instant insights" %>
+    </span>
+  </div>
+
+  <div class="chat-log" id="chat-log" aria-live="polite">
+    <div class="chat-msg bot">
+      Hi! I can answer questions about <%= business.name %> using your books —
+      profit, cash, expenses to cut, tax, invoices, bills, inventory, and payroll.
+      What would you like to know?
+    </div>
+  </div>
+
+  <div class="chip-row" id="chip-row">
+    <% prompts.forEach((p) => { %>
+      <button type="button" class="chip" data-q="<%= p %>"><%= p %></button>
+    <% }) %>
+  </div>
+
+  <form id="chat-form" class="chat-input-row" autocomplete="off">
+    <input type="text" id="chat-input" placeholder="Ask the advisor…" maxlength="300" required />
+    <button type="submit" class="btn btn-primary" id="chat-send">Ask</button>
+  </form>
+  <% if (!live) { %>
+    <p class="muted" style="margin-top:0.6rem;font-size:0.85rem;">
+      Answers are computed from your books. Set an AI provider (AI_API_KEY) in
+      the environment for open-ended conversation.
+    </p>
+  <% } %>
+</section>
+
+<script>
+  (function () {
+    var businessId = "<%= business.id %>";
+    var log = document.getElementById("chat-log");
+    var form = document.getElementById("chat-form");
+    var input = document.getElementById("chat-input");
+    var send = document.getElementById("chat-send");
+
+    function add(text, who) {
+      var el = document.createElement("div");
+      el.className = "chat-msg " + who;
+      el.textContent = text;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+      return el;
+    }
+
+    async function ask(question) {
+      add(question, "user");
+      var thinking = add("…", "bot thinking");
+      send.disabled = true;
+      input.disabled = true;
+      try {
+        var res = await fetch("/business/" + businessId + "/advisor/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: question })
+        });
+        var data = await res.json();
+        thinking.remove();
+        add(data.answer || data.error || "Sorry, I couldn't answer that.", "bot");
+      } catch (e) {
+        thinking.remove();
+        add("Sorry — something went wrong reaching the advisor.", "bot");
+      } finally {
+        send.disabled = false;
+        input.disabled = false;
+        input.focus();
+      }
+    }
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var q = input.value.trim();
+      if (!q) return;
+      input.value = "";
+      ask(q);
+    });
+
+    document.getElementById("chip-row").addEventListener("click", function (e) {
+      if (e.target.classList.contains("chip")) {
+        ask(e.target.dataset.q);
+      }
+    });
+  })();
+</script>
+
+<%- include("partials/footer") %>

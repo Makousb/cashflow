@@ -42,6 +42,13 @@ export const config = {
   sessionSecret: getSessionSecret(),
   // Python FastAPI service that computes the Reports page insights.
   analyticsUrl: normalizeAnalyticsUrl(process.env.ANALYTICS_URL),
+  // Optional AI provider for the business advisor. Any standard chat-completions
+  // endpoint works; without it the advisor falls back to built-in insights.
+  ai: {
+    apiKey: process.env.AI_API_KEY || "",
+    baseUrl: process.env.AI_BASE_URL || "",
+    model: process.env.AI_MODEL || ""
+  },
   database: {
     host: process.env.DB_HOST,
     port: getOptionalNumber("DB_PORT", undefined),

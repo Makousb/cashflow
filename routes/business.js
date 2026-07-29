@@ -47,6 +47,7 @@ import {
   showInvoices,
   showStatements
 } from "../controllers/accounting.controller.js";
+import { askAdvisor, showAdvisor } from "../controllers/advisor.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -101,5 +102,9 @@ router.get("/:id/bills", showBills);
 router.post("/:id/bills", addBill);
 router.post("/:id/bills/:billId/pay", payBill);
 router.post("/:id/bills/:billId/delete", removeBill);
+
+// Business advisor
+router.get("/:id/advisor", showAdvisor);
+router.post("/:id/advisor/ask", askAdvisor);
 
 export default router;
