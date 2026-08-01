@@ -27,20 +27,37 @@ export async function getBusiness(id, userId) {
 // which would otherwise leave a business uncontactable — and invisible to the
 // supply chain's connect-by-code — until the next restart.
 export async function createBusiness({ userId, name, industry }) {
-  const { rows } = await pool.query(
-    `WITH created AS (
-       INSERT INTO businesses (user_id, name, industry)
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: created } = await client.query(
+      `INSERT INTO businesses (user_id, name, industry)
        VALUES ($1, $2, $3)
-       RETURNING id
-     )
-     UPDATE businesses b
-     SET supply_code = 'MT-' || upper(substr(md5('moneytree-supply-' || b.id::text), 1, 6))
-     FROM created
-     WHERE b.id = created.id
-     RETURNING b.*`,
-    [userId, name, industry]
-  );
-  return rows[0];
+       RETURNING id`,
+      [userId, name, industry]
+    );
+
+    // The code is derived from the row's id, so it takes a second statement:
+    // Postgres gives every part of one statement the same snapshot, which means
+    // a data-modifying CTE cannot see the row it just inserted. Both run in one
+    // transaction so a business is never left without a code.
+    const { rows } = await client.query(
+      `UPDATE businesses
+       SET supply_code = 'MT-' || upper(substr(md5('moneytree-supply-' || id::text), 1, 6))
+       WHERE id = $1
+       RETURNING *`,
+      [created[0].id]
+    );
+
+    await client.query("COMMIT");
+    return rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function deleteBusiness(id, userId) {
