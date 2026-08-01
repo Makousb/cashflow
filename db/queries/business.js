@@ -23,11 +23,21 @@ export async function getBusiness(id, userId) {
   return rows[0] || null;
 }
 
+// The share code is stamped on here rather than left to the boot-time backfill,
+// which would otherwise leave a business uncontactable — and invisible to the
+// supply chain's connect-by-code — until the next restart.
 export async function createBusiness({ userId, name, industry }) {
   const { rows } = await pool.query(
-    `INSERT INTO businesses (user_id, name, industry)
-     VALUES ($1, $2, $3)
-     RETURNING *`,
+    `WITH created AS (
+       INSERT INTO businesses (user_id, name, industry)
+       VALUES ($1, $2, $3)
+       RETURNING id
+     )
+     UPDATE businesses b
+     SET supply_code = 'MT-' || upper(substr(md5('moneytree-supply-' || b.id::text), 1, 6))
+     FROM created
+     WHERE b.id = created.id
+     RETURNING b.*`,
     [userId, name, industry]
   );
   return rows[0];

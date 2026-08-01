@@ -175,6 +175,23 @@ JavaScript (Chart.js).
    Interactive API docs for the analytics service are at
    http://localhost:8000/docs.
 
+6. Optionally, fill it with a worked example:
+
+   ```bash
+   npm run seed
+   ```
+
+   This creates a demo account — **demo@moneytree.local / growmoney123** — with
+   three months of personal finances plus two trading businesses: a grocer with
+   books, stock, sales, payroll, tax and budgets, and the wholesaler that
+   supplies it, complete with delivered orders and one still in flight. Handy
+   for seeing every feature without typing anything in.
+
+   Everything hangs off that one account, so deleting the user removes all of
+   it. `npm run seed:reset` rebuilds it from scratch. Dates are relative to the
+   day you run it, so the demo never looks stale. The seed refuses to run when
+   `NODE_ENV=production`, since the password above is public.
+
 > Without a database configured the app still boots in a read-only demo mode:
 > public pages render, but nothing is persisted and you can't sign up.
 > Without the analytics service, everything except the Reports page works.

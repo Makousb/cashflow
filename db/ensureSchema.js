@@ -502,23 +502,28 @@ const DEFAULT_CATEGORIES = [
   ["Other Income", "income", "💰"]
 ];
 
+// Each category is inserted on its own if it is missing. Counting first and
+// bailing when any exist looked equivalent, but the schema above already adds
+// "Loan Payment" — so on a brand-new database that one row made this skip the
+// other thirteen, and a fresh install came up with a single category.
 async function seedDefaultCategories() {
-  const { rows } = await pool.query(
-    "SELECT COUNT(*)::int AS count FROM categories WHERE user_id IS NULL"
-  );
-
-  if (rows[0].count > 0) {
-    return;
-  }
+  let added = 0;
 
   for (const [name, kind, icon] of DEFAULT_CATEGORIES) {
-    await pool.query(
-      "INSERT INTO categories (user_id, name, kind, icon) VALUES (NULL, $1, $2, $3)",
+    const { rowCount } = await pool.query(
+      `INSERT INTO categories (user_id, name, kind, icon)
+       SELECT NULL, $1, $2, $3
+       WHERE NOT EXISTS (
+         SELECT 1 FROM categories WHERE user_id IS NULL AND name = $1
+       )`,
       [name, kind, icon]
     );
+    added += rowCount;
   }
 
-  console.info("Seeded default categories");
+  if (added > 0) {
+    console.info(`Seeded ${added} default categor${added === 1 ? "y" : "ies"}`);
+  }
 }
 
 // Best-effort: returns false instead of throwing so the app can still boot

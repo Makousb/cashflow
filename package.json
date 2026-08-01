@@ -9,6 +9,8 @@
   },
   "scripts": {
     "start": "node app.js",
+    "seed": "node db/seed.js",
+    "seed:reset": "node db/seed.js --reset",
     "dev": "concurrently -n web,analytics -c green,blue --kill-others \"node --watch app.js\" \"npm run analytics\"",
     "analytics": "cd analytics && .venv\\Scripts\\python -m uvicorn app:app --port 8000"
   },
