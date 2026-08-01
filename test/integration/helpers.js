@@ -17,10 +17,22 @@ async function connect() {
         setTimeout(() => reject(new Error("timed out")), 4000)
       )
     ]);
-    return await ensureSchema();
   } catch {
+    // Genuinely no database — the suites skip.
     return false;
   }
+
+  // From here a failure is a real one and must not be reported as an absent
+  // database: that once left CI green while two thirds of these tests silently
+  // skipped. ensureSchema swallows its own errors, so an explicit throw is the
+  // only way to make the problem visible.
+  if (!(await ensureSchema())) {
+    throw new Error(
+      "The database is reachable but its schema could not be created. " +
+      "These tests are being skipped for a reason that is not 'no database'."
+    );
+  }
+  return true;
 }
 
 export const dbReady = await connect();
