@@ -1522,3 +1522,28 @@ a.chip {
 .data-table input {
   width: 90px;
 }
+
+/* --- Brand mark --- */
+.brand-mark {
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  /* The tile carries its own gradient; this lifts it off the header. */
+  box-shadow: 0 1px 3px rgba(11, 43, 25, 0.18);
+  vertical-align: middle;
+}
+
+.brand-mark-sm {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  margin-right: 0.15rem;
+}
+
+.site-footer p {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}

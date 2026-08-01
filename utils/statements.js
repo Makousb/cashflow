@@ -15,7 +15,7 @@ const INVENTORY_CATEGORIES = ["Inventory Purchase", "Cost of Goods"];
 // matters because revenue can be recorded straight into the ledger without
 // going through the sales module.
 //
-// openingInventory is the stock held when the books opened. MoneyTree starts
+// openingInventory is the stock held when the books opened. Cashflow starts
 // its businesses from zero, so stock typed in by hand as a starting quantity
 // has no purchase behind it; the relief is capped at purchases so that can
 // never drive the cost negative, and `unpurchasedStock` flags when it bites.

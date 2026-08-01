@@ -4,7 +4,7 @@ import path from "path";
 
 // Cache lives in the OS temp dir, not the project tree — otherwise writing it
 // would trip `node --watch` and restart the dev server on every refresh.
-const CACHE_FILE = path.join(os.tmpdir(), "moneytree-fx-cache.json");
+const CACHE_FILE = path.join(os.tmpdir(), "cashflow-fx-cache.json");
 
 // Rates are always keyed to USD = 1 (units of the currency per 1 USD).
 // Bundled snapshot so conversion still works fully offline / before the first

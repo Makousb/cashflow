@@ -1,5 +1,5 @@
 {
-  "name": "moneytree",
+  "name": "cashflow",
   "version": "0.1.0",
   "description": "Personal budgeting and financial planning app: expense tracking, monthly budgets, and savings goals, built with Express, EJS, and PostgreSQL.",
   "type": "module",

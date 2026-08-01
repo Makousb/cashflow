@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Fills a fresh database with a worked example of every part of MoneyTree, so
+// Fills a fresh database with a worked example of every part of Cashflow, so
 // a clone opens on a working app instead of empty pages.
 //
 //   npm run seed          create the demo account (does nothing if it exists)
@@ -19,7 +19,7 @@ const args = new Set(process.argv.slice(2));
 const RESET = args.has("--reset");
 const FORCE = args.has("--force");
 
-const EMAIL = process.env.DEMO_EMAIL || "demo@moneytree.local";
+const EMAIL = process.env.DEMO_EMAIL || "demo@cashflow.local";
 const PASSWORD = process.env.DEMO_PASSWORD || "growmoney123";
 const NAME = process.env.DEMO_NAME || "Demo User";
 const CURRENCY = process.env.DEMO_CURRENCY || "KES";
@@ -522,7 +522,7 @@ async function main() {
   // directly, so give them the same treatment.
   await q(
     `UPDATE businesses
-     SET supply_code = 'MT-' || upper(substr(md5('moneytree-supply-' || id::text), 1, 6))
+     SET supply_code = 'MT-' || upper(substr(md5('cashflow-supply-' || id::text), 1, 6))
      WHERE user_id = $1 AND supply_code IS NULL`,
     [user.id]
   );

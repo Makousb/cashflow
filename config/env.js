@@ -37,7 +37,7 @@ function getSessionSecret() {
 export const config = {
   env: process.env.NODE_ENV || "development",
   isProduction,
-  // 3001 by default so MoneyTree can run alongside other local apps on 3000.
+  // 3001 by default so Cashflow can run alongside other local apps on 3000.
   port: getOptionalNumber("PORT", 3001),
   sessionSecret: getSessionSecret(),
   // Python FastAPI service that computes the Reports page insights.

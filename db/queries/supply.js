@@ -22,7 +22,7 @@ const ORDER_COLUMNS = `
 export async function ensureSupplyCode(businessId) {
   const { rows } = await pool.query(
     `UPDATE businesses
-     SET supply_code = 'MT-' || upper(substr(md5('moneytree-supply-' || id::text), 1, 6))
+     SET supply_code = 'CF-' || upper(substr(md5('cashflow-supply-' || id::text), 1, 6))
      WHERE id = $1 AND supply_code IS NULL
      RETURNING supply_code`,
     [businessId]

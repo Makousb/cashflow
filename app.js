@@ -58,7 +58,7 @@ app.use(express.static(path.join(appRoot, "public")));
 
 app.use(
   session({
-    name: "moneytree.sid",
+    name: "cashflow.sid",
     store: dbReady
       ? new PgSession({
           pool,
@@ -128,5 +128,5 @@ app.use(notFound);
 app.use(handleError);
 
 app.listen(config.port, () => {
-  console.info(`MoneyTree running on http://localhost:${config.port}`);
+  console.info(`Cashflow running on http://localhost:${config.port}`);
 });

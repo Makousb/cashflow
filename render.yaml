@@ -6,7 +6,7 @@
 
 services:
   - type: web
-    name: moneytree
+    name: cashflow
     runtime: node
     plan: free
     # Must match the database + analytics region — internal addresses only
@@ -22,7 +22,7 @@ services:
         generateValue: true
       - key: DATABASE_URL
         fromDatabase:
-          name: moneytree-db
+          name: cashflow-db
           property: connectionString
       # Render's internal database connection doesn't require TLS.
       - key: DB_SSL
@@ -32,13 +32,13 @@ services:
       - key: ANALYTICS_URL
         fromService:
           type: web
-          name: moneytree-analytics
+          name: cashflow-analytics
           property: hostport
 
   # Python (FastAPI) analytics service. Uses Docker so the Tesseract OCR
   # engine can be installed for receipt scanning.
   - type: web
-    name: moneytree-analytics
+    name: cashflow-analytics
     runtime: docker
     plan: free
     region: oregon
@@ -47,8 +47,8 @@ services:
     healthCheckPath: /health
 
 databases:
-  - name: moneytree-db
+  - name: cashflow-db
     plan: free
     region: oregon
-    databaseName: moneytree
-    user: moneytree
+    databaseName: cashflow
+    user: cashflow

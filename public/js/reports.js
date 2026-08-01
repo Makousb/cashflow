@@ -1,6 +1,6 @@
 // Renders the Reports page charts from the analytics service payload.
 (function () {
-  const report = window.MONEYTREE_REPORT;
+  const report = window.CASHFLOW_REPORT;
   if (!report || typeof Chart === "undefined") {
     return;
   }

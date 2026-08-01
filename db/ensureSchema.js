@@ -389,7 +389,7 @@ const SCHEMA_SQL = `
     unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0
   );
 
-  -- Supply chain: businesses trade with each other inside MoneyTree. Any
+  -- Supply chain: businesses trade with each other inside Cashflow. Any
   -- business can buy; one that flips is_supplier on also sells, publishing its
   -- products as a catalog. supply_code is the handle a buyer types to connect;
   -- lead_time_days is the turnaround the supplier promises.
@@ -399,10 +399,13 @@ const SCHEMA_SQL = `
   ALTER TABLE businesses
     ADD COLUMN IF NOT EXISTS lead_time_days INTEGER NOT NULL DEFAULT 3;
 
-  -- Deterministic backfill so existing businesses get a stable code.
+  -- Deterministic backfill so existing businesses get a stable code. It also
+  -- reissues the codes minted under the app's old name — they carried an MT-
+  -- prefix and a different hash, so a code shared before the rename no longer
+  -- resolves. Partnerships are held by id, so those are unaffected.
   UPDATE businesses
-  SET supply_code = 'MT-' || upper(substr(md5('moneytree-supply-' || id::text), 1, 6))
-  WHERE supply_code IS NULL;
+  SET supply_code = 'CF-' || upper(substr(md5('cashflow-supply-' || id::text), 1, 6))
+  WHERE supply_code IS NULL OR supply_code LIKE 'MT-%';
 
   CREATE UNIQUE INDEX IF NOT EXISTS idx_businesses_supply_code
     ON businesses (supply_code);

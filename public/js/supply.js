@@ -6,7 +6,7 @@
 // reloads the page, and never while the user is mid-message.
 
 (function () {
-  var config = window.MONEYTREE_SUPPLY;
+  var config = window.CASHFLOW_SUPPLY;
   if (!config || !config.businessId) return;
 
   var pill = document.getElementById("live-pill");

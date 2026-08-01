@@ -86,7 +86,7 @@
       <a href="/goals" class="link">Manage →</a>
     </div>
     <% if (goals.length === 0) { %>
-      <p class="empty-state">Nothing you're saving toward yet. <a href="/goals">Plant a goal</a>.</p>
+      <p class="empty-state">Nothing you're saving toward yet. <a href="/goals">Set a goal</a>.</p>
     <% } else { %>
       <% goals.forEach((g) => { %>
         <% const ratio = Math.min(Number(g.saved_amount) / Number(g.target_amount), 1); %>

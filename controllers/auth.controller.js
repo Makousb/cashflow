@@ -55,7 +55,7 @@ export async function register(req, res, next) {
     await createAccount({ userId: user.id, name: "Cash", type: "cash" });
 
     req.session.user = user;
-    req.flash("success", "Welcome to MoneyTree! Plant your first transaction.");
+    req.flash("success", "Welcome to Cashflow! Record your first transaction.");
     return res.redirect("/dashboard");
   } catch (error) {
     return next(error);

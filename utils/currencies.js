@@ -1,6 +1,6 @@
 // Currencies the app can display in. Amounts are never converted — this only
 // controls the symbol and formatting, so switching currency relabels the same
-// numbers. East-African currencies are listed first since MoneyTree's roots
+// numbers. East-African currencies are listed first since Cashflow's roots
 // (M-Pesa, matatus, local vendors) are there.
 export const CURRENCIES = [
   { code: "KES", name: "Kenyan Shilling", symbol: "KSh", decimals: 2 },

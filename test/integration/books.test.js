@@ -132,7 +132,7 @@ describe("creating a business", { skip: skipWithoutDb }, () => {
     const business = await createBusiness({
       userId: user.id, name: "Contactable Shop", industry: "Retail"
     });
-    assert.match(business.supply_code || "", /^MT-[0-9A-F]{6}$/);
+    assert.match(business.supply_code || "", /^CF-[0-9A-F]{6}$/);
   });
 
   test("every business gets its own code", async () => {

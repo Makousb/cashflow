@@ -1,4 +1,4 @@
-# 🌳 MoneyTree
+<img src="public/img/logo-wordmark.svg" alt="Cashflow" height="52" />
 
 [![CI](https://github.com/Makousb/moneytree/actions/workflows/ci.yml/badge.svg)](https://github.com/Makousb/moneytree/actions/workflows/ci.yml)
 
@@ -44,7 +44,7 @@ JavaScript (Chart.js).
   purchases, repeat merchants (visit cadence and average spend), weekday
   spending concentration, and same-day category correlations
 - **Recurring transactions** — schedule rent, salary, or subscriptions once
-  (weekly/monthly/yearly) and MoneyTree records them automatically when they
+  (weekly/monthly/yearly) and Cashflow records them automatically when they
   come due, catching up any missed occurrences; pause or delete anytime
 - **Loan tracking & payoff plans** — track each loan's balance, total paid, and
   the interest accruing on it. Logging a payment also posts it to the ledger as
@@ -95,7 +95,7 @@ JavaScript (Chart.js).
   - **Budgeting & planning** — set a monthly revenue target and per-category
     expense budgets, track this month's actuals against them, and project a
     six-month cash-flow forecast from your run rate
-  - **Supply chain** — trade with other businesses inside MoneyTree. Share your
+  - **Supply chain** — trade with other businesses inside Cashflow. Share your
     connection code to let buyers find you, publish your products as a catalog,
     and order from your own suppliers' catalogs (quantities pre-filled for
     anything you're low on). Orders walk a two-sided workflow — placed,
@@ -137,7 +137,7 @@ JavaScript (Chart.js).
 2. Create a PostgreSQL database:
 
    ```sql
-   CREATE DATABASE moneytree;
+   CREATE DATABASE cashflow;
    ```
 
 3. Configure the environment:
@@ -183,7 +183,7 @@ JavaScript (Chart.js).
    npm run seed
    ```
 
-   This creates a demo account — **demo@moneytree.local / growmoney123** — with
+   This creates a demo account — **demo@cashflow.local / growmoney123** — with
    three months of personal finances plus two trading businesses: a grocer with
    books, stock, sales, payroll, tax and budgets, and the wholesaler that
    supplies it, complete with delivered orders and one still in flight. Handy
@@ -245,7 +245,7 @@ setup needed.
 ## Project structure
 
 ```
-moneytree/
+cashflow/
 ├── app.js                  # Express app: middleware, sessions, routes
 ├── analytics/
 │   ├── app.py              # FastAPI analytics service (insights, forecasts)

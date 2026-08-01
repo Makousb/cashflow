@@ -1,4 +1,4 @@
-"""MoneyTree analytics service.
+"""Cashflow analytics service.
 
 Receives raw transaction/budget/goal data from the Node app and returns
 computed insights: category breakdowns, monthly trends, spending forecasts,
@@ -40,7 +40,7 @@ try:
 except ImportError:  # pragma: no cover - pillow/pytesseract not installed
     OCR_AVAILABLE = False
 
-app = FastAPI(title="MoneyTree Analytics", version="0.1.0")
+app = FastAPI(title="Cashflow Analytics", version="0.1.0")
 
 
 class Transaction(BaseModel):

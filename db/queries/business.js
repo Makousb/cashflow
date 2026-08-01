@@ -44,7 +44,7 @@ export async function createBusiness({ userId, name, industry }) {
     // transaction so a business is never left without a code.
     const { rows } = await client.query(
       `UPDATE businesses
-       SET supply_code = 'MT-' || upper(substr(md5('moneytree-supply-' || id::text), 1, 6))
+       SET supply_code = 'CF-' || upper(substr(md5('cashflow-supply-' || id::text), 1, 6))
        WHERE id = $1
        RETURNING *`,
       [created[0].id]
