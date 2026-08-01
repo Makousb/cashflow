@@ -48,6 +48,11 @@ import {
   showStatements
 } from "../controllers/accounting.controller.js";
 import {
+  recordSale,
+  removeSale,
+  showSales
+} from "../controllers/sales.controller.js";
+import {
   closeOrder,
   confirmOrder,
   connectSupplier,
@@ -87,6 +92,11 @@ router.post("/:id/inventory/reorder", createReorder);
 router.post("/:id/inventory/order", orderProduct);
 router.post("/:id/inventory/orders/:oid/receive", receiveOrder);
 router.post("/:id/inventory/orders/:oid/delete", removeOrder);
+
+// Sales (takes stock off the shelf and books the money)
+router.get("/:id/sales", showSales);
+router.post("/:id/sales", recordSale);
+router.post("/:id/sales/:saleId/void", removeSale);
 
 // Payroll
 router.get("/:id/payroll", showPayroll);

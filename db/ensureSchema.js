@@ -333,6 +333,41 @@ const SCHEMA_SQL = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
+  -- Sales: what the business sells over the counter. Recording one takes the
+  -- units off the shelf and books the money. cost_total captures what those
+  -- units cost at the moment they were sold, so margin is measured against the
+  -- price actually paid for that stock rather than today's price.
+  CREATE TABLE IF NOT EXISTS sales (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    transaction_id INTEGER REFERENCES business_transactions(id) ON DELETE SET NULL,
+    invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+    customer TEXT,
+    payment TEXT NOT NULL DEFAULT 'cash' CHECK (payment IN ('cash', 'credit')),
+    total NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    cost_total NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    note TEXT,
+    occurred_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_sales_business
+    ON sales (business_id, occurred_on DESC);
+
+  -- product_id is null for anything sold that is not stocked (a service, a
+  -- one-off); those lines move money without moving inventory.
+  CREATE TABLE IF NOT EXISTS sale_items (
+    id SERIAL PRIMARY KEY,
+    sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    sku TEXT,
+    quantity NUMERIC(12, 2) NOT NULL CHECK (quantity > 0),
+    unit_price NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0
+  );
+
   -- Supply chain: businesses trade with each other inside MoneyTree. Any
   -- business can buy; one that flips is_supplier on also sells, publishing its
   -- products as a catalog. supply_code is the handle a buyer types to connect;

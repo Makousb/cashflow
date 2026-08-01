@@ -1,0 +1,287 @@
+<%- include("partials/header") %>
+<%
+  const monthTotal = Number(summary.month_total);
+  const monthCost = Number(summary.month_cost);
+  const monthMargin = monthTotal - monthCost;
+  const marginPct = monthTotal > 0 ? (monthMargin / monthTotal) * 100 : 0;
+%>
+
+<section class="page-head">
+  <h1><%= business.name %> · Sales</h1>
+  <p class="muted">
+    Sell from stock — units come off the shelf and the money is booked ·
+    <a href="/business/<%= business.id %>" class="link">← business dashboard</a> ·
+    <a href="/business/<%= business.id %>/inventory" class="link">inventory</a>
+  </p>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">💳</span>
+    <span class="stat-body">
+      <span class="stat-label">Sold today</span>
+      <span class="stat-value positive"><%= money(summary.today_total) %></span>
+      <small class="muted"><%= summary.today_count %> sale(s)</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📅</span>
+    <span class="stat-body">
+      <span class="stat-label">This month</span>
+      <span class="stat-value"><%= money(monthTotal) %></span>
+      <small class="muted"><%= summary.month_count %> sale(s)</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📈</span>
+    <span class="stat-body">
+      <span class="stat-label">Gross margin this month</span>
+      <span class="stat-value <%= monthMargin >= 0 ? "positive" : "negative" %>"><%= money(monthMargin) %></span>
+      <small class="muted"><%= marginPct.toFixed(0) %>% · stock cost <%= money(monthCost) %></small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon <%= lowStock.length > 0 ? "tint-red" : "" %>">⚠️</span>
+    <span class="stat-body">
+      <span class="stat-label">Low or out of stock</span>
+      <span class="stat-value <%= lowStock.length > 0 ? "negative" : "" %>"><%= lowStock.length %></span>
+      <small class="muted">selling is what runs it down</small>
+    </span>
+  </div>
+</section>
+
+<% if (lowStock.length) { %>
+  <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
+    <span class="alert-icon">🛒</span>
+    <div class="alert-body" style="flex:1;">
+      <strong><%= lowStock.length %> item(s) need reordering</strong>
+      <div class="alert-detail">
+        <%= lowStock.map((p) => p.name + " (" + Number(p.quantity) + " left)").join(" · ") %>
+      </div>
+      <div class="action-row" style="margin-top:0.6rem;">
+        <a class="btn btn-ghost btn-sm" href="/business/<%= business.id %>/inventory">Reorder in Inventory</a>
+        <a class="btn btn-ghost btn-sm" href="/business/<%= business.id %>/supply/new">Order from a supplier</a>
+      </div>
+    </div>
+  </section>
+<% } %>
+
+<form action="/business/<%= business.id %>/sales" method="POST" id="sale-form">
+  <section class="card" style="margin-bottom:1.5rem;">
+    <h2>Record a sale</h2>
+    <% if (products.length === 0) { %>
+      <p class="empty-state">
+        No products yet — <a class="link" href="/business/<%= business.id %>/inventory">add stock items</a>
+        first, or sell an off-catalog item below.
+      </p>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="num">In stock</th>
+              <th class="num">Cost</th>
+              <th class="num">Price</th>
+              <th class="num">Margin</th>
+              <th class="num">Sell qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% products.forEach((p) => { %>
+              <%
+                const stock = Number(p.quantity);
+                const price = Number(p.sale_price);
+                const cost = Number(p.unit_cost);
+                const margin = price - cost;
+                const pct = price > 0 ? (margin / price) * 100 : 0;
+                const low = stock <= Number(p.reorder_point);
+              %>
+              <tr>
+                <td>
+                  <strong><%= p.name %></strong>
+                  <% if (p.sku) { %><small class="muted"> · <%= p.sku %></small><% } %>
+                </td>
+                <td class="num">
+                  <%= stock %>
+                  <% if (stock <= 0) { %><span class="badge badge-danger">out</span>
+                  <% } else if (low) { %><span class="badge badge-warn">low</span><% } %>
+                </td>
+                <td class="num"><%= money(cost) %></td>
+                <td class="num"><%= money(price) %></td>
+                <td class="num <%= margin <= 0 ? "negative" : "" %>">
+                  <%= money(margin) %>
+                  <% if (margin > 0) { %>
+                    <small class="muted"><%= pct.toFixed(0) %>%</small>
+                  <% } else { %>
+                    <%# Stock received from a supplier starts priced at cost. %>
+                    <a class="badge badge-warn" href="/business/<%= business.id %>/inventory">set a price</a>
+                  <% } %>
+                </td>
+                <td class="num">
+                  <input type="number" name="qty[p<%= p.id %>]" min="0" max="<%= stock %>"
+                         step="0.01" placeholder="0" class="sell-input"
+                         data-price="<%= toDisplayNumber(price) %>"
+                         <%= stock <= 0 ? "disabled" : "" %> />
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <div class="two-col" style="margin-top:1.25rem;">
+      <div>
+        <h3>Off-catalog item (optional)</h3>
+        <p class="muted" style="margin-top:-0.4rem;font-size:0.9rem;">
+          A service or something you don't hold in stock. Nothing leaves inventory.
+        </p>
+        <div class="stacked-form">
+          <label>Item<input type="text" name="customName" maxlength="120" placeholder="e.g. Delivery to Kileleshwa" /></label>
+          <label>Quantity<input type="number" name="customQuantity" min="0" step="0.01" placeholder="0" class="sell-input" data-price-field="customPrice" /></label>
+          <label>Price each (<%= displayCurrency %>)<input type="number" name="customPrice" id="customPrice" min="0" step="0.01" placeholder="0" /></label>
+        </div>
+      </div>
+
+      <div>
+        <h3>Checkout</h3>
+        <div class="budget-row">
+          <span>Sale total</span>
+          <strong id="sale-total" style="font-size:1.3rem;"><%= money(0) %></strong>
+        </div>
+        <div class="segmented" role="radiogroup" aria-label="Payment" style="margin:0.75rem 0;">
+          <label>
+            <input type="radio" name="payment" value="cash" id="pay-cash" checked />
+            <span>💵 Paid now</span>
+          </label>
+          <label>
+            <input type="radio" name="payment" value="credit" id="pay-credit" />
+            <span>🧾 On credit</span>
+          </label>
+        </div>
+        <div class="stacked-form">
+          <label>Customer (optional)<input type="text" name="customer" maxlength="120" placeholder="e.g. Wanjiru" /></label>
+          <label>Date<input type="date" name="occurredOn" value="<%= today %>" /></label>
+          <label>Note (optional)<input type="text" name="note" maxlength="200" placeholder="e.g. Regular Friday order" /></label>
+          <button type="submit" class="btn btn-primary">Record sale</button>
+        </div>
+        <p class="muted" style="font-size:0.85rem;margin-top:0.6rem;" id="pay-hint">
+          Paid now books the income straight to the ledger.
+        </p>
+      </div>
+    </div>
+  </section>
+</form>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Recent sales</h2>
+    <% if (sales.length === 0) { %>
+      <p class="empty-state">No sales yet — record your first one above.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% sales.forEach((s) => { %>
+          <%
+            const margin = Number(s.total) - Number(s.cost_total);
+            const pct = Number(s.total) > 0 ? (margin / Number(s.total)) * 100 : 0;
+          %>
+          <li class="tx-row">
+            <span class="tx-icon"><%= s.payment === "credit" ? "🧾" : "💵" %></span>
+            <span class="tx-meta">
+              <strong>
+                Sale #<%= s.id %>
+                <% if (s.payment === "credit") { %>
+                  <span class="badge <%= s.invoice_status === "paid" ? "badge-done" : "badge-warn" %>">
+                    <%= s.invoice_status === "paid" ? "paid" : "on credit" %>
+                  </span>
+                <% } %>
+              </strong>
+              <small class="muted">
+                <%= formatDate(s.occurred_on) %>
+                <%= s.customer ? " · " + s.customer : "" %>
+                · <%= s.items.map((i) => Number(i.quantity) + "× " + i.name).join(", ") %>
+              </small>
+              <small class="muted">margin <%= money(margin) %> (<%= pct.toFixed(0) %>%)</small>
+            </span>
+            <span class="tx-amount positive"><%= money(s.total) %></span>
+            <form action="/business/<%= business.id %>/sales/<%= s.id %>/void" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Void — puts the stock back">Void</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <h2>Best sellers</h2>
+    <% if (sellers.length === 0) { %>
+      <p class="empty-state">Once you record sales, your top earners show up here.</p>
+    <% } else { %>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Item</th><th class="num">Units</th><th class="num">Revenue</th><th class="num">Margin</th></tr>
+          </thead>
+          <tbody>
+            <% sellers.forEach((s) => { %>
+              <% const margin = Number(s.revenue) - Number(s.cost); %>
+              <tr>
+                <td><%= s.name %></td>
+                <td class="num"><%= Number(s.units) %></td>
+                <td class="num"><%= money(s.revenue) %></td>
+                <td class="num <%= margin < 0 ? "negative" : "" %>"><%= money(margin) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+</div>
+
+<script>
+  // Running till total, and a hint that follows the payment choice.
+  (function () {
+    var symbol = <%- JSON.stringify(currencyInfo.symbol) %>;
+    var decimals = <%= currencyInfo.decimals %>;
+    var separator = /[A-Za-z]$/.test(symbol) ? " " : "";
+    var form = document.getElementById("sale-form");
+    var totalEl = document.getElementById("sale-total");
+    var customPrice = document.getElementById("customPrice");
+    var hint = document.getElementById("pay-hint");
+    var credit = document.getElementById("pay-credit");
+    var cash = document.getElementById("pay-cash");
+
+    function render() {
+      var total = 0;
+      form.querySelectorAll(".sell-input").forEach(function (input) {
+        var qty = parseFloat(input.value) || 0;
+        var field = input.dataset.priceField;
+        var price = field
+          ? parseFloat(document.getElementById(field).value) || 0
+          : parseFloat(input.dataset.price) || 0;
+        total += qty * price;
+      });
+      totalEl.textContent = symbol + separator + total.toLocaleString("en-US", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+    }
+
+    function hintFor() {
+      hint.textContent = credit.checked
+        ? "On credit raises an invoice due in <%= creditTermsDays %> days; the income books when it is paid."
+        : "Paid now books the income straight to the ledger.";
+    }
+
+    form.addEventListener("input", render);
+    if (customPrice) customPrice.addEventListener("input", render);
+    credit.addEventListener("change", hintFor);
+    cash.addEventListener("change", hintFor);
+    render();
+  })();
+</script>
+
+<%- include("partials/footer") %>

@@ -68,6 +68,13 @@ JavaScript (Chart.js).
     in its actual figures. Works out of the box with built-in insights; point
     the optional `AI_*` settings at any standard chat-completions API for
     open-ended conversation
+  - **Sales** — sell from stock: pick items and quantities, and the units come
+    off the shelf while the money is booked. Each line captures what those
+    particular units cost, so you see the margin a sale actually earned rather
+    than an estimate. Sells on credit raise an invoice instead of booking income
+    (it posts when the invoice is paid), off-catalog lines cover services that
+    don't touch inventory, overselling is refused with the shortfall named, and
+    voiding a sale puts the stock back and unbooks the money
   - **Inventory & ordering** — track products, stock levels, and stock value;
     get low-stock alerts; raise purchase orders (one click reorders everything
     low), then receive them to add stock and post the cost to the ledger
