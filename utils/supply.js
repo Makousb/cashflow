@@ -99,7 +99,10 @@ export function transitDays(order) {
 export function estimateEta({ leadTimeDays = 3, samples = [], from }) {
   const start = from || toISODate(new Date());
   const lead = Math.max(Math.round(Number(leadTimeDays) || 0), 1);
+  // Drop empties before converting: Number(null) is 0, which would otherwise
+  // enter the history as a same-day delivery and drag every estimate down.
   const history = samples
+    .filter((n) => n !== null && n !== undefined && n !== "")
     .map(Number)
     .filter((n) => Number.isFinite(n) && n >= 0);
 
@@ -135,8 +138,11 @@ export function lateness(order, referenceDate) {
   return daysBetween(target, reference);
 }
 
+// Late means still out there and past its date. Once the goods have arrived the
+// order is no longer running late, even if the buyer has not receipted it yet —
+// that it missed the date is recorded by deliveredOnTime instead.
 export function isLate(order, referenceDate) {
-  if (!isOpen(order)) return false;
+  if (!isOpen(order) || order.delivered_at) return false;
   const late = lateness(order, referenceDate);
   return late !== null && late > 0;
 }

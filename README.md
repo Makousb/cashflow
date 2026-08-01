@@ -1,5 +1,7 @@
 # 🌳 MoneyTree
 
+[![CI](https://github.com/Makousb/moneytree/actions/workflows/ci.yml/badge.svg)](https://github.com/Makousb/moneytree/actions/workflows/ci.yml)
+
 A personal budgeting and financial planning web app. Track expenses and income
 across multiple wallets, set monthly budgets per category, and grow savings
 goals — inspired by apps like Frugal (Blueberry Projects).
@@ -195,6 +197,38 @@ JavaScript (Chart.js).
 > Without a database configured the app still boots in a read-only demo mode:
 > public pages render, but nothing is persisted and you can't sign up.
 > Without the analytics service, everything except the Reports page works.
+
+## Tests
+
+```bash
+npm test          # everything
+npm run test:unit # just the fast ones, no database needed
+npm run check     # parse every source file and view without running them
+```
+
+Built on Node's own test runner, so there are no testing dependencies to
+install.
+
+The **unit tests** cover the arithmetic the app is judged on: how cost of goods
+sold is derived, what a delivery estimate does with a supplier's history, how a
+month-end recurring date clamps into February, payslip rounding, loan interest
+and payoff projection, and currency formatting.
+
+The **integration tests** run against a real PostgreSQL and exercise the query
+layer directly — selling stock, refusing to oversell, voiding a sale back out
+again, an order moving from placed to received across two businesses, and the
+ledger feeding the statements. Each builds its own throwaway user and deletes
+it afterwards, so they leave nothing behind. Without a database configured they
+skip rather than fail, so `npm test` works on a fresh clone.
+
+`npm run check` parses every `.js` and compiles every `.ejs` without executing
+anything. The schema is a single long template literal, so one stray backtick in
+an SQL comment breaks the file in a way nothing notices until the app won't
+boot — this catches that class of mistake, and unclosed tags in views.
+
+CI runs all of it on every push, plus a from-scratch install against an empty
+database, and imports the Python service. A first install is its own code path,
+and it is where the last two schema bugs were hiding.
 
 ## Deployment
 

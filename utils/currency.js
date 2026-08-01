@@ -17,8 +17,11 @@ function numberFormatter(decimals) {
 
 export function formatCurrency(amount, currency = DEFAULT_CURRENCY) {
   const info = CURRENCY_BY_CODE.get(currency) || { symbol: currency, decimals: 2 };
-  const number = numberFormatter(info.decimals).format(Number(amount) || 0);
+  const value = Number(amount) || 0;
+  // The minus sign belongs in front of the symbol — "$-50.00" reads as a typo.
+  const sign = value < 0 ? "-" : "";
+  const number = numberFormatter(info.decimals).format(Math.abs(value));
   // Letter symbols ("KSh", "R") get a space; glyphs ("$", "€") hug the number.
   const separator = /[A-Za-z]$/.test(info.symbol) ? " " : "";
-  return `${info.symbol}${separator}${number}`;
+  return `${sign}${info.symbol}${separator}${number}`;
 }

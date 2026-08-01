@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Node app
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: moneytree_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/moneytree_test
+      DB_SSL: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Catches the syntax errors that otherwise only show up at boot or on
+      # the page: the schema is one long template literal, and views are
+      # compiled at render time.
+      - name: Parse every source file
+        run: npm run check
+
+      - name: Tests
+        run: npm test
+
+      # The suite runs against a database the tests have already migrated, so
+      # seed a brand-new one as well: a first install is its own code path, and
+      # it is where the last two schema bugs were hiding.
+      - name: Install from scratch
+        run: |
+          psql "$DATABASE_URL" -c 'CREATE DATABASE moneytree_fresh'
+          DATABASE_URL=postgres://postgres:postgres@localhost:5432/moneytree_fresh npm run seed
+
+  analytics:
+    name: Analytics service
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: analytics/requirements.txt
+
+      - run: pip install -r analytics/requirements.txt
+
+      - name: Import the service
+        working-directory: analytics
+        run: python -c "import app; print('analytics service imports cleanly')"
