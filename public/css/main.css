@@ -1,18 +1,31 @@
 :root {
-  --green-950: #0b2b19;
-  --green-900: #123d26;
-  --green-800: #175232;
-  --green-700: #1b7a43;
-  --green-600: #219653;
-  --green-500: #27ae60;
-  --green-100: #e3f4ea;
-  --green-50: #f0faf4;
-  --ink: #16211b;
-  --ink-soft: #5c6b62;
-  --ink-faint: #8a978f;
-  --paper: #f4f8f5;
+  /* Brand: built around #f5be27. Gold is light — it only reaches 1.7:1 against
+     white — so the bright end is for fills and the dark end carries any text.
+     --brand-700 is the lightest shade that clears 4.5:1 on white. */
+  --brand-950: #33200a;
+  --brand-900: #533504;
+  --brand-800: #7a4f06;
+  --brand-700: #a06908;
+  --brand-600: #e0a50f;
+  --brand-500: #f5be27;
+  --brand-200: #f7dfa0;
+  --brand-100: #fdedc2;
+  --brand-50: #fef8e6;
+
+  /* Money keeps its own colours. Income, paid, delivered-on-time and a live
+     connection stay green so they never blur into the brand or into a warning,
+     which now sits next to the brand on the colour wheel. */
+  --ok: #1b7a43;
+  --ok-bright: #27ae60;
+  --ok-soft: #e3f4ea;
+  --ok-strong: #123d26;
+
+  --ink: #211d14;
+  --ink-soft: #6b6152;
+  --ink-faint: #9a917f;
+  --paper: #faf8f2;
   --card: #ffffff;
-  --line: #e2ece5;
+  --line: #ece6d6;
   --red: #d64541;
   --red-soft: #fdeceb;
   --amber: #8a6100;
@@ -20,9 +33,9 @@
   --radius-lg: 20px;
   --radius: 14px;
   --radius-sm: 10px;
-  --shadow-sm: 0 1px 2px rgba(11, 43, 25, 0.05), 0 2px 8px rgba(11, 43, 25, 0.05);
-  --shadow: 0 2px 4px rgba(11, 43, 25, 0.06), 0 10px 24px rgba(11, 43, 25, 0.08);
-  --shadow-lg: 0 4px 8px rgba(11, 43, 25, 0.07), 0 20px 48px rgba(11, 43, 25, 0.12);
+  --shadow-sm: 0 1px 2px rgba(43, 32, 6, 0.05), 0 2px 8px rgba(43, 32, 6, 0.05);
+  --shadow: 0 2px 4px rgba(43, 32, 6, 0.06), 0 10px 24px rgba(43, 32, 6, 0.08);
+  --shadow-lg: 0 4px 8px rgba(43, 32, 6, 0.07), 0 20px 48px rgba(43, 32, 6, 0.12);
 }
 
 * {
@@ -47,7 +60,7 @@ body {
 }
 
 a {
-  color: var(--green-700);
+  color: var(--brand-700);
 }
 
 h1, h2, h3 {
@@ -56,7 +69,7 @@ h1, h2, h3 {
 }
 
 ::selection {
-  background: var(--green-100);
+  background: var(--brand-100);
 }
 
 /* --- Entrance animation --- */
@@ -110,7 +123,7 @@ h1, h2, h3 {
 .brand {
   font-weight: 800;
   font-size: 1.2rem;
-  color: var(--green-900);
+  color: var(--brand-900);
   text-decoration: none;
   white-space: nowrap;
   display: inline-flex;
@@ -147,13 +160,13 @@ h1, h2, h3 {
 }
 
 .site-nav a:not(.btn):hover {
-  color: var(--green-800);
-  background: var(--green-50);
+  color: var(--brand-800);
+  background: var(--brand-50);
 }
 
 .site-nav a.active {
-  color: var(--green-800);
-  background: var(--green-100);
+  color: var(--brand-800);
+  background: var(--brand-100);
 }
 
 .site-nav .btn {
@@ -174,7 +187,7 @@ h1, h2, h3 {
 .page-head h1 {
   font-size: clamp(1.6rem, 3vw, 2.1rem);
   font-weight: 800;
-  color: var(--green-950);
+  color: var(--brand-950);
 }
 
 .page-head .muted {
@@ -246,7 +259,7 @@ h1, h2, h3 {
 .hero::before {
   width: 420px;
   height: 420px;
-  background: var(--green-100);
+  background: var(--brand-100);
   top: -160px;
   left: -120px;
 }
@@ -254,7 +267,7 @@ h1, h2, h3 {
 .hero::after {
   width: 380px;
   height: 380px;
-  background: #dff3fd;
+  background: #fdeacd;
   bottom: -180px;
   right: -100px;
 }
@@ -263,9 +276,9 @@ h1, h2, h3 {
   display: inline-block;
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--green-800);
-  background: var(--green-100);
-  border: 1px solid #cdebd9;
+  color: var(--brand-800);
+  background: var(--brand-100);
+  border: 1px solid #f2ddaa;
   padding: 0.35rem 0.9rem;
   border-radius: 999px;
   margin-bottom: 1.25rem;
@@ -274,13 +287,13 @@ h1, h2, h3 {
 .hero h1 {
   font-size: clamp(2.1rem, 5.5vw, 3.4rem);
   font-weight: 800;
-  color: var(--green-950);
+  color: var(--brand-950);
   max-width: 720px;
   margin: 0 auto;
 }
 
 .hero h1 .grow {
-  background: linear-gradient(90deg, var(--green-600), var(--green-800));
+  background: linear-gradient(90deg, var(--brand-700), var(--brand-900));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -305,7 +318,7 @@ h1, h2, h3 {
   text-align: center;
   font-size: 1.35rem;
   font-weight: 800;
-  color: var(--green-950);
+  color: var(--brand-950);
   margin: 3rem 0 0.4rem;
 }
 
@@ -337,8 +350,8 @@ h1, h2, h3 {
   width: 48px;
   height: 48px;
   font-size: 1.5rem;
-  background: var(--green-50);
-  border: 1px solid var(--green-100);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
   border-radius: var(--radius-sm);
   margin-bottom: 0.85rem;
 }
@@ -373,7 +386,7 @@ a.module-link {
 a.module-link:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow);
-  border-color: #cdebd9;
+  border-color: #f2ddaa;
 }
 
 .badge-danger {
@@ -424,7 +437,7 @@ a.module-link:hover {
 
 .chat-msg.user {
   align-self: flex-end;
-  background: linear-gradient(135deg, var(--green-600), var(--green-800));
+  background: linear-gradient(135deg, var(--brand-800), var(--brand-950));
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -445,9 +458,9 @@ a.module-link:hover {
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--green-800);
-  background: var(--green-50);
-  border: 1px solid var(--green-100);
+  color: var(--brand-800);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
   border-radius: 999px;
   padding: 0.35rem 0.8rem;
   cursor: pointer;
@@ -455,7 +468,7 @@ a.module-link:hover {
 }
 
 .chip:hover {
-  background: var(--green-100);
+  background: var(--brand-100);
 }
 
 .chat-input-row {
@@ -533,7 +546,7 @@ a.module-link:hover {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--green-600), var(--green-800));
+  background: linear-gradient(135deg, var(--brand-800), var(--brand-950));
   color: #fff;
   font-weight: 800;
   font-size: 0.95rem;
@@ -564,8 +577,8 @@ a.module-link:hover {
   height: 46px;
   font-size: 1.35rem;
   border-radius: var(--radius-sm);
-  background: var(--green-50);
-  border: 1px solid var(--green-100);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
 }
 
 .stat-icon.tint-red {
@@ -594,7 +607,7 @@ a.module-link:hover {
 }
 
 .positive {
-  color: var(--green-700);
+  color: var(--ok);
 }
 
 .negative {
@@ -614,7 +627,7 @@ a.module-link:hover {
   gap: 0.35rem;
   font-weight: 700;
   font-size: 0.88rem;
-  color: var(--green-950);
+  color: var(--brand-950);
 }
 
 input,
@@ -630,13 +643,13 @@ select {
 input:focus,
 select:focus {
   outline: none;
-  border-color: var(--green-500);
-  box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.14);
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 4px rgba(224, 165, 15, 0.22);
 }
 
 input[type="file"] {
   padding: 0.55rem;
-  background: var(--green-50);
+  background: var(--brand-50);
   border-style: dashed;
   cursor: pointer;
 }
@@ -693,12 +706,12 @@ input[type="file"] {
 
 .segmented input:checked + span {
   background: #fff;
-  color: var(--green-800);
+  color: var(--brand-800);
   box-shadow: var(--shadow-sm);
 }
 
 .segmented input:focus-visible + span {
-  box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.25);
+  box-shadow: 0 0 0 3px rgba(224, 165, 15, 0.35);
 }
 
 /* --- Buttons --- */
@@ -720,25 +733,25 @@ input[type="file"] {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--green-600), var(--green-800));
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(33, 150, 83, 0.35);
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-600));
+  color: var(--brand-950);
+  box-shadow: 0 2px 10px rgba(224, 165, 15, 0.35);
 }
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(33, 150, 83, 0.4);
+  box-shadow: 0 6px 18px rgba(224, 165, 15, 0.4);
 }
 
 .btn-ghost {
   background: #fff;
-  color: var(--green-800);
+  color: var(--brand-800);
   border: 1.5px solid var(--line);
 }
 
 .btn-ghost:hover {
-  background: var(--green-50);
-  border-color: #cdebd9;
+  background: var(--brand-50);
+  border-color: #f2ddaa;
 }
 
 .btn-lg {
@@ -784,7 +797,7 @@ input[type="file"] {
 }
 
 .flash-success {
-  background: var(--green-800);
+  background: var(--ok-strong);
   color: #fff;
 }
 
@@ -817,7 +830,7 @@ input[type="file"] {
 }
 
 .tx-row:hover {
-  background: var(--green-50);
+  background: var(--brand-50);
 }
 
 .tx-row:last-child {
@@ -876,7 +889,7 @@ input[type="file"] {
 .progress {
   height: 10px;
   border-radius: 999px;
-  background: var(--green-100);
+  background: var(--brand-100);
   overflow: hidden;
   margin-top: 0.3rem;
 }
@@ -884,7 +897,7 @@ input[type="file"] {
 .progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--green-500), var(--green-700));
+  background: linear-gradient(90deg, var(--brand-500), var(--brand-600));
   transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -893,7 +906,7 @@ input[type="file"] {
 }
 
 .progress-fill.goal {
-  background: linear-gradient(90deg, var(--green-600), var(--green-900));
+  background: linear-gradient(90deg, var(--brand-500), var(--brand-700));
 }
 
 .goal-block,
@@ -927,7 +940,7 @@ input[type="file"] {
 .auth-card h1 {
   font-size: 1.5rem;
   font-weight: 800;
-  color: var(--green-950);
+  color: var(--brand-950);
 }
 
 .auth-card > p {
@@ -1040,8 +1053,8 @@ input[type="file"] {
 }
 
 .badge-done {
-  background: var(--green-100);
-  color: var(--green-900);
+  background: var(--ok-soft);
+  color: var(--ok-strong);
 }
 
 .patterns-grid {
@@ -1072,8 +1085,8 @@ input[type="file"] {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.9rem 1.1rem;
-  background: var(--green-50);
-  border: 1px solid var(--green-100);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
   border-radius: var(--radius-sm);
 }
 
@@ -1087,7 +1100,7 @@ input[type="file"] {
 .currency-preview strong {
   font-size: 1.4rem;
   font-weight: 800;
-  color: var(--green-800);
+  color: var(--brand-800);
 }
 
 .rate-hero {
@@ -1095,8 +1108,8 @@ input[type="file"] {
   flex-direction: column;
   gap: 0.2rem;
   padding: 1rem 1.15rem;
-  background: linear-gradient(135deg, var(--green-50), #eef7ff);
-  border: 1px solid var(--green-100);
+  background: linear-gradient(135deg, var(--brand-50), #fdf3e0);
+  border: 1px solid var(--brand-100);
   border-radius: var(--radius-sm);
 }
 
@@ -1105,7 +1118,7 @@ input[type="file"] {
 }
 
 .rate-hero strong {
-  color: var(--green-800);
+  color: var(--brand-800);
 }
 
 .badge-warn {
@@ -1139,8 +1152,8 @@ input[type="file"] {
 }
 
 .code-block {
-  background: var(--green-950);
-  color: #d7f2e1;
+  background: var(--brand-950);
+  color: #f7e4b4;
   border-radius: var(--radius-sm);
   padding: 0.85rem 1.1rem;
   margin: 0.85rem 0;
@@ -1200,7 +1213,7 @@ input[type="file"] {
 .error-code {
   font-size: 4rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--green-600), var(--green-900));
+  background: linear-gradient(135deg, var(--brand-600), var(--brand-900));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1215,9 +1228,9 @@ input[type="file"] {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--green-800);
-  background: var(--green-50);
-  border: 1px solid var(--green-100);
+  color: var(--brand-800);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
   border-radius: 999px;
   padding: 0.3rem 0.7rem;
   white-space: nowrap;
@@ -1233,7 +1246,7 @@ input[type="file"] {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--green-500);
+  background: var(--ok-bright);
   box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.6);
 }
 
@@ -1280,8 +1293,8 @@ input[type="file"] {
   flex-wrap: wrap;
   padding: 0.85rem 1rem;
   margin-bottom: 1rem;
-  background: var(--green-50);
-  border: 1px dashed var(--green-100);
+  background: var(--brand-50);
+  border: 1px dashed var(--brand-100);
   border-radius: var(--radius-sm);
 }
 
@@ -1290,7 +1303,7 @@ input[type="file"] {
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--green-900);
+  color: var(--brand-900);
 }
 
 .code-inline {
@@ -1298,8 +1311,8 @@ input[type="file"] {
   font-size: 0.85rem;
   padding: 0.1rem 0.4rem;
   border-radius: 6px;
-  background: var(--green-50);
-  color: var(--green-800);
+  background: var(--brand-50);
+  color: var(--brand-800);
 }
 
 /* Wins over .stacked-form label, which stacks its control under its text. */
@@ -1343,9 +1356,9 @@ input[type="file"] {
 }
 
 .chip-on {
-  background: var(--green-600);
-  border-color: var(--green-600);
-  color: #fff;
+  background: var(--brand-500);
+  border-color: var(--brand-600);
+  color: var(--brand-950);
 }
 
 a.chip {
@@ -1418,12 +1431,12 @@ a.chip {
 
 .supply-steps li.done {
   opacity: 1;
-  background: var(--green-50);
-  border-color: var(--green-100);
+  background: var(--brand-50);
+  border-color: var(--brand-100);
 }
 
 .supply-steps li.current {
-  border-color: var(--green-600);
+  border-color: var(--brand-600);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1516,7 +1529,7 @@ a.chip {
 }
 
 .data-table tbody tr:hover {
-  background: var(--green-50);
+  background: var(--brand-50);
 }
 
 .data-table input {
@@ -1530,7 +1543,7 @@ a.chip {
   height: 30px;
   border-radius: 9px;
   /* The tile carries its own gradient; this lifts it off the header. */
-  box-shadow: 0 1px 3px rgba(11, 43, 25, 0.18);
+  box-shadow: 0 1px 3px rgba(43, 32, 6, 0.18);
   vertical-align: middle;
 }
 

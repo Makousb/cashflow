@@ -2,18 +2,20 @@
   <title>Cashflow</title>
   <defs>
     <linearGradient id="cashflow-tile" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2fbf6b" />
-      <stop offset="1" stop-color="#16512f" />
+      <stop offset="0" stop-color="#f5be27" />
+      <stop offset="1" stop-color="#dfa20c" />
     </linearGradient>
   </defs>
 
   <rect width="64" height="64" rx="15" fill="url(#cashflow-tile)" />
 
-  <!-- A rising current with the money riding it. Thick strokes and one solid
-       shape so the mark still reads at favicon size, where thin detail dies. -->
-  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+  <!-- A rising current with the money riding it. The mark is dark rather than
+       white: white on this gold is 1.7:1, where #33200a clears 7:1 even at the
+       deep end of the gradient. Thick strokes and one solid shape so it still
+       reads at favicon size, where thin detail dies. -->
+  <g fill="none" stroke="#33200a" stroke-linecap="round" stroke-linejoin="round">
     <path d="M14 44 L25 33 L33 40 L46 25" stroke-width="6.5" />
-    <path d="M14 53 L25 42 L33 49" stroke-width="4" opacity="0.32" />
+    <path d="M14 53 L25 42 L33 49" stroke-width="4" opacity="0.3" />
   </g>
-  <circle cx="47" cy="24" r="6.5" fill="#fff" />
+  <circle cx="47" cy="24" r="6.5" fill="#33200a" />
 </svg>

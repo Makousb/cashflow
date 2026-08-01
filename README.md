@@ -1,6 +1,6 @@
 <img src="public/img/logo-wordmark.svg" alt="Cashflow" height="52" />
 
-[![CI](https://github.com/Makousb/moneytree/actions/workflows/ci.yml/badge.svg)](https://github.com/Makousb/moneytree/actions/workflows/ci.yml)
+[![CI](https://github.com/Makousb/cashflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Makousb/cashflow/actions/workflows/ci.yml)
 
 A personal budgeting and financial planning web app. Track expenses and income
 across multiple wallets, set monthly budgets per category, and grow savings
