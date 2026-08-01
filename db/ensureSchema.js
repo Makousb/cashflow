@@ -333,6 +333,27 @@ const SCHEMA_SQL = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
+  -- Buying stock stopped being an expense of the period when the income
+  -- statement moved to accrual, so the category it posts under was renamed to
+  -- say what it is. This is a label-only migration: both names have always been
+  -- pooled by utils/statements.js, so no figure moves. Budgets are only renamed
+  -- where it cannot collide with an existing row, since they are unique per
+  -- business, kind and category.
+  UPDATE business_transactions SET category = 'Inventory Purchase'
+  WHERE category = 'Cost of Goods';
+
+  UPDATE bills SET category = 'Inventory Purchase'
+  WHERE category = 'Cost of Goods';
+
+  UPDATE business_budgets b SET category = 'Inventory Purchase'
+  WHERE b.category = 'Cost of Goods'
+    AND NOT EXISTS (
+      SELECT 1 FROM business_budgets other
+      WHERE other.business_id = b.business_id
+        AND other.kind = b.kind
+        AND other.category = 'Inventory Purchase'
+    );
+
   -- Sales: what the business sells over the counter. Recording one takes the
   -- units off the shelf and books the money. cost_total captures what those
   -- units cost at the moment they were sold, so margin is measured against the

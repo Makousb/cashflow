@@ -83,7 +83,9 @@ async function buildSnapshot(business, userId) {
       .map((c) => ({ category: c.category, total: Number(c.total) })),
     // Full financial statements (to date) + monthly trend.
     statements: {
-      income: incomeStatement(pnl.revenue, pnl.byCategory),
+      income: incomeStatement(pnl.revenue, pnl.byCategory, {
+        closingInventory: Number(inventory.stock_value)
+      }),
       balance: balanceSheet({
         cash: pnl.net,
         receivable: outstanding.receivable,

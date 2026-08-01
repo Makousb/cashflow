@@ -34,9 +34,15 @@
   <div class="card stat-card">
     <span class="stat-icon">📈</span>
     <span class="stat-body">
-      <span class="stat-label">Net profit</span>
+      <%# Cash in less cash out. Profit is the accrual figure on the statements
+          page, which holds unsold stock back as an asset — so the two differ
+          on purpose and must not both be called "net profit". %>
+      <span class="stat-label">Net cash</span>
       <span class="stat-value <%= pnl.net >= 0 ? "positive" : "negative" %>"><%= money(pnl.net) %></span>
-      <small class="muted"><%= pnl.margin.toFixed(0) %>% margin</small>
+      <small class="muted">
+        cash basis ·
+        <a class="link" href="/business/<%= business.id %>/statements">profit on statements</a>
+      </small>
     </span>
   </div>
 </section>

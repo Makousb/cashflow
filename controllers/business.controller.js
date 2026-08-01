@@ -12,8 +12,11 @@ import { toBase } from "../services/fx.js";
 import { today } from "../utils/dates.js";
 
 export const INCOME_CATEGORIES = ["Sales", "Services", "Interest", "Other Income"];
+// "Inventory Purchase" replaced "Cost of Goods" when the income statement moved
+// to accrual: buying stock is not a cost until the stock sells. Entries already
+// filed under the old name still read correctly (see utils/statements.js).
 export const EXPENSE_CATEGORIES = [
-  "Cost of Goods",
+  "Inventory Purchase",
   "Rent",
   "Utilities",
   "Payroll",

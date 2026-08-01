@@ -221,14 +221,15 @@ export async function receiveOrder(req, res, next) {
       return res.redirect(`/business/${business.id}/inventory`);
     }
 
-    // Receiving stock is money spent — post it to the business ledger.
+    // Receiving stock is cash out — post it to the ledger. It becomes a cost of
+    // sales only once the stock sells (see utils/statements.js).
     if (Number(order.total) > 0) {
       await addBusinessTransaction({
         businessId: business.id,
         userId: req.session.user.id,
         kind: "expense",
         amount: Number(order.total),
-        category: "Cost of Goods",
+        category: "Inventory Purchase",
         note: `Stock received (PO #${order.id})`,
         occurredOn: today()
       });

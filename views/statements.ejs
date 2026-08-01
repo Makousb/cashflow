@@ -11,9 +11,26 @@
 <!-- Income statement -->
 <section class="card statement">
   <h2>📑 Income statement</h2>
-  <p class="muted">Revenue less costs — your profit or loss to date.</p>
+  <p class="muted">
+    Revenue less costs — your profit or loss to date. Stock counts as a cost
+    when it sells, not when you buy it.
+  </p>
   <div class="stmt-line"><span>Revenue</span><span class="positive"><%= money(income.revenue) %></span></div>
   <div class="stmt-line"><span>Cost of goods sold</span><span class="negative">(<%= money(income.cogs) %>)</span></div>
+  <div class="stmt-line stmt-indent muted">
+    <span>Stock purchased</span><span><%= money(income.stock.purchases) %></span>
+  </div>
+  <div class="stmt-line stmt-indent muted">
+    <span>Less stock still on hand</span><span>(<%= money(income.stock.relief) %>)</span>
+  </div>
+  <% if (income.stock.unpurchasedStock) { %>
+    <div class="stmt-line stmt-indent muted">
+      <span>⚠️ Some stock was entered by hand rather than purchased, so it is
+      held at <%= money(income.stock.closingInventory) %> on the balance sheet
+      with no purchase behind it.</span>
+      <span></span>
+    </div>
+  <% } %>
   <div class="stmt-line stmt-subtotal"><span>Gross profit</span><span><%= money(income.grossProfit) %></span></div>
   <div class="stmt-heading">Operating expenses</div>
   <% income.operating.forEach((e) => { %>
@@ -68,6 +85,12 @@
       <span class="<%= cash.netOperating >= 0 ? "positive" : "negative" %>"><%= money(cash.netOperating) %></span>
     </div>
     <div class="stmt-line stmt-total"><span>Cash on hand</span><span><%= money(cashOnHand) %></span></div>
+    <p class="muted" style="margin-top:0.6rem;font-size:0.85rem;">
+      This statement is cash basis, so stock you bought shows here in full
+      (<%= money(income.stock.purchases) %>) while the income statement charges
+      only the <%= money(income.cogs) %> that has actually sold. That gap is the
+      <%= money(income.stock.relief) %> of stock still on your shelves.
+    </p>
   </section>
 </div>
 

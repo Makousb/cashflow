@@ -715,7 +715,7 @@ export async function receiveOrder(req, res, next) {
         userId: order.buyer_user_id,
         vendor: existing.supplier_name,
         amount: Number(order.total),
-        category: "Cost of Goods",
+        category: "Inventory Purchase",
         issuedOn: today(),
         dueOn: addDays(today(), PAYMENT_TERMS_DAYS),
         note: `Supply order #${order.id}`

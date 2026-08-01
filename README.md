@@ -58,7 +58,13 @@ JavaScript (Chart.js).
     breakdown)
   - **Financial statements** — a structured income statement (revenue, COGS,
     gross profit, operating expenses, net profit), a balance sheet (assets,
-    liabilities, owner's equity), and a cash flow statement
+    liabilities, owner's equity), and a cash flow statement. The income
+    statement is accrual: buying stock isn't a cost, it swaps cash for an
+    asset, and that stock becomes a cost only once it sells. Cost of goods sold
+    is derived as stock purchased less stock still on hand, and the statement
+    shows both lines so the figure can be checked rather than taken on trust.
+    Cash flow stays cash basis, so a stock purchase appears there in full — the
+    page explains the gap between the two
   - **Invoices (accounts receivable)** — track money customers owe you; marking
     an invoice paid records the income
   - **Bills (accounts payable)** — track vendor bills you owe; marking a bill

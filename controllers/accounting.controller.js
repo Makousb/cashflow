@@ -238,14 +238,19 @@ export async function showStatements(req, res, next) {
     ]);
 
     const cash = pnl.net; // income received − expenses paid
+    const stockValue = Number(inventory.stock_value);
     return res.render("statements", {
       title: `${business.name} · Financial statements`,
       business,
-      income: incomeStatement(pnl.revenue, pnl.byCategory),
+      // Stock on hand is held back out of cost of sales: it is an asset on the
+      // balance sheet below, not a cost of trading yet.
+      income: incomeStatement(pnl.revenue, pnl.byCategory, {
+        closingInventory: stockValue
+      }),
       balance: balanceSheet({
         cash,
         receivable: outstanding.receivable,
-        inventory: Number(inventory.stock_value),
+        inventory: stockValue,
         payable: outstanding.payable
       }),
       cash: cashFlow(pnl.revenue, pnl.byCategory),
