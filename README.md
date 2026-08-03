@@ -81,7 +81,10 @@ JavaScript (Chart.js).
     optional AI writes the covering note and suggests a category for loose
     entries, and its suggestions are checked against the business's own category
     list before they can touch a row. Without an AI provider configured it still
-    does all of it, and writes the note itself. Switch on the monthly close and
+    does all of it, and writes the note itself. It can also close the books on
+    its own once a calendar month, and email the close to whoever you nominate —
+    which can be a bookkeeper with no login here. Configure SMTP to switch that
+    on; without it the close still runs and simply records that it told nobody. Switch on the monthly close and
     it runs itself: the first time anyone opens the business after the month
     turns, the books are closed for that month. Skipped months are not caught up
     — a review is a snapshot of the books as they stand, so three identical ones

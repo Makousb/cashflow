@@ -49,6 +49,20 @@ export const config = {
     baseUrl: process.env.AI_BASE_URL || "",
     model: process.env.AI_MODEL || ""
   },
+  // Outgoing mail. Without a host nothing is sent and nothing fails — the
+  // monthly close simply records that it notified nobody. SMTP rather than one
+  // vendor's HTTP API, because every provider speaks it.
+  mail: {
+    host: process.env.SMTP_HOST || "",
+    port: getOptionalNumber("SMTP_PORT", 587),
+    user: process.env.SMTP_USER || "",
+    password: process.env.SMTP_PASSWORD || "",
+    // Port 465 is implicit TLS; 587 upgrades with STARTTLS.
+    secure: process.env.SMTP_SECURE === "true",
+    from: process.env.MAIL_FROM || "Cashflow <no-reply@cashflow.local>"
+  },
+  // Used to link back into the app from an email.
+  appUrl: (process.env.APP_URL || "").replace(/\/$/, ""),
   database: {
     host: process.env.DB_HOST,
     port: getOptionalNumber("DB_PORT", undefined),

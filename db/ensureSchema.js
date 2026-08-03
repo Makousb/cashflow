@@ -361,6 +361,11 @@ const SCHEMA_SQL = `
     ADD COLUMN IF NOT EXISTS auto_review BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE businesses ADD COLUMN IF NOT EXISTS last_auto_review DATE;
 
+  -- Where to send the monthly close. Null means nowhere, so notification is
+  -- opt-in by construction. It is an address rather than a flag so the close
+  -- can go to a bookkeeper who does not have a login here.
+  ALTER TABLE businesses ADD COLUMN IF NOT EXISTS review_email TEXT;
+
   -- A record of every close the accounting agent has run. The findings are kept
   -- as they were written so a past review can be read back exactly, rather than
   -- recomputed against books that have since moved on.
@@ -378,8 +383,16 @@ const SCHEMA_SQL = `
     -- assembled here. The figures are the same either way.
     mode TEXT NOT NULL DEFAULT 'offline' CHECK (mode IN ('ai', 'offline')),
     findings JSONB NOT NULL DEFAULT '[]'::jsonb,
+    -- Who was told about this review, and when. Null means nobody was.
+    notified_to TEXT,
+    notified_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  -- Added after accounting_reviews shipped. The columns above only reach a
+  -- database that is being created from scratch, so existing books need these.
+  ALTER TABLE accounting_reviews ADD COLUMN IF NOT EXISTS notified_to TEXT;
+  ALTER TABLE accounting_reviews ADD COLUMN IF NOT EXISTS notified_at TIMESTAMPTZ;
 
   CREATE INDEX IF NOT EXISTS idx_accounting_reviews_business
     ON accounting_reviews (business_id, created_at DESC);

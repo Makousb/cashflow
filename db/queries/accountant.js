@@ -4,6 +4,28 @@ import { pool } from "../index.js";
 // utils/accounting.js from rows fetched through the existing query modules;
 // this only keeps the runs and applies the changes a review proposes.
 
+// Where the monthly close is sent. Null switches notification off.
+export async function setReviewEmail(businessId, userId, email) {
+  const { rows } = await pool.query(
+    `UPDATE businesses SET review_email = $3
+     WHERE id = $1 AND user_id = $2
+     RETURNING *`,
+    [businessId, userId, email || null]
+  );
+  return rows[0] || null;
+}
+
+export async function recordNotification(reviewId, to) {
+  const { rows } = await pool.query(
+    `UPDATE accounting_reviews
+     SET notified_to = $2, notified_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [reviewId, to]
+  );
+  return rows[0] || null;
+}
+
 export async function setAutoReview(businessId, userId, on) {
   const { rows } = await pool.query(
     `UPDATE businesses SET auto_review = $3
@@ -83,7 +105,7 @@ export async function saveReview({
 export async function listReviews(businessId, userId, limit = 10) {
   const { rows } = await pool.query(
     `SELECT id, findings_total, findings_high, taxable_profit, tax_owed,
-            tax_shortfall, mode, created_at
+            tax_shortfall, mode, notified_to, notified_at, created_at
      FROM accounting_reviews
      WHERE business_id = $1 AND user_id = $2
      ORDER BY created_at DESC

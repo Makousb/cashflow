@@ -58,10 +58,31 @@
         </button>
       </form>
     </div>
-    <% if (business.auto_review && live) { %>
+    <% if (business.auto_review) { %>
+      <div class="notify-row">
+        <form action="/business/<%= business.id %>/accountant/notify" method="POST" class="inline-form">
+          <label class="inline-label">
+            Email the close to
+            <input type="email" name="reviewEmail" placeholder="you@example.com"
+                   value="<%= business.review_email || "" %>" maxlength="200" />
+          </label>
+          <button type="submit" class="btn btn-ghost btn-sm">Save</button>
+        </form>
+        <% if (business.review_email && !mailReady) { %>
+          <span class="badge badge-warn">SMTP not configured — nothing will send</span>
+        <% } %>
+      </div>
       <p class="muted" style="font-size:0.85rem;margin:0.6rem 0 0;">
-        An automatic close calls your configured AI provider for the covering
-        note, once a month per business.
+        <% if (business.review_email) { %>
+          Each monthly close is emailed to <strong><%= business.review_email %></strong>.
+          Leave it blank to stop. It can be a bookkeeper who has no login here.
+        <% } else { %>
+          Nobody is emailed. Add an address to have each close sent on.
+        <% } %>
+        <% if (live) { %>
+          An automatic close also calls your configured AI provider for the
+          covering note, once a month per business.
+        <% } %>
       </p>
     <% } %>
   </section>
@@ -176,10 +197,31 @@
         </button>
       </form>
     </div>
-    <% if (business.auto_review && live) { %>
+    <% if (business.auto_review) { %>
+      <div class="notify-row">
+        <form action="/business/<%= business.id %>/accountant/notify" method="POST" class="inline-form">
+          <label class="inline-label">
+            Email the close to
+            <input type="email" name="reviewEmail" placeholder="you@example.com"
+                   value="<%= business.review_email || "" %>" maxlength="200" />
+          </label>
+          <button type="submit" class="btn btn-ghost btn-sm">Save</button>
+        </form>
+        <% if (business.review_email && !mailReady) { %>
+          <span class="badge badge-warn">SMTP not configured — nothing will send</span>
+        <% } %>
+      </div>
       <p class="muted" style="font-size:0.85rem;margin:0.6rem 0 0;">
-        An automatic close calls your configured AI provider for the covering
-        note, once a month per business.
+        <% if (business.review_email) { %>
+          Each monthly close is emailed to <strong><%= business.review_email %></strong>.
+          Leave it blank to stop. It can be a bookkeeper who has no login here.
+        <% } else { %>
+          Nobody is emailed. Add an address to have each close sent on.
+        <% } %>
+        <% if (live) { %>
+          An automatic close also calls your configured AI provider for the
+          covering note, once a month per business.
+        <% } %>
       </p>
     <% } %>
   </section>
@@ -225,6 +267,7 @@
                 <small class="muted">
                   <%= stamp(r.created_at) %> · tax <%= money(r.tax_owed) %>
                   <%= Number(r.tax_shortfall) > 0 ? " · " + money(r.tax_shortfall) + " short" : " · covered" %>
+                  <%= r.notified_to ? " · emailed " + r.notified_to : "" %>
                 </small>
               </span>
               <span class="badge <%= r.mode === "ai" ? "badge-done" : "badge-warn" %>"><%= r.mode %></span>

@@ -8,9 +8,11 @@ import {
   listReviews,
   looseEntries,
   recategoriseTransaction,
+  recordNotification,
   releaseMonthlyReview,
   saveReview,
-  setAutoReview
+  setAutoReview,
+  setReviewEmail
 } from "../../db/queries/accountant.js";
 import { addBusinessTransaction } from "../../db/queries/business.js";
 import { reviewLedger, taxPosition } from "../../utils/accounting.js";
@@ -236,6 +238,68 @@ describe("the monthly close", { skip: skipWithoutDb }, () => {
     assert.equal(await setAutoReview(shop.id, other.id, false), null);
     assert.equal((await reload()).auto_review, true, "unchanged");
     await dropUser(other.id);
+  });
+});
+
+describe("who gets told", { skip: skipWithoutDb }, () => {
+  let user;
+  let shop;
+
+  before(async () => {
+    user = await makeUser("notify");
+    shop = await makeBusiness(user.id, "Notified Books");
+  });
+
+  after(async () => { await dropUser(user?.id); });
+
+  const reload = async () =>
+    one("SELECT review_email FROM businesses WHERE id = $1", [shop.id]);
+
+  test("nobody, until an address is set", async () => {
+    assert.equal((await reload()).review_email, null);
+  });
+
+  test("an address can be set", async () => {
+    await setReviewEmail(shop.id, user.id, "books@example.com");
+    assert.equal((await reload()).review_email, "books@example.com");
+  });
+
+  test("clearing it stops the notification", async () => {
+    await setReviewEmail(shop.id, user.id, "");
+    assert.equal((await reload()).review_email, null, "empty means nobody, not an empty string");
+  });
+
+  test("another user cannot redirect it", async () => {
+    await setReviewEmail(shop.id, user.id, "books@example.com");
+    const other = await makeUser("notify-other");
+    assert.equal(await setReviewEmail(shop.id, other.id, "attacker@example.com"), null);
+    assert.equal((await reload()).review_email, "books@example.com", "unchanged");
+    await dropUser(other.id);
+  });
+
+  test("a review records who it was sent to", async () => {
+    const tax = taxPosition({ accrualProfit: 1000, rate: 10 });
+    const saved = await saveReview({
+      businessId: shop.id, userId: user.id, counts: { total: 0, high: 0 },
+      tax, narrative: "clean", mode: "offline", findings: []
+    });
+    assert.equal(saved.notified_to, null, "nothing sent yet");
+
+    const after = await recordNotification(saved.id, "books@example.com");
+    assert.equal(after.notified_to, "books@example.com");
+    assert.ok(after.notified_at);
+  });
+
+  test("an unsent review stays marked unsent", async () => {
+    const tax = taxPosition({ accrualProfit: 1000, rate: 10 });
+    const saved = await saveReview({
+      businessId: shop.id, userId: user.id, counts: { total: 0, high: 0 },
+      tax, narrative: "clean", mode: "offline", findings: []
+    });
+    const history = await listReviews(shop.id, user.id);
+    const mine = history.find((r) => r.id === saved.id);
+    assert.equal(mine.notified_to, null);
+    assert.equal(mine.notified_at, null);
   });
 });
 

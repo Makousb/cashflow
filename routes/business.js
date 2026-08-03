@@ -75,6 +75,7 @@ import {
   applyProvision,
   runReview,
   showAccountant,
+  saveReviewEmail,
   showLooseEntries,
   toggleAutoReview
 } from "../controllers/accountant.controller.js";
@@ -161,6 +162,7 @@ router.post("/:id/supply/orders/:orderId/messages", postMessage);
 router.get("/:id/accountant", showAccountant);
 router.post("/:id/accountant/run", runReview);
 router.post("/:id/accountant/schedule", toggleAutoReview);
+router.post("/:id/accountant/notify", saveReviewEmail);
 router.get("/:id/accountant/entries", showLooseEntries);
 router.post("/:id/accountant/provision", applyProvision);
 router.post("/:id/accountant/entries/:txId", applyCategory);

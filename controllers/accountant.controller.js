@@ -5,9 +5,11 @@ import {
   listReviews,
   looseEntries,
   recategoriseTransaction,
+  recordNotification,
   releaseMonthlyReview,
   saveReview,
-  setAutoReview
+  setAutoReview,
+  setReviewEmail
 } from "../db/queries/accountant.js";
 import { listBills, listInvoices, outstandingTotals } from "../db/queries/accounting.js";
 import { businessPnL, getBusiness, listBusinessTransactions, monthlyTrend } from "../db/queries/business.js";
@@ -15,6 +17,9 @@ import { inventorySummary, listProducts } from "../db/queries/inventory.js";
 import { listSales } from "../db/queries/sales.js";
 import { addProvision, listProvisions, payrollDeductionsTotal } from "../db/queries/tax.js";
 import { aiEnabled, narrate, proposeCategories } from "../services/accountant.js";
+import { mailEnabled, sendMail } from "../services/mailer.js";
+import { reviewEmail } from "../utils/review-email.js";
+import { config } from "../config/env.js";
 import { reviewLedger, taxPosition } from "../utils/accounting.js";
 import { incomeStatement } from "../utils/statements.js";
 import { formatCurrency } from "../utils/currency.js";
@@ -100,7 +105,7 @@ export async function performReview(business, user) {
 
   const { text: narrative, mode } = await narrate({ business, tax, review, fmt });
 
-  await saveReview({
+  const saved = await saveReview({
     businessId: business.id,
     userId: user.id,
     counts: review.counts,
@@ -110,7 +115,26 @@ export async function performReview(business, user) {
     findings: review.findings
   });
 
-  return { tax, review, proposals, categoryMode };
+  return { tax, review, proposals, categoryMode, narrative, saved, fmt };
+}
+
+// Post the close to whoever the business nominated. Failure is recorded as
+// "nobody was told" and nothing more — a mail server having a bad afternoon
+// must not cost the business its review.
+export async function notifyReview({ business, user, tax, review, narrative, saved, fmt }) {
+  const to = (business.review_email || "").trim();
+  if (!to || !mailEnabled()) return { sent: false };
+
+  const base = config.appUrl || `http://localhost:${config.port}`;
+  const { subject, text, html } = reviewEmail({
+    business, tax, review, narrative, fmt,
+    url: `${base}/business/${business.id}/accountant`,
+    when: new Date()
+  });
+
+  const result = await sendMail({ to, subject, text, html });
+  if (result.sent) await recordNotification(saved.id, to);
+  return result;
 }
 
 // Run this month's close if the business is opted in and it has not happened
@@ -123,7 +147,9 @@ export async function runMonthlyReviewIfDue(business, user) {
   if (!(await claimMonthlyReview(business.id))) return null;
 
   try {
-    return await performReview(business, user);
+    const outcome = await performReview(business, user);
+    await notifyReview({ business, user, ...outcome });
+    return outcome;
   } catch (error) {
     await releaseMonthlyReview(business.id, previous);
     console.warn(`Accountant: monthly review for business ${business.id} failed (${error.message})`);
@@ -180,6 +206,7 @@ export async function showAccountant(req, res, next) {
       history,
       looseCount: loose.length,
       live: aiEnabled(),
+      mailReady: mailEnabled(),
       proposals: req.session.proposals?.[business.id] || {}
     });
   } catch (error) {
@@ -321,6 +348,34 @@ export async function toggleAutoReview(req, res, next) {
         : "Monthly reviews turned off — run one whenever you want instead."
     );
     return res.redirect(`/business/${business.id}/accountant`);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function saveReviewEmail(req, res, next) {
+  const business = await requireBusiness(req, res);
+  if (!business) return undefined;
+
+  const address = (req.body.reviewEmail || "").trim();
+  const back = `/business/${business.id}/accountant`;
+
+  // Deliberately forgiving: the point is to catch a typo, not to police what a
+  // mail server will accept.
+  if (address && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+    req.flash("error", "That does not look like an email address.");
+    return res.redirect(back);
+  }
+
+  try {
+    await setReviewEmail(business.id, req.session.user.id, address);
+    req.flash(
+      "success",
+      address
+        ? `The monthly close will be emailed to ${address}.`
+        : "Monthly closes will not be emailed."
+    );
+    return res.redirect(back);
   } catch (error) {
     return next(error);
   }
