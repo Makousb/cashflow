@@ -354,6 +354,29 @@ const SCHEMA_SQL = `
         AND other.category = 'Inventory Purchase'
     );
 
+  -- A record of every close the accounting agent has run. The findings are kept
+  -- as they were written so a past review can be read back exactly, rather than
+  -- recomputed against books that have since moved on.
+  CREATE TABLE IF NOT EXISTS accounting_reviews (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    findings_total INTEGER NOT NULL DEFAULT 0,
+    findings_high INTEGER NOT NULL DEFAULT 0,
+    taxable_profit NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    tax_owed NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    tax_shortfall NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    narrative TEXT,
+    -- Whether the covering note was written by the configured AI provider or
+    -- assembled here. The figures are the same either way.
+    mode TEXT NOT NULL DEFAULT 'offline' CHECK (mode IN ('ai', 'offline')),
+    findings JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_accounting_reviews_business
+    ON accounting_reviews (business_id, created_at DESC);
+
   -- Sales: what the business sells over the counter. Recording one takes the
   -- units off the shelf and books the money. cost_total captures what those
   -- units cost at the moment they were sold, so margin is measured against the

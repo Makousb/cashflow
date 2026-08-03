@@ -6,7 +6,10 @@ import {
   payrollDeductionsTotal,
   updateTaxRate
 } from "../db/queries/tax.js";
+import { inventorySummary } from "../db/queries/inventory.js";
 import { toBase } from "../services/fx.js";
+import { taxPosition } from "../utils/accounting.js";
+import { incomeStatement } from "../utils/statements.js";
 import { today } from "../utils/dates.js";
 
 async function requireBusiness(req, res) {
@@ -25,19 +28,29 @@ export async function showTax(req, res, next) {
     if (!business) return undefined;
 
     const userId = req.session.user.id;
-    const [pnl, payrollDeductions, provisions] = await Promise.all([
+    const [pnl, stock, payrollDeductions, provisions] = await Promise.all([
       businessPnL(business.id, userId),
+      inventorySummary(business.id, userId),
       payrollDeductionsTotal(business.id, userId),
       listProvisions(business.id, userId)
     ]);
 
-    const rate = Number(business.income_tax_rate);
-    const taxableProfit = Math.max(pnl.net, 0);
-    const incomeTax = taxableProfit * (rate / 100);
-    const totalOwed = incomeTax + payrollDeductions;
-    const setAside = provisions.reduce((sum, p) => sum + Number(p.amount), 0);
+    // Taxable profit is the accrual figure from the income statement, not the
+    // cash net. Taxing the cash net would tax the business on money it spent
+    // filling its own shelves, and would disagree with both the statements page
+    // and the accountant's review.
+    const statements = incomeStatement(pnl.revenue, pnl.byCategory, {
+      closingInventory: Number(stock.stock_value)
+    });
+    const position = taxPosition({
+      accrualProfit: statements.netProfit,
+      rate: Number(business.income_tax_rate),
+      payrollDeductions,
+      setAside: provisions.reduce((sum, p) => sum + Number(p.amount), 0)
+    });
+
+    const { rate, taxableProfit, incomeTax, totalOwed, setAside, coverage } = position;
     const remaining = totalOwed - setAside;
-    const coverage = totalOwed > 0 ? Math.min((setAside / totalOwed) * 100, 100) : 100;
 
     return res.render("tax", {
       title: `${business.name} · Tax`,

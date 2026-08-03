@@ -1560,3 +1560,45 @@ a.chip {
   gap: 0.4rem;
   margin: 0;
 }
+
+/* --- Accountant's review --- */
+.advisor-note {
+  font-size: 1.02rem;
+  line-height: 1.65;
+  padding: 1rem 1.15rem;
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.85rem;
+  white-space: pre-wrap;
+}
+
+.finding-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.finding {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand-500);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+.finding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
+}
+
+.finding p {
+  font-size: 0.92rem;
+  margin-bottom: 0.5rem;
+}

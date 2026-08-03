@@ -70,6 +70,13 @@ import {
   showSupplyReports,
   streamUpdates
 } from "../controllers/supply.controller.js";
+import {
+  applyCategory,
+  applyProvision,
+  runReview,
+  showAccountant,
+  showLooseEntries
+} from "../controllers/accountant.controller.js";
 import { askAdvisor, showAdvisor } from "../controllers/advisor.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
@@ -148,6 +155,13 @@ router.post("/:id/supply/orders/:orderId/deliver", markDelivered);
 router.post("/:id/supply/orders/:orderId/receive", receiveSupplyOrder);
 router.post("/:id/supply/orders/:orderId/close", closeOrder);
 router.post("/:id/supply/orders/:orderId/messages", postMessage);
+
+// Accounting agent: reviews the books, computes the tax position, proposes fixes
+router.get("/:id/accountant", showAccountant);
+router.post("/:id/accountant/run", runReview);
+router.get("/:id/accountant/entries", showLooseEntries);
+router.post("/:id/accountant/provision", applyProvision);
+router.post("/:id/accountant/entries/:txId", applyCategory);
 
 // Business advisor
 router.get("/:id/advisor", showAdvisor);

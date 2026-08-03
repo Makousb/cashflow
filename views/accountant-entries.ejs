@@ -1,0 +1,70 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1>Entries to file</h1>
+  <p class="muted">
+    Entries sitting in a catch-all category ·
+    <a href="/business/<%= business.id %>/accountant" class="link">← accountant</a>
+  </p>
+</section>
+
+<% if (entries.length === 0) { %>
+  <section class="card">
+    <p class="empty-state">Nothing loose — every entry has a real category.</p>
+  </section>
+<% } else { %>
+  <section class="card">
+    <h2><%= entries.length %> entr<%= entries.length === 1 ? "y" : "ies" %> to file</h2>
+    <p class="muted" style="margin-top:-0.4rem;">
+      Where the accountant had a firm view it has pre-selected a category. Nothing
+      is filed until you say so, and you can override every one.
+    </p>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th class="num">Amount</th>
+            <th>File under</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% entries.forEach((e) => { %>
+            <% const proposed = proposals[e.id]; %>
+            <tr>
+              <td><%= formatDate(e.occurred_on) %></td>
+              <td>
+                <%= e.note || "(no description)" %>
+                <small class="muted"> · <%= e.kind %></small>
+              </td>
+              <td class="num <%= e.kind === "income" ? "positive" : "negative" %>">
+                <%= money(e.amount) %>
+              </td>
+              <td>
+                <form action="/business/<%= business.id %>/accountant/entries/<%= e.id %>"
+                      method="POST" class="inline-form" id="file-<%= e.id %>">
+                  <select name="category" required>
+                    <option value="">Choose…</option>
+                    <% categories.forEach((c) => { %>
+                      <option value="<%= c %>" <%= proposed === c ? "selected" : "" %>><%= c %></option>
+                    <% }) %>
+                  </select>
+                </form>
+                <% if (proposed) { %>
+                  <small class="muted">proposed: <%= proposed %></small>
+                <% } %>
+              </td>
+              <td class="num">
+                <button type="submit" form="file-<%= e.id %>" class="btn btn-ghost btn-sm">File</button>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>
+
+<%- include("partials/footer") %>

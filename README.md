@@ -71,6 +71,17 @@ JavaScript (Chart.js).
     an invoice paid records the income
   - **Bills (accounts payable)** — track vendor bills you owe; marking a bill
     paid records the expense
+  - **Accountant** — an agent that closes the books. It reads every entry,
+    invoice, bill, product and sale, works the tax position out from the accrual
+    profit, and reports what it would fix: entries with no real category,
+    duplicate postings clustered rather than listed pair by pair, overdue money
+    in both directions, stock priced at or below cost, sales made at a loss,
+    months with no bookkeeping at all, and categories spending well above their
+    own average. It proposes; you apply. Every figure is computed in code — the
+    optional AI writes the covering note and suggests a category for loose
+    entries, and its suggestions are checked against the business's own category
+    list before they can touch a row. Without an AI provider configured it still
+    does all of it, and writes the note itself
   - **Advisor** — a chat assistant that answers questions about the business
     (profit, cash, costs to cut, tax, receivables, inventory, payroll) grounded
     in its actual figures. Works out of the box with built-in insights; point

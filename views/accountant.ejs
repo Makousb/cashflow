@@ -1,0 +1,176 @@
+<%- include("partials/header") %>
+<%
+  const stamp = (v) => new Date(v).toLocaleString("en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+  });
+  const findings = latest && latest.findings ? latest.findings : [];
+  const badgeFor = (s) => s === "high" ? "badge-danger" : s === "medium" ? "badge-warn" : "badge-done";
+%>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1><%= business.name %> · Accountant</h1>
+      <p class="muted">
+        Reviews the books, works out what tax is owed, and proposes the fixes ·
+        <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+      </p>
+    </div>
+    <span class="badge <%= live ? "badge-done" : "badge-warn" %>">
+      <%= live ? "AI notes on" : "built-in notes" %>
+    </span>
+  </div>
+</section>
+
+<% if (!latest) { %>
+  <section class="card">
+    <h2>Nothing reviewed yet</h2>
+    <p class="muted">
+      The accountant reads every entry, invoice, bill, product and sale on these
+      books, works out the tax position from the accrual profit, and reports what
+      it would fix. It changes nothing on its own — you apply what you agree with.
+    </p>
+    <form action="/business/<%= business.id %>/accountant/run" method="POST" style="margin-top:1rem;">
+      <button type="submit" class="btn btn-primary">Run the first review</button>
+    </form>
+  </section>
+<% } else { %>
+
+  <section class="stat-grid">
+    <div class="card stat-card">
+      <span class="stat-icon <%= latest.findings_high > 0 ? "tint-red" : "" %>">🧮</span>
+      <span class="stat-body">
+        <span class="stat-label">Findings</span>
+        <span class="stat-value <%= latest.findings_high > 0 ? "negative" : "" %>"><%= latest.findings_total %></span>
+        <small class="muted"><%= latest.findings_high %> need attention first</small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon">📊</span>
+      <span class="stat-body">
+        <span class="stat-label">Taxable profit</span>
+        <span class="stat-value"><%= money(position.taxableProfit) %></span>
+        <small class="muted">accrual, per the income statement</small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon">🧾</span>
+      <span class="stat-body">
+        <span class="stat-label">Tax owed</span>
+        <span class="stat-value"><%= money(position.totalOwed) %></span>
+        <small class="muted"><%= position.rate %>% income tax plus payroll deductions</small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon <%= position.shortfall > 0 ? "tint-red" : "" %>">🏦</span>
+      <span class="stat-body">
+        <span class="stat-label">Not yet set aside</span>
+        <span class="stat-value <%= position.shortfall > 0 ? "negative" : "positive" %>">
+          <%= money(position.shortfall) %>
+        </span>
+        <small class="muted"><%= position.shortfall > 0 ? "still to find" : "fully covered" %></small>
+      </span>
+    </div>
+  </section>
+
+  <% if (stale) { %>
+    <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
+      <span class="alert-icon">🔄</span>
+      <div class="alert-body" style="flex:1;">
+        <strong>The books have changed since this review</strong>
+        <div class="alert-detail">
+          The figures above are current. The note and findings below are as the
+          accountant wrote them <%= stamp(latest.created_at) %> — run it again to
+          bring them up to date.
+        </div>
+        <form action="/business/<%= business.id %>/accountant/run" method="POST" style="margin-top:0.6rem;">
+          <button type="submit" class="btn btn-primary btn-sm">Review again</button>
+        </form>
+      </div>
+    </section>
+  <% } %>
+
+  <section class="card" style="margin-bottom:1.5rem;">
+    <div class="budget-row" style="margin-top:0;">
+      <h2 style="margin:0;">The accountant's note</h2>
+      <span class="muted" style="font-size:0.85rem;">
+        reviewed <%= stamp(latest.created_at) %> ·
+        <%= latest.mode === "ai" ? "written by the configured AI" : "written from the findings" %>
+      </span>
+    </div>
+    <p class="advisor-note"><%= latest.narrative %></p>
+    <p class="muted" style="font-size:0.85rem;margin-bottom:0;">
+      Every figure above is computed from your own rows, not written by a model.
+      These are working estimates for planning — they are not a filing or a
+      substitute for an accountant signing your return.
+    </p>
+    <div class="action-row" style="margin-top:1rem;">
+      <form action="/business/<%= business.id %>/accountant/run" method="POST" class="inline-form">
+        <button type="submit" class="btn btn-primary">Review again</button>
+      </form>
+      <% if (position.shortfall > 0) { %>
+        <form action="/business/<%= business.id %>/accountant/provision" method="POST" class="inline-form">
+          <button type="submit" class="btn btn-ghost">Set aside <%= money(position.shortfall) %></button>
+        </form>
+      <% } %>
+      <% if (looseCount > 0) { %>
+        <a class="btn btn-ghost" href="/business/<%= business.id %>/accountant/entries">
+          File <%= looseCount %> loose entr<%= looseCount === 1 ? "y" : "ies" %>
+        </a>
+      <% } %>
+    </div>
+  </section>
+
+  <div class="two-col">
+    <section class="card">
+      <h2>What it found</h2>
+      <% if (findings.length === 0) { %>
+        <p class="empty-state">Nothing to correct — the books are clean.</p>
+      <% } else { %>
+        <ul class="finding-list">
+          <% findings.forEach((f) => { %>
+            <li class="finding">
+              <div class="finding-head">
+                <strong><%= f.title %></strong>
+                <span class="badge <%= badgeFor(f.severity) %>"><%= f.severity %></span>
+              </div>
+              <p class="muted"><%= f.detail %></p>
+              <% if (f.action === "set-aside" && position.shortfall > 0) { %>
+                <form action="/business/<%= business.id %>/accountant/provision" method="POST" class="inline-form">
+                  <button type="submit" class="btn btn-ghost btn-sm">Set it aside</button>
+                </form>
+              <% } else if (f.action === "categorise" && looseCount > 0) { %>
+                <a class="btn btn-ghost btn-sm" href="/business/<%= business.id %>/accountant/entries">File them</a>
+              <% } %>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+
+    <section class="card">
+      <h2>Past reviews</h2>
+      <% if (history.length <= 1) { %>
+        <p class="empty-state">This is the first one. Run it again after you post more entries.</p>
+      <% } else { %>
+        <ul class="tx-list">
+          <% history.forEach((r) => { %>
+            <li class="tx-row">
+              <span class="tx-icon"><%= r.findings_high > 0 ? "⚠️" : "✅" %></span>
+              <span class="tx-meta">
+                <strong><%= r.findings_total %> finding(s)</strong>
+                <small class="muted">
+                  <%= stamp(r.created_at) %> · tax <%= money(r.tax_owed) %>
+                  <%= Number(r.tax_shortfall) > 0 ? " · " + money(r.tax_shortfall) + " short" : " · covered" %>
+                </small>
+              </span>
+              <span class="badge <%= r.mode === "ai" ? "badge-done" : "badge-warn" %>"><%= r.mode %></span>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+  </div>
+<% } %>
+
+<%- include("partials/footer") %>

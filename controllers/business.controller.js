@@ -47,6 +47,8 @@ export const MODULES = [
     desc: "Pay employees and track deductions." },
   { name: "Tax preparation", icon: "🧾", status: "active", href: "tax",
     desc: "Estimate tax owed and set it aside." },
+  { name: "Accountant", icon: "🧮", status: "active", href: "accountant",
+    desc: "An agent that reviews the books, computes the tax position, and proposes fixes." },
   { name: "Sales", icon: "💳", status: "active", href: "sales",
     desc: "Sell from stock — units come off the shelf and the money is booked." },
   { name: "Inventory", icon: "📦", status: "active", href: "inventory",
