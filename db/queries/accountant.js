@@ -4,6 +4,61 @@ import { pool } from "../index.js";
 // utils/accounting.js from rows fetched through the existing query modules;
 // this only keeps the runs and applies the changes a review proposes.
 
+export async function setAutoReview(businessId, userId, on) {
+  const { rows } = await pool.query(
+    `UPDATE businesses SET auto_review = $3
+     WHERE id = $1 AND user_id = $2
+     RETURNING *`,
+    [businessId, userId, on]
+  );
+  return rows[0] || null;
+}
+
+// Claim this month's automatic review, atomically. The UPDATE only matches if
+// the month has not been claimed yet, so whichever request gets there first
+// runs the review and every other one is told no. Without this, two page loads
+// arriving together would each see "no review yet" and run their own.
+//
+// Deliberately does NOT catch up on skipped months, unlike recurring
+// transactions: each of those is a distinct financial event that really did
+// happen, whereas a review is a snapshot of the books as they stand now. Three
+// identical reviews for three quiet months would be noise.
+export async function claimMonthlyReview(businessId) {
+  const { rowCount } = await pool.query(
+    `UPDATE businesses
+     SET last_auto_review = date_trunc('month', CURRENT_DATE)::date
+     WHERE id = $1
+       AND auto_review = TRUE
+       AND (last_auto_review IS NULL
+            OR last_auto_review < date_trunc('month', CURRENT_DATE)::date)`,
+    [businessId]
+  );
+  return rowCount === 1;
+}
+
+// Businesses of this user that are opted in and have not been closed this
+// month. Used by the entry points that run the review in the background.
+export async function businessesDueForReview(userId) {
+  const { rows } = await pool.query(
+    `SELECT * FROM businesses
+     WHERE user_id = $1
+       AND auto_review = TRUE
+       AND (last_auto_review IS NULL
+            OR last_auto_review < date_trunc('month', CURRENT_DATE)::date)`,
+    [userId]
+  );
+  return rows;
+}
+
+// Undo a claim so a failed run is retried rather than silently skipped for the
+// rest of the month.
+export async function releaseMonthlyReview(businessId, previous) {
+  await pool.query(
+    "UPDATE businesses SET last_auto_review = $2 WHERE id = $1",
+    [businessId, previous]
+  );
+}
+
 export async function saveReview({
   businessId,
   userId,

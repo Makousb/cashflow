@@ -127,6 +127,13 @@ app.use("/settings", settingsRoutes);
 app.use(notFound);
 app.use(handleError);
 
-app.listen(config.port, () => {
-  console.info(`Cashflow running on http://localhost:${config.port}`);
-});
+// Exported so tests can start it on an ephemeral port. Importing this file
+// must not open a socket, hence the guard: `node app.js` runs it, `import` does
+// not.
+export default app;
+
+if (process.env.CASHFLOW_NO_LISTEN !== "1") {
+  app.listen(config.port, () => {
+    console.info(`Cashflow running on http://localhost:${config.port}`);
+  });
+}

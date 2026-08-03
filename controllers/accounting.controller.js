@@ -20,7 +20,7 @@ import { inventorySummary } from "../db/queries/inventory.js";
 import { toBase } from "../services/fx.js";
 import { today } from "../utils/dates.js";
 import { balanceSheet, cashFlow, incomeStatement } from "../utils/statements.js";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./business.controller.js";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/categories.js";
 
 async function requireBusiness(req, res) {
   const business = await getBusiness(Number(req.params.id), req.session.user.id);

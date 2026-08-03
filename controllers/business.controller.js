@@ -8,25 +8,11 @@ import {
   listBusinesses,
   listBusinessTransactions
 } from "../db/queries/business.js";
+import { catchUpMonthlyReviews } from "./accountant.controller.js";
 import { toBase } from "../services/fx.js";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/categories.js";
 import { today } from "../utils/dates.js";
 
-export const INCOME_CATEGORIES = ["Sales", "Services", "Interest", "Other Income"];
-// "Inventory Purchase" replaced "Cost of Goods" when the income statement moved
-// to accrual: buying stock is not a cost until the stock sells. Entries already
-// filed under the old name still read correctly (see utils/statements.js).
-export const EXPENSE_CATEGORIES = [
-  "Inventory Purchase",
-  "Rent",
-  "Utilities",
-  "Payroll",
-  "Supplies",
-  "Marketing",
-  "Transport",
-  "Fees",
-  "Taxes",
-  "Other"
-];
 
 // The business suite's modules. Bookkeeping is live; the rest are on the
 // roadmap and shown as such so the section reflects the full plan.
@@ -100,6 +86,11 @@ export async function showBusinessDashboard(req, res, next) {
       req.flash("error", "Business not found.");
       return res.redirect("/business");
     }
+
+    // Close the books for the month if that is switched on and has not happened
+    // yet. Deliberately not awaited — the same way the personal dashboard lets
+    // recurring transactions catch up without holding the page.
+    catchUpMonthlyReviews(req.session.user);
 
     const [pnl, entries] = await Promise.all([
       businessPnL(business.id, userId),

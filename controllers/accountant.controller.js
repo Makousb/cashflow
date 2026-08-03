@@ -1,9 +1,13 @@
 import {
+  businessesDueForReview,
+  claimMonthlyReview,
   getReview,
   listReviews,
   looseEntries,
   recategoriseTransaction,
-  saveReview
+  releaseMonthlyReview,
+  saveReview,
+  setAutoReview
 } from "../db/queries/accountant.js";
 import { listBills, listInvoices, outstandingTotals } from "../db/queries/accounting.js";
 import { businessPnL, getBusiness, listBusinessTransactions, monthlyTrend } from "../db/queries/business.js";
@@ -17,7 +21,7 @@ import { formatCurrency } from "../utils/currency.js";
 import { convert } from "../services/fx.js";
 import { DEFAULT_CURRENCY } from "../utils/currencies.js";
 import { today } from "../utils/dates.js";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./business.controller.js";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/categories.js";
 
 // "Other" is a real option in the picker, but it is also exactly what the
 // review asks the owner to resolve — so it is never proposed as an answer.
@@ -82,12 +86,74 @@ async function gather(business, user) {
   return { pnl, statements, tax, review, outstanding, transactions, fmt };
 }
 
+// One implementation behind both the button and the monthly run, so an
+// automatic close is exactly the review the owner would have got by clicking.
+export async function performReview(business, user) {
+  const { tax, review, fmt } = await gather(business, user);
+
+  const loose = await looseEntries(business.id, user.id);
+  const { proposals, mode: categoryMode } = await proposeCategories({
+    entries: loose,
+    allowed: PROPOSABLE,
+    business
+  });
+
+  const { text: narrative, mode } = await narrate({ business, tax, review, fmt });
+
+  await saveReview({
+    businessId: business.id,
+    userId: user.id,
+    counts: review.counts,
+    tax,
+    narrative,
+    mode,
+    findings: review.findings
+  });
+
+  return { tax, review, proposals, categoryMode };
+}
+
+// Run this month's close if the business is opted in and it has not happened
+// yet. The claim is taken first and handed back if the run fails, so a provider
+// outage does not cost the business its monthly review.
+export async function runMonthlyReviewIfDue(business, user) {
+  if (!business.auto_review) return null;
+
+  const previous = business.last_auto_review;
+  if (!(await claimMonthlyReview(business.id))) return null;
+
+  try {
+    return await performReview(business, user);
+  } catch (error) {
+    await releaseMonthlyReview(business.id, previous);
+    console.warn(`Accountant: monthly review for business ${business.id} failed (${error.message})`);
+    return null;
+  }
+}
+
+// Called from pages elsewhere in the business area. Never awaited by the
+// request: a close can take a while when a provider is configured, and no page
+// should wait on it. Failures are logged, not surfaced.
+export function catchUpMonthlyReviews(user) {
+  businessesDueForReview(user.id)
+    .then(async (businesses) => {
+      for (const business of businesses) {
+        await runMonthlyReviewIfDue(business, user);
+      }
+    })
+    .catch((error) => {
+      console.warn(`Accountant: monthly catch-up failed (${error.message})`);
+    });
+}
+
 export async function showAccountant(req, res, next) {
   try {
     const business = await requireBusiness(req, res);
     if (!business) return undefined;
 
     const userId = req.session.user.id;
+    await runMonthlyReviewIfDue(business, req.session.user);
+
     const [history, loose] = await Promise.all([
       listReviews(business.id, userId),
       looseEntries(business.id, userId)
@@ -129,26 +195,7 @@ export async function runReview(req, res, next) {
   const back = `/business/${business.id}/accountant`;
 
   try {
-    const { tax, review, fmt } = await gather(business, user);
-
-    const loose = await looseEntries(business.id, user.id);
-    const { proposals, mode: categoryMode } = await proposeCategories({
-      entries: loose,
-      allowed: PROPOSABLE,
-      business
-    });
-
-    const { text: narrative, mode } = await narrate({ business, tax, review, fmt });
-
-    await saveReview({
-      businessId: business.id,
-      userId: user.id,
-      counts: review.counts,
-      tax,
-      narrative,
-      mode,
-      findings: review.findings
-    });
+    const { review, proposals, categoryMode } = await performReview(business, user);
 
     // Proposals are held for the session rather than written to the books —
     // nothing changes until the owner applies it.
@@ -254,6 +301,26 @@ export async function showLooseEntries(req, res, next) {
       categories: PROPOSABLE,
       proposals: req.session.proposals?.[business.id] || {}
     });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function toggleAutoReview(req, res, next) {
+  const business = await requireBusiness(req, res);
+  if (!business) return undefined;
+
+  const on = req.body.autoReview === "on" || req.body.autoReview === "true";
+
+  try {
+    await setAutoReview(business.id, req.session.user.id, on);
+    req.flash(
+      "success",
+      on
+        ? "The accountant will close these books once a month from now on."
+        : "Monthly reviews turned off — run one whenever you want instead."
+    );
+    return res.redirect(`/business/${business.id}/accountant`);
   } catch (error) {
     return next(error);
   }

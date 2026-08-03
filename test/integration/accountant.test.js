@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 
 import {
+  businessesDueForReview,
+  claimMonthlyReview,
   getReview,
   listReviews,
   looseEntries,
   recategoriseTransaction,
-  saveReview
+  releaseMonthlyReview,
+  saveReview,
+  setAutoReview
 } from "../../db/queries/accountant.js";
 import { addBusinessTransaction } from "../../db/queries/business.js";
 import { reviewLedger, taxPosition } from "../../utils/accounting.js";
@@ -142,6 +146,96 @@ describe("the record of each review", { skip: skipWithoutDb }, () => {
     });
     await q("DELETE FROM businesses WHERE id = $1", [doomed.id]);
     assert.equal(await getReview(saved.id, user.id), null);
+  });
+});
+
+describe("the monthly close", { skip: skipWithoutDb }, () => {
+  let user;
+  let shop;
+
+  before(async () => {
+    user = await makeUser("monthly");
+    shop = await makeBusiness(user.id, "Monthly Books");
+  });
+
+  after(async () => { await dropUser(user?.id); });
+
+  const claimed = () => claimMonthlyReview(shop.id);
+  const reload = async () =>
+    one("SELECT auto_review, last_auto_review FROM businesses WHERE id = $1", [shop.id]);
+
+  test("a business that has not opted in is never claimed", async () => {
+    assert.equal(await claimed(), false);
+  });
+
+  test("opting in makes it claimable", async () => {
+    await setAutoReview(shop.id, user.id, true);
+    assert.equal((await reload()).auto_review, true);
+    assert.equal(await claimed(), true);
+  });
+
+  test("the claim records the month, not the day", async () => {
+    const { last_auto_review: month } = await reload();
+    assert.equal(new Date(month).getDate(), 1);
+  });
+
+  test("it cannot be claimed twice in the same month", async () => {
+    assert.equal(await claimed(), false);
+    assert.equal(await claimed(), false);
+  });
+
+  test("two requests racing produce exactly one claim", async () => {
+    // The whole reason the claim is a conditional UPDATE rather than a read
+    // followed by a write.
+    await q("UPDATE businesses SET last_auto_review = NULL WHERE id = $1", [shop.id]);
+    const results = await Promise.all([claimed(), claimed(), claimed(), claimed(), claimed()]);
+    assert.equal(results.filter(Boolean).length, 1);
+  });
+
+  test("a new month can be claimed again", async () => {
+    await q(
+      "UPDATE businesses SET last_auto_review = date_trunc('month', CURRENT_DATE)::date - INTERVAL '1 month' WHERE id = $1",
+      [shop.id]
+    );
+    assert.equal(await claimed(), true);
+  });
+
+  test("skipped months are not caught up — one close, not three", async () => {
+    await q(
+      "UPDATE businesses SET last_auto_review = date_trunc('month', CURRENT_DATE)::date - INTERVAL '3 months' WHERE id = $1",
+      [shop.id]
+    );
+    assert.equal(await claimed(), true, "the current month is claimed");
+    assert.equal(await claimed(), false, "and that is the only one");
+  });
+
+  test("releasing a failed run lets it be retried", async () => {
+    await q("UPDATE businesses SET last_auto_review = NULL WHERE id = $1", [shop.id]);
+    assert.equal(await claimed(), true);
+    assert.equal(await claimed(), false);
+    await releaseMonthlyReview(shop.id, null);
+    assert.equal(await claimed(), true, "the month is available again after a failure");
+  });
+
+  test("opting out stops it being claimed", async () => {
+    await q("UPDATE businesses SET last_auto_review = NULL WHERE id = $1", [shop.id]);
+    await setAutoReview(shop.id, user.id, false);
+    assert.equal(await claimed(), false);
+  });
+
+  test("only businesses that are due are listed", async () => {
+    await setAutoReview(shop.id, user.id, true);
+    await q("UPDATE businesses SET last_auto_review = NULL WHERE id = $1", [shop.id]);
+    assert.equal((await businessesDueForReview(user.id)).some((b) => b.id === shop.id), true);
+    await claimed();
+    assert.equal((await businessesDueForReview(user.id)).some((b) => b.id === shop.id), false);
+  });
+
+  test("another user cannot switch it on", async () => {
+    const other = await makeUser("monthly-other");
+    assert.equal(await setAutoReview(shop.id, other.id, false), null);
+    assert.equal((await reload()).auto_review, true, "unchanged");
+    await dropUser(other.id);
   });
 });
 

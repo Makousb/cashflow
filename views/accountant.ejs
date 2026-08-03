@@ -34,6 +34,37 @@
       <button type="submit" class="btn btn-primary">Run the first review</button>
     </form>
   </section>
+
+  <section class="card" style="margin-bottom:1.5rem;">
+    <div class="budget-row" style="margin-top:0;">
+      <div>
+        <h2 style="margin:0;">Monthly close</h2>
+        <p class="muted" style="margin:0.2rem 0 0;">
+          <% if (business.auto_review) { %>
+            On. The accountant closes these books once a calendar month, the
+            first time anyone opens the business after the month turns.
+            <% if (business.last_auto_review) { %>
+              Last automatic close: <%= formatDate(business.last_auto_review) %>.
+            <% } %>
+          <% } else { %>
+            Off. Reviews only happen when you ask for one.
+          <% } %>
+        </p>
+      </div>
+      <form action="/business/<%= business.id %>/accountant/schedule" method="POST" class="inline-form">
+        <input type="hidden" name="autoReview" value="<%= business.auto_review ? "off" : "on" %>" />
+        <button type="submit" class="btn <%= business.auto_review ? "btn-ghost" : "btn-primary" %>">
+          <%= business.auto_review ? "Turn off" : "Close monthly" %>
+        </button>
+      </form>
+    </div>
+    <% if (business.auto_review && live) { %>
+      <p class="muted" style="font-size:0.85rem;margin:0.6rem 0 0;">
+        An automatic close calls your configured AI provider for the covering
+        note, once a month per business.
+      </p>
+    <% } %>
+  </section>
 <% } else { %>
 
   <section class="stat-grid">
@@ -119,6 +150,38 @@
         </a>
       <% } %>
     </div>
+  </section>
+
+
+  <section class="card" style="margin-bottom:1.5rem;">
+    <div class="budget-row" style="margin-top:0;">
+      <div>
+        <h2 style="margin:0;">Monthly close</h2>
+        <p class="muted" style="margin:0.2rem 0 0;">
+          <% if (business.auto_review) { %>
+            On. The accountant closes these books once a calendar month, the
+            first time anyone opens the business after the month turns.
+            <% if (business.last_auto_review) { %>
+              Last automatic close: <%= formatDate(business.last_auto_review) %>.
+            <% } %>
+          <% } else { %>
+            Off. Reviews only happen when you ask for one.
+          <% } %>
+        </p>
+      </div>
+      <form action="/business/<%= business.id %>/accountant/schedule" method="POST" class="inline-form">
+        <input type="hidden" name="autoReview" value="<%= business.auto_review ? "off" : "on" %>" />
+        <button type="submit" class="btn <%= business.auto_review ? "btn-ghost" : "btn-primary" %>">
+          <%= business.auto_review ? "Turn off" : "Close monthly" %>
+        </button>
+      </form>
+    </div>
+    <% if (business.auto_review && live) { %>
+      <p class="muted" style="font-size:0.85rem;margin:0.6rem 0 0;">
+        An automatic close calls your configured AI provider for the covering
+        note, once a month per business.
+      </p>
+    <% } %>
   </section>
 
   <div class="two-col">

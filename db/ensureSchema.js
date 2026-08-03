@@ -354,6 +354,13 @@ const SCHEMA_SQL = `
         AND other.category = 'Inventory Purchase'
     );
 
+  -- Opt a business into a monthly close. last_auto_review holds the first of
+  -- the month whose review has been claimed, which is what stops two page
+  -- loads racing each other into running it twice.
+  ALTER TABLE businesses
+    ADD COLUMN IF NOT EXISTS auto_review BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE businesses ADD COLUMN IF NOT EXISTS last_auto_review DATE;
+
   -- A record of every close the accounting agent has run. The findings are kept
   -- as they were written so a past review can be read back exactly, rather than
   -- recomputed against books that have since moved on.

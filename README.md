@@ -81,7 +81,11 @@ JavaScript (Chart.js).
     optional AI writes the covering note and suggests a category for loose
     entries, and its suggestions are checked against the business's own category
     list before they can touch a row. Without an AI provider configured it still
-    does all of it, and writes the note itself
+    does all of it, and writes the note itself. Switch on the monthly close and
+    it runs itself: the first time anyone opens the business after the month
+    turns, the books are closed for that month. Skipped months are not caught up
+    — a review is a snapshot of the books as they stand, so three identical ones
+    would only be noise
   - **Advisor** — a chat assistant that answers questions about the business
     (profit, cash, costs to cut, tax, receivables, inventory, payroll) grounded
     in its actual figures. Works out of the box with built-in insights; point
@@ -225,8 +229,13 @@ sold is derived, what a delivery estimate does with a supplier's history, how a
 month-end recurring date clamps into February, payslip rounding, loan interest
 and payoff projection, and currency formatting.
 
-The **integration tests** run against a real PostgreSQL and exercise the query
-layer directly — selling stock, refusing to oversell, voiding a sale back out
+One of the integration tests starts the app on an ephemeral port and requests
+every page. `npm run check` parses files but cannot see a missing import — the
+module loads and only fails when the route is hit — and that shipped a broken
+dashboard once while every other test stayed green.
+
+The rest of the **integration tests** run against a real PostgreSQL and exercise
+the query layer directly — selling stock, refusing to oversell, voiding a sale back out
 again, an order moving from placed to received across two businesses, and the
 ledger feeding the statements. Each builds its own throwaway user and deletes
 it afterwards, so they leave nothing behind. Without a database configured they

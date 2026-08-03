@@ -7,7 +7,7 @@ import {
 } from "../db/queries/businessBudgets.js";
 import { toBase } from "../services/fx.js";
 import { monthStart } from "../utils/dates.js";
-import { EXPENSE_CATEGORIES } from "./business.controller.js";
+import { EXPENSE_CATEGORIES } from "../utils/categories.js";
 
 async function requireBusiness(req, res) {
   const business = await getBusiness(Number(req.params.id), req.session.user.id);
