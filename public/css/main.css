@@ -1739,3 +1739,72 @@ a.chip {
 .capture .check-row input {
   margin-top: 0.25rem;
 }
+
+/* --- Choosing a side at signup --- */
+.side-picker {
+  border: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.side-picker legend {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--brand-950);
+  margin-bottom: 0.35rem;
+  padding: 0;
+}
+
+.side-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.side-option:hover {
+  border-color: var(--brand-200);
+  background: var(--brand-50);
+}
+
+.side-option input {
+  width: auto;
+  margin-top: 0.3rem;
+  flex: none;
+}
+
+.side-option:has(input:checked) {
+  border-color: var(--brand-500);
+  background: var(--brand-50);
+  box-shadow: var(--shadow-sm);
+}
+
+.side-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-weight: 400;
+}
+
+.side-body strong {
+  font-size: 0.98rem;
+  color: var(--brand-950);
+}
+
+.side-body small {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.side-icon {
+  font-size: 1.1rem;
+}

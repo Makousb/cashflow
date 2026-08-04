@@ -346,10 +346,12 @@ async function seedShop(userId) {
 // --- The wholesaler on the other side of the supply chain ---
 
 async function seedSupplier(userId, shop, shopProducts) {
+  // A supplier account, not a business: it sells to businesses and keeps no
+  // books of its own.
   const supplier = await one(
-    `INSERT INTO businesses
-       (user_id, name, industry, is_supplier, lead_time_days)
-     VALUES ($1, 'Kicheko Wholesalers', 'Wholesale', TRUE, 2)
+    `INSERT INTO suppliers (user_id, name, industry, lead_time_days, supply_code)
+     VALUES ($1, 'Kicheko Wholesalers', 'Wholesale', 2,
+             'CF-' || upper(substr(md5('cashflow-supply-kicheko'), 1, 6)))
      RETURNING id`,
     [userId]
   );
@@ -364,19 +366,16 @@ async function seedSupplier(userId, shop, shopProducts) {
     ["Rice 5kg", "RCE-5KG", 95, 690, 780]
   ]) {
     const row = await one(
-      `INSERT INTO products
-         (business_id, user_id, name, sku, quantity, unit_cost, sale_price,
-          reorder_point, reorder_qty)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-      [supplier.id, userId, name, sku, qty, cost, price,
-       Math.round(qty * 0.15), Math.round(qty * 0.5)]
+      `INSERT INTO supplier_products
+         (supplier_id, user_id, name, sku, quantity, unit_cost, sale_price)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [supplier.id, userId, name, sku, qty, cost, price]
     );
     catalog[name] = { id: row.id, price };
   }
 
   await q(
-    `INSERT INTO trade_partners
-       (buyer_business_id, supplier_business_id, requested_by, status)
+    `INSERT INTO trade_partners (buyer_business_id, supplier_id, requested_by, status)
      VALUES ($1, $2, $3, 'active')`,
     [shop.id, supplier.id, userId]
   );
@@ -393,7 +392,7 @@ async function seedSupplier(userId, shop, shopProducts) {
     const total = entry.lines.reduce((s, [n, qty]) => s + qty * catalog[n].price, 0);
     const order = await one(
       `INSERT INTO supply_orders
-         (buyer_business_id, buyer_user_id, supplier_business_id, supplier_user_id,
+         (buyer_business_id, buyer_user_id, supplier_id, supplier_user_id,
           status, currency, total, note, placed_on, expected_on, promised_on,
           confirmed_at, shipped_at, delivered_at, received_at)
        VALUES ($1, $2, $3, $2, 'received', $4, $5, 'Weekly restock',
@@ -407,21 +406,15 @@ async function seedSupplier(userId, shop, shopProducts) {
     for (const [name, qty] of entry.lines) {
       await q(
         `INSERT INTO supply_order_items
-           (order_id, supplier_product_id, buyer_product_id, name, quantity, unit_price)
+           (order_id, catalog_product_id, buyer_product_id, name, quantity, unit_price)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [order.id, catalog[name].id, shopProducts[name]?.id || null, name, qty,
          catalog[name].price]
       );
     }
 
-    const invoice = await one(
-      `INSERT INTO invoices
-         (business_id, user_id, customer, amount, category, issued_on, due_on, note, status, paid_on)
-       VALUES ($1, $2, 'Mama Njeri Grocers', $3, 'Sales', $4, $5, $6, 'paid', $5)
-       RETURNING id`,
-      [supplier.id, userId, total, daysAgo(entry.placed), daysAgo(entry.delivered),
-       `Supply order #${order.id}`]
-    );
+    // No invoice on the supplier's side: a supplier keeps no books here, so the
+    // order records its own settlement instead.
     const bill = await one(
       `INSERT INTO bills
          (business_id, user_id, vendor, amount, category, issued_on, due_on, note, status, paid_on)
@@ -430,15 +423,15 @@ async function seedSupplier(userId, shop, shopProducts) {
       [shop.id, userId, total, daysAgo(entry.delivered), daysAhead(30),
        `Supply order #${order.id}`]
     );
-    await q("UPDATE supply_orders SET invoice_id = $1, bill_id = $2 WHERE id = $3",
-      [invoice.id, bill.id, order.id]);
+    await q("UPDATE supply_orders SET bill_id = $1, paid_at = $2 WHERE id = $3",
+      [bill.id, daysAgo(entry.delivered), order.id]);
 
     const units = entry.lines.reduce((s, [, qty]) => s + qty, 0);
     for (const [business, body] of [
       [shop.id, `Mama Njeri Grocers placed order #${order.id} — ${entry.lines.length} line(s), ${units} unit(s).`],
-      [supplier.id, `Kicheko Wholesalers confirmed the order and committed to a delivery date.`],
-      [supplier.id, `Kicheko Wholesalers shipped the order. Invoice #${invoice.id} raised.`],
-      [supplier.id, `Kicheko Wholesalers marked the order delivered.`],
+      [null, `Kicheko Wholesalers confirmed the order and committed to a delivery date.`],
+      [null, `Kicheko Wholesalers shipped the order.`],
+      [null, `Kicheko Wholesalers marked the order delivered.`],
       [shop.id, `Mama Njeri Grocers received the order — ${units} unit(s) into stock. Bill #${bill.id} added to payables.`]
     ]) {
       await q(
@@ -455,7 +448,7 @@ async function seedSupplier(userId, shop, shopProducts) {
   const openTotal = openLines.reduce((s, [n, qty]) => s + qty * catalog[n].price, 0);
   const open = await one(
     `INSERT INTO supply_orders
-       (buyer_business_id, buyer_user_id, supplier_business_id, supplier_user_id,
+       (buyer_business_id, buyer_user_id, supplier_id, supplier_user_id,
         status, currency, total, note, placed_on, expected_on)
      VALUES ($1, $2, $3, $2, 'placed', $4, $5, 'Morning delivery if possible', $6, $7)
      RETURNING id`,
@@ -464,7 +457,7 @@ async function seedSupplier(userId, shop, shopProducts) {
   for (const [name, qty] of openLines) {
     await q(
       `INSERT INTO supply_order_items
-         (order_id, supplier_product_id, buyer_product_id, name, quantity, unit_price)
+         (order_id, catalog_product_id, buyer_product_id, name, quantity, unit_price)
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [open.id, catalog[name].id, shopProducts[name]?.id || null, name, qty, catalog[name].price]
     );
@@ -518,17 +511,8 @@ async function main() {
   const { shop, products } = await seedShop(user.id);
   await seedSupplier(user.id, shop, products);
 
-  // Share codes are normally stamped on at creation; these rows were inserted
-  // directly, so give them the same treatment.
-  await q(
-    `UPDATE businesses
-     SET supply_code = 'MT-' || upper(substr(md5('cashflow-supply-' || id::text), 1, 6))
-     WHERE user_id = $1 AND supply_code IS NULL`,
-    [user.id]
-  );
-
   const codes = await q(
-    "SELECT name, supply_code FROM businesses WHERE user_id = $1 ORDER BY id", [user.id]
+    "SELECT name, supply_code FROM suppliers WHERE user_id = $1 ORDER BY id", [user.id]
   );
 
   console.info(`
@@ -536,8 +520,9 @@ Demo data ready.
 
   Sign in    ${EMAIL} / ${PASSWORD}
   Personal   3 wallets, 3 months of transactions, budgets, 2 goals, a loan, 2 recurring rules
-  Business   ${codes.map((c) => `${c.name} (${c.supply_code})`).join(", ")}
+  Business   Mama Njeri Grocers
              books, stock, sales, payroll, tax, budgets, invoices and bills
+  Supplier   ${codes.map((c) => `${c.name} (${c.supply_code})`).join(", ")}
   Supply     3 delivered orders plus one still open, live on both sides
 
   For local demos only — the password above is public in this repo.

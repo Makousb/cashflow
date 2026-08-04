@@ -5,6 +5,25 @@
   <p class="muted">Takes less than a minute.</p>
 
   <form action="/auth/register" method="POST" class="stacked-form">
+    <fieldset class="side-picker">
+      <legend>What are you here for?</legend>
+      <% Object.entries(accountTypes).forEach(([key, t], i) => { %>
+        <label class="side-option">
+          <input type="radio" name="accountType" value="<%= key %>" <%= i === 0 ? "checked" : "" %> />
+          <span class="side-body">
+            <span class="side-icon"><%= t.icon %></span>
+            <strong><%= t.label %></strong>
+            <small><%= t.blurb %></small>
+          </span>
+        </label>
+      <% }) %>
+    </fieldset>
+
+    <label id="org-name-field" hidden>
+      Business or supplier name
+      <input type="text" name="orgName" maxlength="120" placeholder="e.g. Mama Njeri Grocers" />
+    </label>
+
     <label>
       Name
       <input type="text" name="name" required maxlength="80" autocomplete="name" />
@@ -42,5 +61,17 @@
     Already have an account? <a href="/auth/login">Log in</a>
   </p>
 </section>
+
+<script>
+  // The organisation name only matters for the two sides that have one.
+  (function () {
+    var field = document.getElementById("org-name-field");
+    document.querySelectorAll('input[name="accountType"]').forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        field.hidden = radio.value === "personal";
+      });
+    });
+  })();
+</script>
 
 <%- include("../partials/footer") %>

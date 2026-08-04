@@ -9,6 +9,7 @@ import {
   getOrder,
   listMessages,
   listOrdersFor,
+  listOrdersForSupplier,
   receiveSupplyOrder,
   requestPartnership,
   setPartnershipStatus,
@@ -16,6 +17,11 @@ import {
   supplierCatalog
 } from "../../db/queries/supply.js";
 import { toISODate } from "../../utils/dates.js";
+import {
+  addCatalogProduct,
+  createSupplier,
+  listCatalog
+} from "../../db/queries/suppliers.js";
 import {
   closePool,
   dropUser,
@@ -28,6 +34,10 @@ import {
   stockOf
 } from "./helpers.js";
 
+// A supplier's stock lives in its catalog, not in a business's products.
+const catalogStockOf = async (id) =>
+  Number((await one("SELECT quantity FROM supplier_products WHERE id = $1", [id])).quantity);
+
 describe("an order between two businesses", { skip: skipWithoutDb }, () => {
   let user;
   let buyer;
@@ -38,15 +48,16 @@ describe("an order between two businesses", { skip: skipWithoutDb }, () => {
   before(async () => {
     user = await makeUser("supply");
     buyer = await makeBusiness(user.id, "Buyer Shop");
-    seller = await makeBusiness(user.id, "Seller Depot", { isSupplier: true, leadTimeDays: 2 });
-    theirSugar = await makeProduct(seller.id, user.id, {
+    seller = await createSupplier({ userId: user.id, name: "Seller Depot", leadTimeDays: 2 });
+    theirSugar = await addCatalogProduct({
+      supplierId: seller.id, userId: user.id,
       name: "Sugar 2kg", sku: "SUG-2KG", quantity: 500, unitCost: 195, salePrice: 220
     });
     mySugar = await makeProduct(buyer.id, user.id, {
       name: "Sugar 2kg", quantity: 4, unitCost: 220, salePrice: 260
     });
     await requestPartnership({
-      buyerBusinessId: buyer.id, supplierBusinessId: seller.id,
+      buyerBusinessId: buyer.id, supplierId: seller.id,
       requestedBy: user.id, status: "active"
     });
   });
@@ -58,13 +69,13 @@ describe("an order between two businesses", { skip: skipWithoutDb }, () => {
   async function placeOrder(lines) {
     return createSupplyOrder({
       buyerBusinessId: buyer.id, buyerUserId: user.id,
-      supplierBusinessId: seller.id, supplierUserId: user.id,
+      supplierId: seller.id, supplierUserId: user.id,
       currency: "KES", placedOn: "2026-05-01", expectedOn: "2026-05-03",
       items: lines
     });
   }
 
-  test("the catalog is the supplier's own stock", async () => {
+  test("the catalog is the supplier's own list", async () => {
     const catalog = await supplierCatalog(seller.id);
     assert.equal(catalog.length, 1);
     assert.equal(catalog[0].name, "Sugar 2kg");
@@ -85,7 +96,7 @@ describe("an order between two businesses", { skip: skipWithoutDb }, () => {
       { supplierProductId: theirSugar.id, name: "Sugar 2kg", quantity: 5, unitPrice: 220 }
     ]);
     const asBuyer = (await listOrdersFor(buyer.id)).find((o) => o.id === order.id);
-    const asSeller = (await listOrdersFor(seller.id)).find((o) => o.id === order.id);
+    const asSeller = (await listOrdersForSupplier(seller.id)).find((o) => o.id === order.id);
     assert.equal(asBuyer.role, "buyer");
     assert.equal(asSeller.role, "supplier");
   });
@@ -94,13 +105,13 @@ describe("an order between two businesses", { skip: skipWithoutDb }, () => {
     const order = await placeOrder([
       { supplierProductId: theirSugar.id, name: "Sugar 2kg", quantity: 10, unitPrice: 220 }
     ]);
-    const theirsBefore = await stockOf(theirSugar.id);
+    const theirsBefore = await catalogStockOf(theirSugar.id);
     const mineBefore = await stockOf(mySugar.id);
 
     const shipped = await shipSupplyOrder(order.id, "KBZ 442K");
     assert.equal(shipped.status, "shipped");
     assert.equal(shipped.tracking, "KBZ 442K");
-    assert.equal(await stockOf(theirSugar.id), theirsBefore - 10);
+    assert.equal(await catalogStockOf(theirSugar.id), theirsBefore - 10);
     assert.equal(await stockOf(mySugar.id), mineBefore, "the buyer gets it on receipt, not dispatch");
   });
 
@@ -117,7 +128,8 @@ describe("an order between two businesses", { skip: skipWithoutDb }, () => {
   });
 
   test("an item the buyer has never stocked is created for them", async () => {
-    const rice = await makeProduct(seller.id, user.id, {
+    const rice = await addCatalogProduct({
+      supplierId: seller.id, userId: user.id,
       name: "Rice 5kg", sku: "RCE-5KG", quantity: 100, unitCost: 690, salePrice: 780
     });
     const order = await placeOrder([
@@ -162,9 +174,9 @@ describe("an order between two businesses", { skip: skipWithoutDb }, () => {
       { supplierProductId: theirSugar.id, name: "Sugar 2kg", quantity: 1, unitPrice: 220 }
     ]);
     await shipSupplyOrder(order.id, null);
-    const theirs = await stockOf(theirSugar.id);
+    const theirs = await catalogStockOf(theirSugar.id);
     assert.equal(await shipSupplyOrder(order.id, null), null);
-    assert.equal(await stockOf(theirSugar.id), theirs, "a repeat must not deduct again");
+    assert.equal(await catalogStockOf(theirSugar.id), theirs, "a repeat must not deduct again");
   });
 });
 
@@ -176,7 +188,7 @@ describe("moving an order along", { skip: skipWithoutDb }, () => {
   before(async () => {
     user = await makeUser("advance");
     buyer = await makeBusiness(user.id, "Advance Buyer");
-    seller = await makeBusiness(user.id, "Advance Seller", { isSupplier: true });
+    seller = await createSupplier({ userId: user.id, name: "Advance Seller" });
   });
 
   after(async () => {
@@ -186,7 +198,7 @@ describe("moving an order along", { skip: skipWithoutDb }, () => {
   const place = () =>
     createSupplyOrder({
       buyerBusinessId: buyer.id, buyerUserId: user.id,
-      supplierBusinessId: seller.id, supplierUserId: user.id,
+      supplierId: seller.id, supplierUserId: user.id,
       currency: "KES", placedOn: "2026-05-01", expectedOn: "2026-05-03",
       items: [{ name: "Something", quantity: 1, unitPrice: 100 }]
     });
@@ -249,10 +261,10 @@ describe("the order thread", { skip: skipWithoutDb }, () => {
   before(async () => {
     user = await makeUser("thread");
     buyer = await makeBusiness(user.id, "Thread Buyer");
-    seller = await makeBusiness(user.id, "Thread Seller", { isSupplier: true });
+    seller = await createSupplier({ userId: user.id, name: "Thread Seller" });
     order = await createSupplyOrder({
       buyerBusinessId: buyer.id, buyerUserId: user.id,
-      supplierBusinessId: seller.id, supplierUserId: user.id,
+      supplierId: seller.id, supplierUserId: user.id,
       currency: "KES", placedOn: "2026-05-01", expectedOn: "2026-05-03",
       items: [{ name: "Something", quantity: 1, unitPrice: 100 }]
     });
@@ -265,13 +277,13 @@ describe("the order thread", { skip: skipWithoutDb }, () => {
   test("carries chat and status events together, in order", async () => {
     await addMessage({ orderId: order.id, businessId: buyer.id, userId: user.id,
       kind: "event", body: "Order placed." });
-    await addMessage({ orderId: order.id, businessId: seller.id, userId: user.id,
+    await addMessage({ orderId: order.id, businessId: buyer.id, userId: user.id,
       body: "On its way." });
 
     const thread = await listMessages(order.id);
     assert.equal(thread.length, 2);
     assert.deepEqual(thread.map((m) => m.kind), ["event", "message"]);
-    assert.equal(thread[1].business_name, "Thread Seller");
+    assert.equal(thread[1].business_name, "Thread Buyer");
     assert.ok(thread[1].user_name, "the sender should be named");
   });
 

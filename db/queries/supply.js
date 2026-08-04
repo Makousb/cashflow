@@ -70,26 +70,28 @@ export async function findBusinessByCode(code) {
 // Suppliers this business buys from.
 export async function listSuppliersFor(buyerBusinessId) {
   const { rows } = await pool.query(
-    `SELECT p.*, b.name, b.industry, b.supply_code, b.lead_time_days, b.is_supplier,
-            (SELECT COUNT(*)::int FROM products pr WHERE pr.business_id = b.id) AS catalog_size
+    `SELECT p.*, s.name, s.industry, s.supply_code, s.lead_time_days,
+            s.accepting_orders,
+            s.id AS supplier_id,
+            (SELECT COUNT(*)::int FROM supplier_products sp WHERE sp.supplier_id = s.id) AS catalog_size
      FROM trade_partners p
-     JOIN businesses b ON b.id = p.supplier_business_id
+     JOIN suppliers s ON s.id = p.supplier_id
      WHERE p.buyer_business_id = $1
-     ORDER BY p.status, b.name`,
+     ORDER BY p.status, s.name`,
     [buyerBusinessId]
   );
   return rows;
 }
 
 // Buyers that order from this business.
-export async function listBuyersFor(supplierBusinessId) {
+export async function listBuyersFor(supplierId) {
   const { rows } = await pool.query(
     `SELECT p.*, b.name, b.industry, b.supply_code
      FROM trade_partners p
      JOIN businesses b ON b.id = p.buyer_business_id
-     WHERE p.supplier_business_id = $1
+     WHERE p.supplier_id = $1
      ORDER BY p.status, b.name`,
-    [supplierBusinessId]
+    [supplierId]
   );
   return rows;
 }
@@ -97,7 +99,7 @@ export async function listBuyersFor(supplierBusinessId) {
 export async function getPartnership(buyerBusinessId, supplierBusinessId) {
   const { rows } = await pool.query(
     `SELECT * FROM trade_partners
-     WHERE buyer_business_id = $1 AND supplier_business_id = $2`,
+     WHERE buyer_business_id = $1 AND supplier_id = $2`,
     [buyerBusinessId, supplierBusinessId]
   );
   return rows[0] || null;
@@ -105,33 +107,33 @@ export async function getPartnership(buyerBusinessId, supplierBusinessId) {
 
 export async function requestPartnership({
   buyerBusinessId,
-  supplierBusinessId,
+  supplierId,
   requestedBy,
   status = "pending"
 }) {
   const { rows } = await pool.query(
     `INSERT INTO trade_partners
-       (buyer_business_id, supplier_business_id, requested_by, status)
+       (buyer_business_id, supplier_id, requested_by, status)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (buyer_business_id, supplier_business_id)
+     ON CONFLICT (buyer_business_id, supplier_id)
      DO UPDATE SET status = CASE
        WHEN trade_partners.status = 'declined' THEN 'pending'
        ELSE trade_partners.status
      END
      RETURNING *`,
-    [buyerBusinessId, supplierBusinessId, requestedBy, status]
+    [buyerBusinessId, supplierId, requestedBy, status]
   );
   return rows[0];
 }
 
 // Only the supplier decides whether a request becomes a relationship.
-export async function setPartnershipStatus(id, supplierBusinessId, status) {
+export async function setPartnershipStatus(id, supplierId, status) {
   const { rows } = await pool.query(
     `UPDATE trade_partners
      SET status = $3
-     WHERE id = $1 AND supplier_business_id = $2
+     WHERE id = $1 AND supplier_id = $2
      RETURNING *`,
-    [id, supplierBusinessId, status]
+    [id, supplierId, status]
   );
   return rows[0] || null;
 }
@@ -140,7 +142,7 @@ export async function setPartnershipStatus(id, supplierBusinessId, status) {
 export async function deletePartnership(id, businessId) {
   const { rows } = await pool.query(
     `DELETE FROM trade_partners
-     WHERE id = $1 AND (buyer_business_id = $2 OR supplier_business_id = $2)
+     WHERE id = $1 AND buyer_business_id = $2
      RETURNING *`,
     [id, businessId]
   );
@@ -150,13 +152,13 @@ export async function deletePartnership(id, businessId) {
 // --- Catalog ---
 
 // What a supplier sells, priced in their own storage currency.
-export async function supplierCatalog(supplierBusinessId) {
+export async function supplierCatalog(supplierId) {
   const { rows } = await pool.query(
     `SELECT id, name, sku, quantity, sale_price, unit_cost
-     FROM products
-     WHERE business_id = $1
+     FROM supplier_products
+     WHERE supplier_id = $1
      ORDER BY name`,
-    [supplierBusinessId]
+    [supplierId]
   );
   return rows;
 }
@@ -166,7 +168,7 @@ export async function supplierCatalog(supplierBusinessId) {
 export async function createSupplyOrder({
   buyerBusinessId,
   buyerUserId,
-  supplierBusinessId,
+  supplierId,
   supplierUserId,
   currency,
   note,
@@ -185,11 +187,11 @@ export async function createSupplyOrder({
 
     const { rows } = await client.query(
       `INSERT INTO supply_orders
-         (buyer_business_id, buyer_user_id, supplier_business_id, supplier_user_id,
+         (buyer_business_id, buyer_user_id, supplier_id, supplier_user_id,
           currency, note, expected_on, placed_on, total)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [buyerBusinessId, buyerUserId, supplierBusinessId, supplierUserId,
+      [buyerBusinessId, buyerUserId, supplierId, supplierUserId,
        currency, note, expectedOn, placedOn, total]
     );
     const order = rows[0];
@@ -197,7 +199,7 @@ export async function createSupplyOrder({
     for (const item of items) {
       await client.query(
         `INSERT INTO supply_order_items
-           (order_id, supplier_product_id, buyer_product_id, name, sku, quantity, unit_price)
+           (order_id, catalog_product_id, buyer_product_id, name, sku, quantity, unit_price)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [order.id, item.supplierProductId || null, item.buyerProductId || null,
          item.name, item.sku || null, item.quantity, item.unitPrice]
@@ -218,12 +220,12 @@ export async function createSupplyOrder({
 export async function listOrdersFor(businessId, limit = 200) {
   const { rows } = await pool.query(
     `SELECT ${ORDER_COLUMNS},
-            CASE WHEN o.buyer_business_id = $1 THEN 'buyer' ELSE 'supplier' END AS role
+            'buyer' AS role
      FROM supply_orders o
      JOIN businesses buyer ON buyer.id = o.buyer_business_id
-     JOIN businesses supplier ON supplier.id = o.supplier_business_id
+     JOIN suppliers supplier ON supplier.id = o.supplier_id
      LEFT JOIN supply_order_items i ON i.order_id = o.id
-     WHERE o.buyer_business_id = $1 OR o.supplier_business_id = $1
+     WHERE o.buyer_business_id = $1
      GROUP BY o.id, buyer.name, supplier.name, supplier.lead_time_days
      ORDER BY o.created_at DESC
      LIMIT $2`,
@@ -240,7 +242,7 @@ export async function getOrder(id) {
             supplier.industry AS supplier_industry
      FROM supply_orders o
      JOIN businesses buyer ON buyer.id = o.buyer_business_id
-     JOIN businesses supplier ON supplier.id = o.supplier_business_id
+     JOIN suppliers supplier ON supplier.id = o.supplier_id
      LEFT JOIN supply_order_items i ON i.order_id = o.id
      WHERE o.id = $1
      GROUP BY o.id, buyer.name, supplier.name, supplier.lead_time_days,
@@ -260,7 +262,7 @@ export async function listOrderItems(orderId) {
 
 // Line items across every order this business is party to, for the reports.
 export async function listItemsFor(businessId, role = "buyer") {
-  const column = role === "buyer" ? "buyer_business_id" : "supplier_business_id";
+  const column = role === "buyer" ? "buyer_business_id" : "supplier_id";
   const { rows } = await pool.query(
     `SELECT i.*, o.status, o.placed_on, o.currency
      FROM supply_order_items i
@@ -316,16 +318,16 @@ export async function shipSupplyOrder(id, tracking) {
     }
 
     const { rows: items } = await client.query(
-      "SELECT supplier_product_id, quantity FROM supply_order_items WHERE order_id = $1",
+      "SELECT catalog_product_id, quantity FROM supply_order_items WHERE order_id = $1",
       [id]
     );
     for (const item of items) {
-      if (item.supplier_product_id) {
+      if (item.catalog_product_id) {
         await client.query(
-          `UPDATE products
+          `UPDATE supplier_products
            SET quantity = GREATEST(quantity - $1, 0)
            WHERE id = $2`,
-          [item.quantity, item.supplier_product_id]
+          [item.quantity, item.catalog_product_id]
         );
       }
     }
@@ -397,10 +399,10 @@ export async function receiveSupplyOrder(id) {
              (business_id, user_id, name, sku, quantity, unit_cost, sale_price,
               reorder_point, reorder_qty, supplier)
            VALUES ($1, $2, $3, $4, $5, $6, $6, 0, $5,
-                   (SELECT name FROM businesses WHERE id = $7))
+                   (SELECT name FROM suppliers WHERE id = $7))
            RETURNING id`,
           [order.buyer_business_id, order.buyer_user_id, item.name, item.sku,
-           item.quantity, item.unit_price, order.supplier_business_id]
+           item.quantity, item.unit_price, order.supplier_id]
         );
         productId = created[0].id;
       }
@@ -435,7 +437,7 @@ export async function deliveryHistory(buyerBusinessId, supplierBusinessId, limit
   const { rows } = await pool.query(
     `SELECT id, placed_on, delivered_at
      FROM supply_orders
-     WHERE buyer_business_id = $1 AND supplier_business_id = $2
+     WHERE buyer_business_id = $1 AND supplier_id = $2
        AND delivered_at IS NOT NULL
      ORDER BY delivered_at DESC
      LIMIT $3`,
@@ -478,4 +480,28 @@ export async function addMessage({ orderId, businessId, userId, kind = "message"
   );
 
   return { ...message, ...named[0] };
+}
+
+// Every order placed with a supplier account. Keyed on supplier_id: suppliers
+// are their own entity now, not a business wearing a flag.
+export async function listOrdersForSupplier(supplierId, limit = 200) {
+  const { rows } = await pool.query(
+    `SELECT o.*,
+            buyer.name AS buyer_name,
+            s.name AS supplier_name,
+            s.lead_time_days AS supplier_lead_time,
+            COUNT(i.id)::int AS item_count,
+            COALESCE(SUM(i.quantity), 0) AS unit_count,
+            'supplier' AS role
+     FROM supply_orders o
+     JOIN businesses buyer ON buyer.id = o.buyer_business_id
+     JOIN suppliers s ON s.id = o.supplier_id
+     LEFT JOIN supply_order_items i ON i.order_id = o.id
+     WHERE o.supplier_id = $1
+     GROUP BY o.id, buyer.name, s.name, s.lead_time_days
+     ORDER BY o.created_at DESC
+     LIMIT $2`,
+    [supplierId, limit]
+  );
+  return rows;
 }

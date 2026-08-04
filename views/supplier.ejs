@@ -1,0 +1,183 @@
+<%- include("partials/header") %>
+<%
+  const statusBadge = (s) =>
+    ["received", "delivered"].includes(s) ? "badge-done"
+      : ["cancelled", "declined"].includes(s) ? "badge-danger" : "badge-warn";
+%>
+
+<section class="page-head">
+  <h1><%= supplier.name %></h1>
+  <p class="muted">
+    <%= supplier.industry || "Supplier" %> ·
+    <a href="/supplier" class="link">← all suppliers</a>
+  </p>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">📥</span>
+    <span class="stat-body">
+      <span class="stat-label">To fulfil</span>
+      <span class="stat-value"><%= ledger.to_fulfil %></span>
+      <small class="muted"><%= summary.inTransitCount %> in transit</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">💰</span>
+    <span class="stat-body">
+      <span class="stat-label">Order value won</span>
+      <span class="stat-value positive"><%= money(ledger.won) %></span>
+      <small class="muted"><%= summary.count %> order(s)</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon <%= Number(ledger.outstanding) > 0 ? "tint-red" : "" %>">🧾</span>
+    <span class="stat-body">
+      <span class="stat-label">Awaiting payment</span>
+      <span class="stat-value"><%= money(ledger.outstanding) %></span>
+      <small class="muted">delivered but not settled</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">⏱️</span>
+    <span class="stat-body">
+      <span class="stat-label">On time</span>
+      <span class="stat-value">
+        <%= summary.onTimeRate === null ? "—" : summary.onTimeRate.toFixed(0) + "%" %>
+      </span>
+      <small class="muted">
+        <%= summary.avgTransitDays === null ? "no deliveries yet" : summary.avgTransitDays.toFixed(1) + " day average" %>
+      </small>
+    </span>
+  </div>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Your trade profile</h2>
+    <p class="muted" style="margin-top:-0.4rem;">Buyers connect using this code.</p>
+    <div class="code-plate">
+      <span class="code-value"><%= supplier.supply_code %></span>
+      <span class="badge <%= supplier.accepting_orders ? "badge-done" : "badge-warn" %>">
+        <%= supplier.accepting_orders ? "accepting orders" : "closed" %>
+      </span>
+    </div>
+    <form action="/supplier/<%= supplier.id %>/profile" method="POST" class="stacked-form">
+      <label class="check-row">
+        <input type="checkbox" name="acceptingOrders" <%= supplier.accepting_orders ? "checked" : "" %> />
+        <span>Accept new orders</span>
+      </label>
+      <label>
+        Lead time (days)
+        <input type="number" name="leadTimeDays" min="0" max="365" value="<%= supplier.lead_time_days %>" />
+      </label>
+      <button type="submit" class="btn btn-ghost">Save</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Add to the catalog</h2>
+    <form action="/supplier/<%= supplier.id %>/catalog" method="POST" class="stacked-form">
+      <label>Item<input type="text" name="name" required maxlength="120" placeholder="e.g. Sugar 2kg" /></label>
+      <label>SKU (optional)<input type="text" name="sku" maxlength="60" /></label>
+      <label>In stock<input type="number" name="quantity" step="0.01" min="0" value="0" /></label>
+      <label>What it costs you<input type="number" name="unitCost" step="0.01" min="0" placeholder="0" /></label>
+      <label>What buyers pay<input type="number" name="salePrice" step="0.01" min="0" placeholder="0" /></label>
+      <button type="submit" class="btn btn-primary">Add item</button>
+    </form>
+  </section>
+</div>
+
+<section class="card" style="margin-top:1.5rem;">
+  <h2>Catalog</h2>
+  <% if (catalog.length === 0) { %>
+    <p class="empty-state">Nothing listed yet — buyers see an empty catalog.</p>
+  <% } else { %>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Item</th><th class="num">In stock</th><th class="num">Your cost</th>
+            <th class="num">Buyers pay</th><th class="num">Margin</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% catalog.forEach((p) => { %>
+            <% const margin = Number(p.sale_price) - Number(p.unit_cost); %>
+            <tr>
+              <td>
+                <strong><%= p.name %></strong>
+                <% if (p.sku) { %><small class="muted"> · <%= p.sku %></small><% } %>
+              </td>
+              <td class="num"><%= Number(p.quantity) %></td>
+              <td class="num"><%= money(p.unit_cost) %></td>
+              <td class="num"><%= money(p.sale_price) %></td>
+              <td class="num <%= margin <= 0 ? "negative" : "" %>"><%= money(margin) %></td>
+              <td class="num">
+                <form action="/supplier/<%= supplier.id %>/catalog/<%= p.id %>/restock" method="POST" class="inline-form">
+                  <input type="number" name="delta" step="0.01" placeholder="±" style="width:70px;" required />
+                  <button type="submit" class="btn btn-ghost btn-sm">Update</button>
+                </form>
+                <form action="/supplier/<%= supplier.id %>/catalog/<%= p.id %>/delete" method="POST" class="inline-form">
+                  <button type="submit" class="btn btn-ghost btn-sm">✕</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="card" style="margin-top:1.5rem;">
+  <h2>Orders from buyers</h2>
+  <% if (orders.length === 0) { %>
+    <p class="empty-state">No orders yet. Share your code and buyers can order from you.</p>
+  <% } else { %>
+    <ul class="tx-list">
+      <% orders.forEach((o) => { %>
+        <li class="tx-row">
+          <span class="tx-icon"><%= o.paid_at ? "✅" : "📦" %></span>
+          <span class="tx-meta">
+            <strong>
+              Order #<%= o.id %>
+              <span class="badge <%= statusBadge(o.status) %>"><%= o.status %></span>
+              <% if (o.paid_at) { %><span class="badge badge-done">paid</span><% } %>
+            </strong>
+            <small class="muted">
+              for <%= o.buyer_name %> · <%= o.item_count %> line(s),
+              <%= Number(o.unit_count) %> unit(s) · placed <%= formatDate(o.placed_on) %>
+            </small>
+          </span>
+          <span class="tx-amount"><%= money(o.total) %></span>
+          <% if (o.status === "placed") { %>
+            <form action="/supplier/<%= supplier.id %>/orders/<%= o.id %>/confirm" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm">Confirm</button>
+            </form>
+          <% } %>
+          <% if (["placed", "confirmed"].includes(o.status)) { %>
+            <form action="/supplier/<%= supplier.id %>/orders/<%= o.id %>/ship" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm">Ship</button>
+            </form>
+            <form action="/supplier/<%= supplier.id %>/orders/<%= o.id %>/decline" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm" title="Decline">✕</button>
+            </form>
+          <% } %>
+          <% if (o.status === "shipped") { %>
+            <form action="/supplier/<%= supplier.id %>/orders/<%= o.id %>/deliver" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm">Delivered</button>
+            </form>
+          <% } %>
+          <% if (!o.paid_at && ["shipped", "delivered", "received"].includes(o.status)) { %>
+            <form action="/supplier/<%= supplier.id %>/orders/<%= o.id %>/paid" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm">Mark paid</button>
+            </form>
+          <% } %>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>

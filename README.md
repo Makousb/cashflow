@@ -12,6 +12,21 @@ computes the insights behind the Reports page — spending forecasts, category
 breakdowns, and plain-English observations, charted in the browser with
 JavaScript (Chart.js).
 
+## Three sides, one app
+
+Signing up asks what you are here for, and that decides where you land:
+
+- **Personal** — your own money: wallets, budgets, goals, loans, receipts.
+- **Business** — a small business's books: bookkeeping, statements, stock,
+  sales, payroll, tax, supply chain, marketing and the accounting agent.
+- **Supplier** — selling to businesses: a catalog, a trade code buyers connect
+  with, and the orders they place. A supplier keeps no books here; an order
+  records what it is worth and whether it has been paid.
+
+It is a starting point rather than a partition. One login can hold a personal
+side, any number of businesses and any number of supplier accounts — the type
+just decides the front door.
+
 ## Features
 
 - **Expense & income tracking** — quick entry with categories, notes, and dates

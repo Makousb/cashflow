@@ -11,8 +11,8 @@
 <% if (partners.length > 1) { %>
   <div class="chip-row">
     <% partners.forEach((p) => { %>
-      <a class="chip <%= p.supplier_business_id === partner.supplier_business_id ? "chip-on" : "" %>"
-         href="/business/<%= business.id %>/supply/new?supplier=<%= p.supplier_business_id %>">
+      <a class="chip <%= p.supplier_id === partner.supplier_id ? "chip-on" : "" %>"
+         href="/business/<%= business.id %>/supply/new?supplier=<%= p.supplier_id %>">
         <%= p.name %>
       </a>
     <% }) %>
@@ -35,7 +35,7 @@
 </section>
 
 <form action="/business/<%= business.id %>/supply/orders" method="POST" id="order-form">
-  <input type="hidden" name="supplierId" value="<%= partner.supplier_business_id %>" />
+  <input type="hidden" name="supplierId" value="<%= partner.supplier_id %>" />
 
   <section class="card" style="margin-bottom:1.5rem;">
     <h2><%= supplier.name %>'s catalog</h2>

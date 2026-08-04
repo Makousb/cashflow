@@ -14,6 +14,7 @@ import accountRoutes from "./routes/accounts.js";
 import authRoutes from "./routes/auth.js";
 import budgetRoutes from "./routes/budgets.js";
 import businessRoutes from "./routes/business.js";
+import supplierRoutes from "./routes/supplier.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import goalRoutes from "./routes/goals.js";
 import loanRoutes from "./routes/loans.js";
@@ -122,6 +123,7 @@ app.use("/receipts", receiptRoutes);
 app.use("/reports", reportRoutes);
 app.use("/accounts", accountRoutes);
 app.use("/business", businessRoutes);
+app.use("/supplier", supplierRoutes);
 app.use("/settings", settingsRoutes);
 
 app.use(notFound);

@@ -1,0 +1,51 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1>Suppliers</h1>
+  <p class="muted">Sell to businesses — publish a catalog and fulfil their orders.</p>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Register a supplier</h2>
+    <form action="/supplier" method="POST" class="stacked-form">
+      <label>Name<input type="text" name="name" required maxlength="120" placeholder="e.g. Kicheko Wholesalers" /></label>
+      <label>Trade (optional)<input type="text" name="industry" maxlength="80" placeholder="e.g. Wholesale" /></label>
+      <label>
+        Lead time (days from order to delivery)
+        <input type="number" name="leadTimeDays" min="0" max="365" value="3" />
+      </label>
+      <button type="submit" class="btn btn-primary">Create supplier</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Your supplier accounts</h2>
+    <% if (suppliers.length === 0) { %>
+      <p class="empty-state">None yet — register one and buyers can order from your catalog.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% suppliers.forEach((s) => { %>
+          <li class="tx-row">
+            <span class="tx-icon">🏭</span>
+            <span class="tx-meta">
+              <strong>
+                <a class="link" href="/supplier/<%= s.id %>"><%= s.name %></a>
+                <span class="badge <%= s.accepting_orders ? "badge-done" : "badge-warn" %>">
+                  <%= s.accepting_orders ? "accepting orders" : "closed" %>
+                </span>
+              </strong>
+              <small class="muted">
+                <%= s.industry || "Supplier" %> · <%= s.catalog_size %> item(s) ·
+                <%= s.open_orders %> open order(s) ·
+                <code class="code-inline"><%= s.supply_code %></code>
+              </small>
+            </span>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

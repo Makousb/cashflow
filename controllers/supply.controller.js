@@ -1,6 +1,11 @@
 import { createBill, createInvoice } from "../db/queries/accounting.js";
-import { getBusiness, listBusinesses } from "../db/queries/business.js";
+import { getBusiness } from "../db/queries/business.js";
 import { listProducts } from "../db/queries/inventory.js";
+import {
+  findSupplierByCode,
+  getTradingSupplier,
+  listSuppliers
+} from "../db/queries/suppliers.js";
 import {
   addMessage,
   advanceOrder,
@@ -8,10 +13,8 @@ import {
   deletePartnership,
   deliveryHistory,
   ensureSupplyCode,
-  findBusinessByCode,
   getOrder,
   getPartnership,
-  getTradingBusiness,
   linkOrderDocument,
   listBuyersFor,
   listItemsFor,
@@ -90,10 +93,7 @@ async function requireBusiness(req, res) {
 // An order is readable and actionable only by the two businesses on it.
 async function requireOrder(req, res, business) {
   const order = await getOrder(Number(req.params.orderId));
-  const party =
-    order &&
-    (order.buyer_business_id === business.id ||
-      order.supplier_business_id === business.id);
+  const party = order && order.buyer_business_id === business.id;
 
   if (!party) {
     req.flash("error", "Order not found.");
@@ -103,8 +103,10 @@ async function requireOrder(req, res, business) {
   return order;
 }
 
-function roleOn(order, business) {
-  return order.buyer_business_id === business.id ? "buyer" : "supplier";
+// The buyer's supply pages are always the buying side; a supplier works from
+// its own area at /supplier/:id.
+function roleOn() {
+  return "buyer";
 }
 
 // Write a line into the order thread and push it to both sides, so the
@@ -118,7 +120,7 @@ async function announce(order, { businessId, userId, body, statusChanged = false
     body
   });
 
-  const audience = [order.buyer_business_id, order.supplier_business_id];
+  const audience = [order.buyer_business_id];
   publish(audience, "message", {
     orderId: order.id,
     id: message.id,
@@ -157,28 +159,21 @@ export async function showSupplyChain(req, res, next) {
     if (!business) return undefined;
 
     const user = req.session.user;
-    const [suppliers, buyers, rawOrders, ownBusinesses] = await Promise.all([
+    const [suppliers, rawOrders, ownSuppliers] = await Promise.all([
       listSuppliersFor(business.id),
-      listBuyersFor(business.id),
       listOrdersFor(business.id),
-      listBusinesses(user.id)
+      listSuppliers(user.id)
     ]);
 
-    const orders = inViewerCurrency(rawOrders, user);
-    const outgoing = orders.filter((o) => o.role === "buyer");
-    const incoming = orders.filter((o) => o.role === "supplier");
+    const outgoing = inViewerCurrency(rawOrders, user);
 
     return res.render("supply", {
       title: `${business.name} · Supply chain`,
       business,
       suppliers,
-      buyers,
-      pendingRequests: buyers.filter((b) => b.status === "pending"),
       outgoing,
-      incoming,
       buying: summarizeOrders(outgoing),
-      selling: summarizeOrders(incoming),
-      otherBusinesses: ownBusinesses.filter((b) => b.id !== business.id),
+      ownSuppliers,
       showAmount: amountFormatter(user),
       statusMeta,
       targetDate,
@@ -223,17 +218,13 @@ export async function connectSupplier(req, res, next) {
   }
 
   try {
-    const supplier = await findBusinessByCode(code);
+    const supplier = await findSupplierByCode(code);
     if (!supplier) {
       req.flash("error", `No business found with the code ${code}.`);
       return res.redirect(back);
     }
-    if (supplier.id === business.id) {
-      req.flash("error", "A business cannot supply itself.");
-      return res.redirect(back);
-    }
-    if (!supplier.is_supplier) {
-      req.flash("error", `${supplier.name} is not accepting supply orders yet.`);
+    if (!supplier.accepting_orders) {
+      req.flash("error", `${supplier.name} is not accepting orders at the moment.`);
       return res.redirect(back);
     }
 
@@ -242,7 +233,7 @@ export async function connectSupplier(req, res, next) {
     const sameOwner = supplier.user_id === req.session.user.id;
     const partnership = await requestPartnership({
       buyerBusinessId: business.id,
-      supplierBusinessId: supplier.id,
+      supplierId: supplier.id,
       requestedBy: req.session.user.id,
       status: sameOwner ? "active" : "pending"
     });
@@ -306,11 +297,9 @@ export async function disconnectPartner(req, res, next) {
   try {
     const removed = await deletePartnership(Number(req.params.partnerId), business.id);
     if (removed) {
-      const other =
-        removed.buyer_business_id === business.id
-          ? removed.supplier_business_id
-          : removed.buyer_business_id;
-      publish(other, "partner", { status: "removed", name: business.name });
+      publish(removed.buyer_business_id, "partner", {
+        status: "removed", name: business.name
+      });
     }
     req.flash(removed ? "success" : "error", removed ? "Connection removed." : "Connection not found.");
     return res.redirect(`/business/${business.id}/supply`);
@@ -338,9 +327,9 @@ export async function showNewOrder(req, res, next) {
 
     const requested = Number(req.query.supplier);
     const partner =
-      partners.find((p) => p.supplier_business_id === requested) || partners[0];
+      partners.find((p) => p.supplier_id === requested) || partners[0];
 
-    const supplier = await getTradingBusiness(partner.supplier_business_id);
+    const supplier = await getTradingSupplier(partner.supplier_id);
     const [catalog, history, ownProducts] = await Promise.all([
       supplierCatalog(supplier.id),
       deliveryHistory(business.id, supplier.id),
@@ -398,7 +387,7 @@ export async function placeOrder(req, res, next) {
       return res.redirect(`/business/${business.id}/supply`);
     }
 
-    const supplier = await getTradingBusiness(supplierId);
+    const supplier = await getTradingSupplier(supplierId);
     const catalog = await supplierCatalog(supplierId);
     const buyerBase = user.base_currency || user.currency || DEFAULT_CURRENCY;
 
@@ -454,7 +443,7 @@ export async function placeOrder(req, res, next) {
     const order = await createSupplyOrder({
       buyerBusinessId: business.id,
       buyerUserId: user.id,
-      supplierBusinessId: supplierId,
+      supplierId,
       supplierUserId: supplier.user_id,
       currency: buyerBase,
       note: (req.body.note || "").trim() || null,
@@ -464,7 +453,7 @@ export async function placeOrder(req, res, next) {
     });
 
     const units = items.reduce((sum, i) => sum + i.quantity, 0);
-    await announce({ ...order, buyer_business_id: business.id, supplier_business_id: supplierId }, {
+    await announce({ ...order, buyer_business_id: business.id, supplier_id: supplierId }, {
       businessId: business.id,
       userId: user.id,
       statusChanged: true,
@@ -495,7 +484,7 @@ export async function showOrder(req, res, next) {
     const [items, messages, history] = await Promise.all([
       listOrderItems(order.id),
       listMessages(order.id),
-      deliveryHistory(order.buyer_business_id, order.supplier_business_id)
+      deliveryHistory(order.buyer_business_id, order.supplier_id)
     ]);
 
     const eta = estimateEta({
@@ -600,28 +589,9 @@ export async function shipOrder(req, res, next) {
       return res.redirect(back);
     }
 
-    // Dispatch is the point of sale for the supplier: raise the receivable on
-    // their books, converted into their own currency.
-    const supplier = await getTradingBusiness(order.supplier_business_id);
-    const amount = Number(
-      convert(order.total, order.currency, supplier.base_currency).toFixed(2)
-    );
-
-    let invoiceNote = "";
-    if (amount > 0) {
-      const invoice = await createInvoice({
-        businessId: order.supplier_business_id,
-        userId: order.supplier_user_id,
-        customer: existing.buyer_name,
-        amount,
-        category: "Sales",
-        issuedOn: today(),
-        dueOn: addDays(today(), PAYMENT_TERMS_DAYS),
-        note: `Supply order #${order.id}`
-      });
-      await linkOrderDocument(order.id, "invoice_id", invoice.id);
-      invoiceNote = ` Invoice #${invoice.id} raised, due ${formatDate(invoice.due_on)}.`;
-    }
+    // A supplier keeps no books here, so dispatch raises no invoice — the
+    // order records what it is worth and the supplier marks it paid.
+    const invoiceNote = "";
 
     await announce({ ...existing, ...order }, {
       businessId: business.id,
@@ -789,10 +759,7 @@ export async function postMessage(req, res, next) {
     }
 
     const order = await getOrder(Number(req.params.orderId));
-    const party =
-      order &&
-      (order.buyer_business_id === business.id ||
-        order.supplier_business_id === business.id);
+    const party = order && order.buyer_business_id === business.id;
     if (!party) {
       return res.status(404).json({ error: "Order not found." });
     }
@@ -853,9 +820,8 @@ export async function showSupplyReports(req, res, next) {
       listItemsFor(business.id, "supplier")
     ]);
 
-    const orders = inViewerCurrency(rawOrders, user);
-    const outgoing = orders.filter((o) => o.role === "buyer");
-    const incoming = orders.filter((o) => o.role === "supplier");
+    const outgoing = inViewerCurrency(rawOrders, user);
+    const incoming = [];
 
     // Line prices carry their order's currency; restate them the same way.
     const restate = (items) =>

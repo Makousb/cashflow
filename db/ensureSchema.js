@@ -366,6 +366,132 @@ const SCHEMA_SQL = `
   -- can go to a bookkeeper who does not have a login here.
   ALTER TABLE businesses ADD COLUMN IF NOT EXISTS review_email TEXT;
 
+  -- Which side of the app this account signed up for. It decides where they
+  -- land and what the navigation offers; it is a starting point, not a cage —
+  -- any account can add the other sides later.
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'personal';
+  UPDATE users SET account_type = 'personal' WHERE account_type IS NULL;
+
+  -- Suppliers are their own thing, not a business with a flag set. A supplier
+  -- sells to businesses and does not keep books here: it has a catalog, orders
+  -- and the money those orders are worth, and that is all.
+  CREATE TABLE IF NOT EXISTS suppliers (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    industry TEXT,
+    supply_code TEXT,
+    lead_time_days INTEGER NOT NULL DEFAULT 3,
+    accepting_orders BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_code ON suppliers (supply_code);
+
+  -- What a supplier sells. Separate from products, which are a business's own
+  -- stock: the two are priced differently and answer to different owners.
+  CREATE TABLE IF NOT EXISTS supplier_products (
+    id SERIAL PRIMARY KEY,
+    supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    sku TEXT,
+    quantity NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    sale_price NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_supplier_products_supplier
+    ON supplier_products (supplier_id, name);
+
+  -- Trading now points at a supplier rather than at another business.
+  ALTER TABLE trade_partners ADD COLUMN IF NOT EXISTS supplier_id INTEGER
+    REFERENCES suppliers(id) ON DELETE CASCADE;
+  ALTER TABLE supply_orders ADD COLUMN IF NOT EXISTS supplier_id INTEGER
+    REFERENCES suppliers(id) ON DELETE CASCADE;
+  ALTER TABLE supply_order_items ADD COLUMN IF NOT EXISTS catalog_product_id INTEGER
+    REFERENCES supplier_products(id) ON DELETE SET NULL;
+  -- A supplier has no ledger here, so an order records its own settlement.
+  ALTER TABLE supply_orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+  ALTER TABLE supply_messages ADD COLUMN IF NOT EXISTS supplier_id INTEGER
+    REFERENCES suppliers(id) ON DELETE SET NULL;
+
+  -- Move every business that was acting as a supplier across to the new model,
+  -- once. Businesses keep existing — a wholesaler may well keep its own books —
+  -- but the trading relationships and orders now hang off the supplier.
+  INSERT INTO suppliers (user_id, name, industry, supply_code, lead_time_days, accepting_orders, created_at)
+  SELECT b.user_id, b.name, b.industry, b.supply_code, b.lead_time_days, TRUE, b.created_at
+  FROM businesses b
+  WHERE b.is_supplier = TRUE
+    AND NOT EXISTS (SELECT 1 FROM suppliers s WHERE s.supply_code = b.supply_code);
+
+  INSERT INTO supplier_products (supplier_id, user_id, name, sku, quantity, unit_cost, sale_price)
+  SELECT s.id, p.user_id, p.name, p.sku, p.quantity, p.unit_cost, p.sale_price
+  FROM products p
+  JOIN businesses b ON b.id = p.business_id AND b.is_supplier = TRUE
+  JOIN suppliers s ON s.supply_code = b.supply_code
+  WHERE NOT EXISTS (
+    SELECT 1 FROM supplier_products sp
+    WHERE sp.supplier_id = s.id AND lower(sp.name) = lower(p.name)
+  );
+
+  UPDATE trade_partners tp
+  SET supplier_id = s.id
+  FROM businesses b
+  JOIN suppliers s ON s.supply_code = b.supply_code
+  WHERE tp.supplier_business_id = b.id AND tp.supplier_id IS NULL;
+
+  UPDATE supply_orders o
+  SET supplier_id = s.id
+  FROM businesses b
+  JOIN suppliers s ON s.supply_code = b.supply_code
+  WHERE o.supplier_business_id = b.id AND o.supplier_id IS NULL;
+
+  UPDATE supply_order_items i
+  SET catalog_product_id = sp.id
+  FROM supply_orders o
+  JOIN suppliers s ON s.id = o.supplier_id
+  JOIN supplier_products sp ON sp.supplier_id = s.id
+  WHERE i.order_id = o.id
+    AND i.catalog_product_id IS NULL
+    AND lower(sp.name) = lower(i.name);
+
+  -- Messages were stamped with the sending business; the supplier's half of a
+  -- thread now points at the supplier instead.
+  UPDATE supply_messages m
+  SET supplier_id = s.id
+  FROM businesses b
+  JOIN suppliers s ON s.supply_code = b.supply_code
+  WHERE m.business_id = b.id AND m.supplier_id IS NULL;
+
+  -- Suppliers are no longer businesses, so the old columns cannot stay required
+  -- or keep pointing at businesses(id) — a supplier that was never a business
+  -- would fail the constraint. They are kept, nullable and unconstrained, so
+  -- migrated rows still show where they came from.
+  ALTER TABLE supply_orders ALTER COLUMN supplier_business_id DROP NOT NULL;
+  ALTER TABLE trade_partners ALTER COLUMN supplier_business_id DROP NOT NULL;
+  DO $$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint
+               WHERE conname = 'supply_orders_supplier_business_id_fkey') THEN
+      ALTER TABLE supply_orders DROP CONSTRAINT supply_orders_supplier_business_id_fkey;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint
+               WHERE conname = 'trade_partners_supplier_business_id_fkey') THEN
+      ALTER TABLE trade_partners DROP CONSTRAINT trade_partners_supplier_business_id_fkey;
+    END IF;
+    -- The old uniqueness was per business pair; it is per supplier now.
+    IF EXISTS (SELECT 1 FROM pg_constraint
+               WHERE conname = 'trade_partners_buyer_business_id_supplier_business_id_key') THEN
+      ALTER TABLE trade_partners
+        DROP CONSTRAINT trade_partners_buyer_business_id_supplier_business_id_key;
+    END IF;
+  END $$;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_partners_pair
+    ON trade_partners (buyer_business_id, supplier_id);
+
   -- Marketing: funnels that capture leads, the people they capture, and the
   -- promotions sent to them.
   --

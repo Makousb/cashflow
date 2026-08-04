@@ -15,6 +15,15 @@ import {
   setFunnelStatus,
   unsubscribeByToken
 } from "../../db/queries/marketing.js";
+import {
+  addCatalogProduct,
+  createSupplier,
+  findSupplierByCode,
+  getSupplier,
+  listCatalog,
+  supplierLedger,
+  updateSupplierProfile
+} from "../../db/queries/suppliers.js";
 import { audienceFor } from "../../utils/marketing.js";
 import {
   closePool,
@@ -327,6 +336,66 @@ describe("the relationship timeline", { skip: skipWithoutDb }, () => {
       "SELECT id FROM contact_events WHERE contact_id = $1", [contact.id]
     );
     assert.equal(events.length, 0);
+  });
+});
+
+describe("supplier accounts", { skip: skipWithoutDb }, () => {
+  let user;
+
+  before(async () => { user = await makeUser("supplier-side"); });
+  after(async () => { await dropUser(user?.id); });
+
+  test("a supplier gets its own trade code", async () => {
+    const s = await createSupplier({ userId: user.id, name: "Wholesale One" });
+    assert.match(s.supply_code || "", /^CF-[0-9A-F]{6}$/);
+    assert.equal(s.accepting_orders, true);
+  });
+
+  test("codes do not collide with each other", async () => {
+    const a = await createSupplier({ userId: user.id, name: "A" });
+    const b = await createSupplier({ userId: user.id, name: "B" });
+    assert.notEqual(a.supply_code, b.supply_code);
+  });
+
+  test("a buyer can find one by code", async () => {
+    const s = await createSupplier({ userId: user.id, name: "Findable" });
+    const found = await findSupplierByCode(s.supply_code.toLowerCase());
+    assert.ok(found, "the lookup is case-insensitive");
+    assert.equal(found.id, s.id);
+    assert.ok(found.base_currency, "the buyer needs the supplier's currency to price a catalog");
+  });
+
+  test("an unknown code finds nothing", async () => {
+    assert.equal(await findSupplierByCode("CF-000000"), null);
+  });
+
+  test("the catalog is the supplier's own, not a business's stock", async () => {
+    const s = await createSupplier({ userId: user.id, name: "Stocked" });
+    await addCatalogProduct({
+      supplierId: s.id, userId: user.id, name: "Sugar 2kg",
+      sku: "SUG", quantity: 100, unitCost: 195, salePrice: 220
+    });
+    const catalog = await listCatalog(s.id);
+    assert.equal(catalog.length, 1);
+    assert.equal(Number(catalog[0].sale_price), 220);
+  });
+
+  test("another user cannot read or change it", async () => {
+    const s = await createSupplier({ userId: user.id, name: "Private" });
+    const other = await makeUser("supplier-other");
+    assert.equal(await getSupplier(s.id, other.id), null);
+    assert.equal(await updateSupplierProfile(s.id, other.id, {
+      acceptingOrders: false, leadTimeDays: 99
+    }), null);
+    await dropUser(other.id);
+  });
+
+  test("a supplier keeps no books — only what its orders are worth", async () => {
+    const s = await createSupplier({ userId: user.id, name: "Ledgerless" });
+    const ledger = await supplierLedger(s.id);
+    assert.equal(Number(ledger.won), 0);
+    assert.equal(Number(ledger.outstanding), 0);
+    assert.equal(ledger.to_fulfil, 0);
   });
 });
 
