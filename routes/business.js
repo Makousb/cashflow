@@ -79,6 +79,19 @@ import {
   showLooseEntries,
   toggleAutoReview
 } from "../controllers/accountant.controller.js";
+import {
+  changeFunnelStatus,
+  draftCampaign,
+  editCampaign,
+  generateFunnel,
+  previewAudience,
+  removeCampaign,
+  removeFunnel,
+  sendCampaign,
+  showContact,
+  showMarketing,
+  updateContact
+} from "../controllers/marketing.controller.js";
 import { askAdvisor, showAdvisor } from "../controllers/advisor.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
@@ -166,6 +179,19 @@ router.post("/:id/accountant/notify", saveReviewEmail);
 router.get("/:id/accountant/entries", showLooseEntries);
 router.post("/:id/accountant/provision", applyProvision);
 router.post("/:id/accountant/entries/:txId", applyCategory);
+
+// Marketing agent: funnels, captured contacts, promotions
+router.get("/:id/marketing", showMarketing);
+router.get("/:id/marketing/audience", previewAudience);
+router.post("/:id/marketing/funnels", generateFunnel);
+router.post("/:id/marketing/funnels/:funnelId/status", changeFunnelStatus);
+router.post("/:id/marketing/funnels/:funnelId/delete", removeFunnel);
+router.get("/:id/marketing/contacts/:contactId", showContact);
+router.post("/:id/marketing/contacts/:contactId", updateContact);
+router.post("/:id/marketing/campaigns", draftCampaign);
+router.post("/:id/marketing/campaigns/:campaignId", editCampaign);
+router.post("/:id/marketing/campaigns/:campaignId/send", sendCampaign);
+router.post("/:id/marketing/campaigns/:campaignId/delete", removeCampaign);
 
 // Business advisor
 router.get("/:id/advisor", showAdvisor);

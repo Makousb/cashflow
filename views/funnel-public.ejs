@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= funnel.headline %> · <%= funnel.business_name %></title>
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <!-- A landing page a stranger reached from a link: no app chrome, no nav. -->
+</head>
+<body class="landing-body">
+  <main class="capture">
+    <p class="capture-from"><%= funnel.business_name %></p>
+    <h1><%= funnel.headline %></h1>
+    <% if (funnel.subhead) { %><p class="capture-sub"><%= funnel.subhead %></p><% } %>
+
+    <% if (captured) { %>
+      <div class="capture-card capture-done">
+        <h2>You're on the list.</h2>
+        <p class="muted">
+          <%= funnel.business_name %> will be in touch. Every email has an
+          unsubscribe link, and one click is all it takes.
+        </p>
+      </div>
+    <% } else { %>
+      <div class="capture-card">
+        <% if (funnel.offer) { %><p class="capture-offer"><%= funnel.offer %></p><% } %>
+        <% if (error) { %>
+          <p class="capture-error">
+            Please enter a valid email address and tick the box so we know you
+            agreed.
+          </p>
+        <% } %>
+        <form method="POST" action="/f/<%= funnel.slug %>" class="stacked-form">
+          <label>Your name (optional)
+            <input type="text" name="name" maxlength="120" autocomplete="name" />
+          </label>
+          <label>Email address
+            <input type="email" name="email" required maxlength="200" autocomplete="email" />
+          </label>
+          <label class="check-row">
+            <input type="checkbox" name="consent" value="on" required />
+            <span>
+              Yes, <%= funnel.business_name %> can email me
+              <%= funnel.incentive ? "— " + funnel.incentive : "about offers" %>.
+            </span>
+          </label>
+          <button type="submit" class="btn btn-primary btn-lg"><%= funnel.cta %></button>
+        </form>
+        <p class="muted capture-fine">
+          We only use your address to send what you asked for. You can
+          unsubscribe from any email in one click.
+        </p>
+      </div>
+    <% } %>
+  </main>
+
+  <footer class="site-footer">
+    <p><a class="link" href="/">Powered by Cashflow</a></p>
+  </footer>
+</body>
+</html>

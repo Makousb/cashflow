@@ -1616,3 +1616,126 @@ a.chip {
 .notify-row input {
   width: 240px;
 }
+
+/* --- Marketing --- */
+.funnel {
+  padding: 1rem 1.15rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand-500);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+.funnel-headline {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--brand-950);
+  margin: 0.35rem 0;
+}
+
+.funnel-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.stage-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.stage-chip {
+  font-size: 0.85rem;
+  color: var(--brand-800);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+}
+
+/* The public capture page: no app chrome, one job. */
+.landing-body {
+  background: var(--paper);
+}
+
+.capture {
+  width: min(560px, 100% - 2.5rem);
+  margin: clamp(2rem, 8vh, 5rem) auto 2rem;
+  text-align: center;
+  flex: 1;
+}
+
+.capture-from {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: var(--brand-800);
+  margin-bottom: 0.85rem;
+}
+
+.capture h1 {
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-weight: 800;
+  color: var(--brand-950);
+}
+
+.capture-sub {
+  margin: 1rem auto 2rem;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+}
+
+.capture-card {
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 1.75rem;
+}
+
+.capture-done {
+  text-align: center;
+}
+
+.capture-offer {
+  font-weight: 700;
+  color: var(--brand-900);
+  background: var(--brand-50);
+  border: 1px dashed var(--brand-200);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.capture-error {
+  color: var(--red);
+  background: var(--red-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1rem;
+  font-size: 0.92rem;
+}
+
+.capture-fine {
+  font-size: 0.82rem;
+  margin-top: 1rem;
+}
+
+.capture .check-row {
+  align-items: flex-start;
+  font-weight: 400;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.capture .check-row input {
+  margin-top: 0.25rem;
+}

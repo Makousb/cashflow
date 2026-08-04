@@ -1,0 +1,80 @@
+<%- include("partials/header") %>
+<%
+  const stamp = (v) => new Date(v).toLocaleString("en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+  });
+  const icons = { captured: "📇", emailed: "✉️", unsubscribed: "🚫",
+                  purchased: "🛍️", note: "📝", stage: "🔀" };
+%>
+
+<section class="page-head">
+  <h1><%= contact.name || contact.email %></h1>
+  <p class="muted">
+    <%= contact.email %> ·
+    <a href="/business/<%= business.id %>/marketing" class="link">← marketing</a>
+  </p>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Where they stand</h2>
+    <div class="budget-row"><span>Status</span>
+      <span class="badge <%= contact.status === "subscribed" ? "badge-done" : "badge-danger" %>"><%= contact.status %></span>
+    </div>
+    <div class="budget-row"><span>Stage</span><strong><%= stageMeta[contact.stage].label %></strong></div>
+    <div class="budget-row"><span>Consented</span><strong><%= stamp(contact.consent_at) %></strong></div>
+    <div class="budget-row"><span>How</span><strong><%= contact.consent_source %></strong></div>
+    <% if (contact.source) { %>
+      <div class="budget-row"><span>Source</span><strong><%= contact.source %></strong></div>
+    <% } %>
+    <div class="budget-row"><span>Last emailed</span>
+      <strong><%= contact.last_emailed_at ? stamp(contact.last_emailed_at) : "never" %></strong>
+    </div>
+    <% if (contact.unsubscribed_at) { %>
+      <p class="muted" style="font-size:0.85rem;">
+        Unsubscribed <%= stamp(contact.unsubscribed_at) %>. They are excluded from
+        every send and cannot be put back by this business — only they can
+        resubscribe, by signing up again.
+      </p>
+    <% } %>
+
+    <form action="/business/<%= business.id %>/marketing/contacts/<%= contact.id %>" method="POST" class="stacked-form" style="margin-top:1rem;">
+      <label>Stage
+        <select name="stage">
+          <% stages.forEach((s) => { %>
+            <option value="<%= s %>" <%= contact.stage === s ? "selected" : "" %>>
+              <%= stageMeta[s].label %> — <%= stageMeta[s].blurb %>
+            </option>
+          <% }) %>
+        </select>
+      </label>
+      <label>Notes
+        <textarea name="notes" rows="5" maxlength="2000" placeholder="What you know about them"><%= contact.notes || "" %></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>History</h2>
+    <% if (events.length === 0) { %>
+      <p class="empty-state">Nothing recorded yet.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% events.forEach((e) => { %>
+          <li class="tx-row">
+            <span class="tx-icon"><%= icons[e.kind] || "•" %></span>
+            <span class="tx-meta">
+              <strong><%= e.detail || e.kind %></strong>
+              <small class="muted">
+                <%= stamp(e.created_at) %><%= e.campaign_name ? " · " + e.campaign_name : "" %>
+              </small>
+            </span>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

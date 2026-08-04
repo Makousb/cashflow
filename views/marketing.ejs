@@ -1,0 +1,235 @@
+<%- include("partials/header") %>
+<%
+  const stamp = (v) => new Date(v).toLocaleString("en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+  });
+  const pct = (v) => (v === null ? "—" : v.toFixed(0) + "%");
+  const statusBadge = (s) =>
+    s === "live" ? "badge-done" : s === "paused" ? "badge-warn" : "badge-warn";
+%>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1><%= business.name %> · Marketing</h1>
+      <p class="muted">
+        Funnels that collect addresses, promotions, and the people behind them ·
+        <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+      </p>
+    </div>
+    <span class="badge <%= live ? "badge-done" : "badge-warn" %>">
+      <%= live ? "AI copy on" : "built-in copy" %>
+    </span>
+  </div>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">👀</span>
+    <span class="stat-body">
+      <span class="stat-label">Funnel views</span>
+      <span class="stat-value"><%= overall.views %></span>
+      <small class="muted"><%= funnels.length %> funnel(s)</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📇</span>
+    <span class="stat-body">
+      <span class="stat-label">Contacts</span>
+      <span class="stat-value"><%= overall.captured %></span>
+      <small class="muted"><%= pct(overall.captureRate) %> of visitors left an address</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">✅</span>
+    <span class="stat-body">
+      <span class="stat-label">Reachable</span>
+      <span class="stat-value positive"><%= overall.subscribed %></span>
+      <small class="muted"><%= overall.unsubscribed %> unsubscribed</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">🛍️</span>
+    <span class="stat-body">
+      <span class="stat-label">Became customers</span>
+      <span class="stat-value"><%= overall.customers %></span>
+      <small class="muted"><%= pct(overall.conversionRate) %> of contacts</small>
+    </span>
+  </div>
+</section>
+
+<% if (!mailReady) { %>
+  <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
+    <span class="alert-icon">✉️</span>
+    <div class="alert-body" style="flex:1;">
+      <strong>No mail server configured</strong>
+      <div class="alert-detail">
+        Funnels still collect addresses and the CRM works as normal. Promotions
+        can be drafted but not sent until SMTP is set up.
+      </div>
+    </div>
+  </section>
+<% } %>
+
+<!-- Funnels -->
+<section class="card" style="margin-bottom:1.5rem;">
+  <div class="budget-row" style="margin-top:0;">
+    <h2 style="margin:0;">Funnels</h2>
+    <form action="/business/<%= business.id %>/marketing/funnels" method="POST" class="inline-form">
+      <button type="submit" class="btn btn-primary">Draft a funnel</button>
+    </form>
+  </div>
+  <p class="muted" style="margin-top:-0.4rem;">
+    A funnel is a public page that makes an offer and collects an email address.
+    The copy is written from what you actually sell; read it before setting it live.
+  </p>
+
+  <% if (funnels.length === 0) { %>
+    <p class="empty-state">No funnels yet — draft one and it will use your own stock and prices.</p>
+  <% } else { %>
+    <% funnels.forEach((f) => { %>
+      <div class="funnel" id="funnel-<%= f.id %>">
+        <div class="finding-head">
+          <strong><%= f.name %></strong>
+          <span>
+            <span class="badge <%= statusBadge(f.status) %>"><%= f.status %></span>
+            <% if (f.mode === "ai") { %><span class="badge badge-done">AI</span><% } %>
+          </span>
+        </div>
+        <p class="funnel-headline"><%= f.headline %></p>
+        <% if (f.subhead) { %><p class="muted"><%= f.subhead %></p><% } %>
+        <% if (f.offer) { %><p class="muted"><strong>Offer:</strong> <%= f.offer %></p><% } %>
+
+        <div class="funnel-stats">
+          <span><strong><%= f.metrics.views %></strong> views</span>
+          <span><strong><%= f.metrics.captured %></strong> captured</span>
+          <span><strong><%= pct(f.metrics.captureRate) %></strong> capture rate</span>
+          <span><strong><%= f.metrics.byStage.customer + f.metrics.byStage.lapsed %></strong> bought</span>
+        </div>
+
+        <% if (f.status === "live") { %>
+          <p class="muted" style="font-size:0.85rem;">
+            Live at <a class="link" href="/f/<%= f.slug %>"><%= publicBase %>/f/<%= f.slug %></a>
+          </p>
+        <% } %>
+
+        <div class="action-row">
+          <% ["live", "paused", "draft"].filter((s) => s !== f.status).forEach((s) => { %>
+            <form action="/business/<%= business.id %>/marketing/funnels/<%= f.id %>/status" method="POST" class="inline-form">
+              <input type="hidden" name="status" value="<%= s %>" />
+              <button type="submit" class="btn btn-ghost btn-sm">
+                <%= s === "live" ? "Set live" : s === "paused" ? "Pause" : "Back to draft" %>
+              </button>
+            </form>
+          <% }) %>
+          <form action="/business/<%= business.id %>/marketing/funnels/<%= f.id %>/delete" method="POST" class="inline-form">
+            <button type="submit" class="btn btn-ghost btn-sm" title="Delete (contacts are kept)">✕</button>
+          </form>
+        </div>
+      </div>
+    <% }) %>
+  <% } %>
+</section>
+
+<div class="two-col">
+  <!-- Promotions -->
+  <section class="card">
+    <div class="budget-row" style="margin-top:0;">
+      <h2 style="margin:0;">Promotions</h2>
+    </div>
+    <form action="/business/<%= business.id %>/marketing/campaigns" method="POST" class="stacked-form">
+      <label>
+        Who it goes to
+        <select name="segment">
+          <% Object.entries(segments).forEach(([key, s]) => { %>
+            <option value="<%= key %>"><%= s.label %></option>
+          <% }) %>
+        </select>
+      </label>
+      <button type="submit" class="btn btn-primary">Draft a promotion</button>
+    </form>
+    <p class="muted" style="font-size:0.85rem;">
+      Every promotion carries a one-click unsubscribe link. Anyone who has
+      unsubscribed is left out of every send, whatever the segment says.
+    </p>
+
+    <% if (campaigns.length === 0) { %>
+      <p class="empty-state">No promotions yet.</p>
+    <% } else { %>
+      <ul class="tx-list">
+        <% campaigns.forEach((c) => { %>
+          <li class="tx-row" id="campaign-<%= c.id %>">
+            <span class="tx-icon"><%= c.status === "sent" ? "📤" : "📝" %></span>
+            <span class="tx-meta">
+              <strong>
+                <%= c.name %>
+                <span class="badge <%= c.status === "sent" ? "badge-done" : "badge-warn" %>"><%= c.status %></span>
+              </strong>
+              <small class="muted">
+                “<%= c.subject %>” · <%= segments[c.segment] ? segments[c.segment].label : c.segment %>
+                <% if (c.status === "sent") { %>
+                  · sent to <%= c.sent_count %><%= c.failed_count > 0 ? ", " + c.failed_count + " failed" : "" %>
+                  <%= c.sent_at ? " · " + stamp(c.sent_at) : "" %>
+                <% } %>
+              </small>
+            </span>
+            <% if (c.status === "draft") { %>
+              <form action="/business/<%= business.id %>/marketing/campaigns/<%= c.id %>/send" method="POST" class="inline-form">
+                <button type="submit" class="btn btn-ghost btn-sm" <%= mailReady ? "" : "disabled" %>>Send</button>
+              </form>
+              <form action="/business/<%= business.id %>/marketing/campaigns/<%= c.id %>/delete" method="POST" class="inline-form">
+                <button type="submit" class="btn btn-ghost btn-sm">✕</button>
+              </form>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+
+  <!-- CRM -->
+  <section class="card">
+    <div class="budget-row" style="margin-top:0;">
+      <h2 style="margin:0;">Contacts</h2>
+      <span class="muted" style="font-size:0.85rem;"><%= contacts.length %> total</span>
+    </div>
+    <% if (contacts.length === 0) { %>
+      <p class="empty-state">
+        Nobody yet. Set a funnel live and the addresses it collects appear here.
+      </p>
+    <% } else { %>
+      <div class="stage-row">
+        <% stages.forEach((s) => { %>
+          <span class="stage-chip">
+            <strong><%= contacts.filter((c) => c.stage === s).length %></strong>
+            <%= stageMeta[s].label %>
+          </span>
+        <% }) %>
+      </div>
+      <ul class="tx-list">
+        <% contacts.slice(0, 25).forEach((c) => { %>
+          <li class="tx-row">
+            <span class="tx-icon"><%= c.status === "unsubscribed" ? "🚫" : c.stage === "customer" ? "🛍️" : "📇" %></span>
+            <span class="tx-meta">
+              <strong>
+                <a class="link" href="/business/<%= business.id %>/marketing/contacts/<%= c.id %>">
+                  <%= c.name || c.email %>
+                </a>
+                <span class="badge <%= c.status === "subscribed" ? "badge-done" : "badge-danger" %>"><%= c.status %></span>
+              </strong>
+              <small class="muted">
+                <%= c.email %> · <%= stageMeta[c.stage].label %>
+                <%= c.funnel_name ? " · from " + c.funnel_name : "" %>
+              </small>
+            </span>
+          </li>
+        <% }) %>
+      </ul>
+      <% if (contacts.length > 25) { %>
+        <p class="muted" style="font-size:0.85rem;">Showing the 25 most recent.</p>
+      <% } %>
+    <% } %>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

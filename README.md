@@ -89,6 +89,19 @@ JavaScript (Chart.js).
     turns, the books are closed for that month. Skipped months are not caught up
     — a review is a snapshot of the books as they stand, so three identical ones
     would only be noise
+  - **Marketing** — funnels, a contact list and promotions. It drafts a landing
+    page from what you actually sell and publishes it at a public URL; anyone
+    who fills the form in becomes a contact, with the moment and manner of
+    their consent recorded. Contacts move themselves through lead → engaged →
+    customer → lapsed based on whether they have been written to and whether
+    they have bought, and each one has a timeline of everything that happened.
+    Promotions are drafted for a chosen segment and sent only when you send
+    them.
+    Consent is enforced in the schema, not the interface: the audience query
+    cannot return someone who has unsubscribed, every promotion carries a
+    one-click unsubscribe link that needs no account, re-entering an address
+    does not undo an unsubscribe, and an unknown segment reaches nobody rather
+    than everybody. The AI writes the copy; it never chooses a recipient
   - **Advisor** — a chat assistant that answers questions about the business
     (profit, cash, costs to cut, tax, receivables, inventory, payroll) grounded
     in its actual figures. Works out of the box with built-in insights; point

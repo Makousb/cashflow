@@ -366,6 +366,94 @@ const SCHEMA_SQL = `
   -- can go to a bookkeeper who does not have a login here.
   ALTER TABLE businesses ADD COLUMN IF NOT EXISTS review_email TEXT;
 
+  -- Marketing: funnels that capture leads, the people they capture, and the
+  -- promotions sent to them.
+  --
+  -- The consent rules are in the schema rather than the UI on purpose. A
+  -- contact carries when and how it consented; status decides whether anything
+  -- may ever be sent to it; and unsubscribe_token lets someone leave from the
+  -- email itself, without an account and without asking the business.
+  CREATE TABLE IF NOT EXISTS funnels (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    headline TEXT NOT NULL,
+    subhead TEXT,
+    offer TEXT,
+    cta TEXT NOT NULL DEFAULT 'Get the offer',
+    -- What the visitor is promised in exchange for their address.
+    incentive TEXT,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'live', 'paused')),
+    views INTEGER NOT NULL DEFAULT 0,
+    mode TEXT NOT NULL DEFAULT 'offline' CHECK (mode IN ('ai', 'offline')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_funnels_business
+    ON funnels (business_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS contacts (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    funnel_id INTEGER REFERENCES funnels(id) ON DELETE SET NULL,
+    email TEXT NOT NULL,
+    name TEXT,
+    -- subscribed is the only status that may ever receive a promotion.
+    status TEXT NOT NULL DEFAULT 'subscribed'
+      CHECK (status IN ('subscribed', 'unsubscribed', 'bounced')),
+    stage TEXT NOT NULL DEFAULT 'lead'
+      CHECK (stage IN ('lead', 'engaged', 'customer', 'lapsed')),
+    source TEXT,
+    consent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    consent_source TEXT NOT NULL DEFAULT 'funnel',
+    unsubscribed_at TIMESTAMPTZ,
+    unsubscribe_token TEXT NOT NULL,
+    last_emailed_at TIMESTAMPTZ,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  -- One row per person per business, however many times they sign up.
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_business_email
+    ON contacts (business_id, lower(email));
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_token
+    ON contacts (unsubscribe_token);
+
+  CREATE TABLE IF NOT EXISTS campaigns (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    segment TEXT NOT NULL DEFAULT 'all',
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'sent')),
+    sent_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    skipped_count INTEGER NOT NULL DEFAULT 0,
+    mode TEXT NOT NULL DEFAULT 'offline' CHECK (mode IN ('ai', 'offline')),
+    sent_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  -- The relationship, as it happened. Everything that touches a contact leaves
+  -- a row here, which is what the CRM timeline reads back.
+  CREATE TABLE IF NOT EXISTS contact_events (
+    id SERIAL PRIMARY KEY,
+    contact_id INTEGER NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+    campaign_id INTEGER REFERENCES campaigns(id) ON DELETE SET NULL,
+    kind TEXT NOT NULL
+      CHECK (kind IN ('captured', 'emailed', 'unsubscribed', 'purchased', 'note', 'stage')),
+    detail TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_contact_events_contact
+    ON contact_events (contact_id, created_at DESC);
+
   -- A record of every close the accounting agent has run. The findings are kept
   -- as they were written so a past review can be read back exactly, rather than
   -- recomputed against books that have since moved on.
