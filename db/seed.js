@@ -484,8 +484,10 @@ async function main() {
     return;
   }
 
+  // ensureSchema has already said which of the two went wrong, and guessing
+  // "no database" over the top of it buries the answer when it was the schema.
   if (!(await ensureSchema())) {
-    console.error("No database. Copy .env.example to .env and point it at PostgreSQL.");
+    console.error("Cannot seed until the schema is ready — see above.");
     process.exitCode = 1;
     return;
   }

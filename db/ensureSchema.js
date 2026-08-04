@@ -795,16 +795,52 @@ async function seedDefaultCategories() {
 
 // Best-effort: returns false instead of throwing so the app can still boot
 // (public pages, in-memory sessions) before PostgreSQL is configured.
+//
+// The two ways this fails are kept apart deliberately. "No database" is a setup
+// problem with a known fix; a schema that will not build is a bug in this file.
+// Reporting the second as the first sent a CI failure in entirely the wrong
+// direction once — every test failed on a fresh database and the only thing the
+// log said was that the database was unavailable, which it was not.
 export async function ensureSchema() {
+  try {
+    await pool.query("SELECT 1");
+  } catch (error) {
+    // A refused connection arrives as an AggregateError whose own message is
+    // empty — one attempt per address the host resolved to — so the reason has
+    // to come out of the list. Without this the commonest failure of the lot,
+    // no server running, printed as an empty pair of brackets.
+    const reason =
+      error.message ||
+      error.errors?.map((cause) => cause.message).filter(Boolean).join("; ") ||
+      String(error);
+    console.warn("Database unavailable — starting without persistence.");
+    console.warn(`  (${reason})`);
+    console.warn("  Copy .env.example to .env, point it at PostgreSQL, and restart.");
+    return false;
+  }
+
   try {
     await pool.query(SCHEMA_SQL);
     await seedDefaultCategories();
     console.info("Database schema is ready");
     return true;
   } catch (error) {
-    console.warn("Database unavailable — starting without persistence.");
-    console.warn(`  (${error.message})`);
-    console.warn("  Copy .env.example to .env, point it at PostgreSQL, and restart.");
+    // We are connected, so this is the schema itself. SCHEMA_SQL is one long
+    // batch: the message alone rarely says which statement failed, and these
+    // fields are the only way back to it, so print whichever ones are set.
+    console.error("Database schema could not be created — starting without persistence.");
+    console.error("  The database is reachable, so this is a bug in the schema, not your setup.");
+    console.error(`  ${error.message}`);
+    for (const [label, value] of [
+      ["SQLSTATE", error.code],
+      ["detail", error.detail],
+      ["hint", error.hint],
+      ["where", error.where]
+    ]) {
+      if (value) {
+        console.error(`  ${label}: ${value}`);
+      }
+    }
     return false;
   }
 }
