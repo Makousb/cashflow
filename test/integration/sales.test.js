@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 
 import { createSale, listSales, salesSummary, voidSale } from "../../db/queries/sales.js";
+import { monthStart, toISODate, today } from "../../utils/dates.js";
 import {
   closePool,
   dropUser,
@@ -236,10 +237,14 @@ describe("the sales summary", { skip: skipWithoutDb }, () => {
     const product = await makeProduct(shop.id, user.id, {
       name: "Tea 500g", quantity: 100, unitCost: 100, salePrice: 150
     });
-    const today = new Date().toISOString().slice(0, 10);
+    // The summary filters on CURRENT_DATE, which Postgres reads in the server's
+    // local timezone — so the sales have to be dated the same way. toISOString
+    // would give the UTC date, which is still yesterday east of UTC after
+    // midnight, and the sales would land outside the day being counted.
+    const occurredOn = today();
     for (const quantity of [2, 3]) {
       await createSale({
-        businessId: shop.id, userId: user.id, payment: "cash", occurredOn: today,
+        businessId: shop.id, userId: user.id, payment: "cash", occurredOn,
         lines: [{ productId: product.id, name: "Tea 500g", quantity }]
       });
     }
@@ -254,6 +259,58 @@ describe("the sales summary", { skip: skipWithoutDb }, () => {
     assert.equal(summary.today_count, 2);
     assert.equal(Number(summary.today_total), 750);
     assert.equal(Number(summary.all_cost), 500);
+  });
+
+  test("today's takings count towards the month as well", async () => {
+    const summary = await salesSummary(shop.id, user.id);
+    assert.equal(summary.month_count, 2);
+    assert.equal(Number(summary.month_total), 750);
+    assert.equal(Number(summary.month_cost), 500);
+  });
+});
+
+describe("the sales summary at the turn of the month", { skip: skipWithoutDb }, () => {
+  let user;
+  let shop;
+
+  before(async () => {
+    user = await makeUser("summary-month");
+    shop = await makeBusiness(user.id, "Month Boundary Shop");
+    const product = await makeProduct(shop.id, user.id, {
+      name: "Tea 500g", quantity: 100, unitCost: 100, salePrice: 150
+    });
+    // The month figures start at date_trunc('month', CURRENT_DATE), an inclusive
+    // bound Postgres reads in its local timezone — so these two straddle it,
+    // dated from local components for the same reason the day fixture above is.
+    const now = new Date();
+    const firstOfThisMonth = monthStart(now);
+    // Day 0 of this month is the last day of the one before it.
+    const lastOfLastMonth = toISODate(new Date(now.getFullYear(), now.getMonth(), 0));
+
+    for (const [occurredOn, quantity] of [[firstOfThisMonth, 4], [lastOfLastMonth, 6]]) {
+      await createSale({
+        businessId: shop.id, userId: user.id, payment: "cash", occurredOn,
+        lines: [{ productId: product.id, name: "Tea 500g", quantity }]
+      });
+    }
+  });
+
+  after(async () => {
+    await dropUser(user?.id);
+  });
+
+  test("the first of the month is in, and nothing before it is", async () => {
+    const summary = await salesSummary(shop.id, user.id);
+    assert.equal(summary.month_count, 1, "last month's sale must not be counted");
+    assert.equal(Number(summary.month_total), 600);
+    assert.equal(Number(summary.month_cost), 400);
+  });
+
+  test("last month's sale is still there in the all-time figures", async () => {
+    const summary = await salesSummary(shop.id, user.id);
+    assert.equal(summary.all_count, 2);
+    assert.equal(Number(summary.all_total), 1500);
+    assert.equal(Number(summary.all_cost), 1000);
   });
 });
 
