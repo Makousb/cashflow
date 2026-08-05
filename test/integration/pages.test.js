@@ -41,7 +41,17 @@ async function post(path, form) {
   for (const c of res.headers.getSetCookie?.() || []) {
     if (c.startsWith("cashflow.sid")) cookie = c.split(";")[0];
   }
-  return { status: res.status, location: res.headers.get("location") };
+  // The body as well, as visit returns it. A redirect has none, so this costs
+  // nothing on the way through, and when a post comes back with a page instead
+  // it is the only thing that says what the page was.
+  return { status: res.status, location: res.headers.get("location"), text: await res.text() };
+}
+
+// A page reduced to its words, for putting inside an assertion message. The 500
+// page has nothing to say — handleError logs the stack to stderr and node --test
+// prints it — but a form redisplayed after a refusal carries the reason for it.
+function pageText(html) {
+  return (html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 describe("every page renders", { skip: skipWithoutDb }, () => {
@@ -56,12 +66,28 @@ describe("every page renders", { skip: skipWithoutDb }, () => {
     const signup = await post("/auth/register", {
       name: "Page Test", email, password: "a good long password", currency: "KES"
     });
-    assert.equal(signup.status, 302, "signup should succeed");
+    assert.equal(
+      signup.status, 302,
+      `signup returned ${signup.status}: ${pageText(signup.text).slice(0, 200)}`
+    );
     userId = (await q("SELECT id FROM users WHERE email = $1", [email]))[0].id;
 
     const created = await post("/business", { name: "Page Test Co", industry: "Retail" });
-    businessId = Number(/\/business\/(\d+)/.exec(created.location || "")?.[1]);
-    assert.ok(businessId, "a business should have been created");
+    // The status before the id. This hook has failed once in CI and left only
+    // "a business should have been created" behind, which is every way it can
+    // go wrong wearing one face: a 500 means the handler threw, and its stack
+    // is already in the log above; a 302 back to /business means it was refused
+    // and there is no id to find. Parsing the location first and asserting on
+    // what came out of it tells those apart from neither.
+    assert.equal(
+      created.status, 302,
+      `POST /business returned ${created.status}: ${pageText(created.text).slice(0, 200)}`
+    );
+    assert.match(
+      created.location || "", /^\/business\/\d+$/,
+      `POST /business redirected to ${created.location} rather than the new business`
+    );
+    businessId = Number(/\/business\/(\d+)/.exec(created.location)[1]);
   });
 
   after(async () => {
