@@ -14,13 +14,18 @@ jobs:
     # in its own timezone. A runner on UTC is the one setting where those two
     # can never disagree, so a date built the wrong way round passes CI and
     # fails only on a machine east of UTC, after midnight, and looks like a
-    # flake when it does. That is how the sales summary stayed broken. One leg
-    # keeps the UTC signal, since that is what production runs on; the other
-    # moves off it far enough that the two calendars differ for most of the day.
+    # flake when it does. That is how the sales summary stayed broken.
+    #
+    # UTC stays, because that is what production runs on. The other two are the
+    # extremes either side of it, neither observing DST, and they are a pair on
+    # purpose: a zone at +14 has a different calendar from UTC for the last
+    # fourteen hours of the UTC day, one at -11 for the first eleven, so
+    # whenever CI runs at least one leg is on a date UTC does not agree with.
+    # A date built the wrong way round now fails on every run, not on some.
     strategy:
       fail-fast: false
       matrix:
-        timezone: [UTC, Pacific/Kiritimati]
+        timezone: [UTC, Pacific/Kiritimati, Pacific/Niue]
 
     services:
       postgres:
