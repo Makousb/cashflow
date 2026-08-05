@@ -108,4 +108,18 @@ describe("projectPayoff", () => {
     const plan = projectPayoff(10000, 0, 2500, "2026-01-15");
     assert.equal(plan.payoffDate, "2026-05-15");
   });
+
+  test("clearing it from a 31st lands on the last day of a shorter month", () => {
+    // One month on from Jan 31 is Feb 28, not March 3. Adding a month to a
+    // 31st asks for a date that does not exist, and Date answers by running
+    // past the end of the month rather than stopping at it.
+    const plan = projectPayoff(10000, 0, 10000, "2026-01-31");
+    assert.equal(plan.months, 1);
+    assert.equal(plan.payoffDate, "2026-02-28");
+  });
+
+  test("and on the 29th in a leap year", () => {
+    const plan = projectPayoff(10000, 0, 10000, "2024-01-31");
+    assert.equal(plan.payoffDate, "2024-02-29");
+  });
 });

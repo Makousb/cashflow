@@ -67,6 +67,12 @@ function addMonthsClamped(year, monthIndex, day, n) {
   );
 }
 
+// The same clamped step, for callers holding a date rather than its parts.
+export function addMonths(value, n) {
+  const date = toLocalDate(value);
+  return addMonthsClamped(date.getFullYear(), date.getMonth(), date.getDate(), n);
+}
+
 // Next occurrence of a recurring date, as YYYY-MM-DD.
 export function nextOccurrence(isoDate, frequency) {
   const [year, month, day] = isoDate.slice(0, 10).split("-").map(Number);
