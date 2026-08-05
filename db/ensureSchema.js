@@ -793,7 +793,7 @@ async function seedDefaultCategories() {
   }
 }
 
-// Best-effort: returns false instead of throwing so the app can still boot
+// Best-effort: reports failure instead of throwing so the app can still boot
 // (public pages, in-memory sessions) before PostgreSQL is configured.
 //
 // The two ways this fails are kept apart deliberately. "No database" is a setup
@@ -801,7 +801,12 @@ async function seedDefaultCategories() {
 // Reporting the second as the first sent a CI failure in entirely the wrong
 // direction once — every test failed on a fresh database and the only thing the
 // log said was that the database was unavailable, which it was not.
-export async function ensureSchema() {
+//
+// They are told apart in the return value as well as in the log, so a caller
+// that has to act differently on each — the integration tests skip for one and
+// fail for the other — can read which happened instead of working it out again.
+// Returns { ok, reason: "ready" | "unreachable" | "schema", detail }.
+export async function ensureSchemaState() {
   try {
     await pool.query("SELECT 1");
   } catch (error) {
@@ -816,14 +821,14 @@ export async function ensureSchema() {
     console.warn("Database unavailable — starting without persistence.");
     console.warn(`  (${reason})`);
     console.warn("  Copy .env.example to .env, point it at PostgreSQL, and restart.");
-    return false;
+    return { ok: false, reason: "unreachable", detail: reason };
   }
 
   try {
     await pool.query(SCHEMA_SQL);
     await seedDefaultCategories();
     console.info("Database schema is ready");
-    return true;
+    return { ok: true, reason: "ready", detail: "" };
   } catch (error) {
     // We are connected, so this is the schema itself. SCHEMA_SQL is one long
     // batch: the message alone rarely says which statement failed, and these
@@ -841,6 +846,13 @@ export async function ensureSchema() {
         console.error(`  ${label}: ${value}`);
       }
     }
-    return false;
+    return { ok: false, reason: "schema", detail: error.message };
   }
+}
+
+// The boolean form, for callers that only need to know whether persistence is
+// available: the app deciding whether to boot, the seed script deciding whether
+// to carry on. Both have already had the reason printed for them.
+export async function ensureSchema() {
+  return (await ensureSchemaState()).ok;
 }
