@@ -103,3 +103,8 @@ jobs:
       - name: Import the service
         working-directory: analytics
         run: python -c "import app; print('analytics service imports cleanly')"
+
+      # Standard library only, as on the Node side — nothing to install for it.
+      - name: Tests
+        working-directory: analytics
+        run: python -m unittest -v

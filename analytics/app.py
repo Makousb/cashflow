@@ -140,7 +140,18 @@ def fmt(amount: float, currency: str) -> str:
 
 
 def month_key(iso_date: str) -> str:
-    return iso_date[:7]
+    """The YYYY-MM a calendar day falls in.
+
+    Read rather than sliced. Taking the first seven characters answers for
+    anything, including a date that has been through a JS Date and JSON on the
+    way here and arrived as an instant: local midnight on the 1st of September
+    in Nairobi leaves as 21:00 on the 31st of August, and the slice would file
+    it under August without a word. Every other date in this module is read
+    with fromisoformat, so this one is too, and a date that is not a day is
+    refused here the same way it would be anywhere else.
+    """
+    day = date.fromisoformat(iso_date)
+    return f"{day.year:04d}-{day.month:02d}"
 
 
 def last_n_month_keys(today: date, n: int = 6) -> list[str]:
