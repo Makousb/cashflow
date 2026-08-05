@@ -16,6 +16,21 @@ describe("toISODate", () => {
     assert.equal(toISODate(new Date(2026, 2, 1, 23, 30)), "2026-03-01");
   });
 
+  test("a date-only string is already the day it names", () => {
+    // new Date("2026-01-01") is UTC midnight, which is still 2025-12-31 in
+    // every zone behind UTC. Reading local components off that moved the day
+    // backwards and started loans a month early. The string needs no parsing.
+    assert.equal(toISODate("2026-01-01"), "2026-01-01");
+    assert.equal(toISODate("2026-12-31"), "2026-12-31");
+  });
+
+  test("a string carrying a time is still converted as an instant", () => {
+    // Only the date-only form short-circuits: this one names a moment, and
+    // which day it falls on genuinely depends on where you are reading it.
+    const midday = new Date(2026, 5, 15, 12, 0);
+    assert.equal(toISODate(midday.toISOString()), "2026-06-15");
+  });
+
   test("returns null for nothing", () => {
     assert.equal(toISODate(null), null);
     assert.equal(toISODate(undefined), null);

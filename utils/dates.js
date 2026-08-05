@@ -14,6 +14,14 @@ export function toISODate(value) {
     return null;
   }
 
+  // A bare YYYY-MM-DD is a calendar day, not an instant, and is already the
+  // answer. Handing it to Date would read it as UTC midnight — which is the day
+  // before, everywhere behind UTC — and then take local components back off it.
+  // Anything carrying a time stays a real instant and is converted as one.
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
   const date = value instanceof Date ? value : new Date(value);
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
