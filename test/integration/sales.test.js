@@ -227,6 +227,28 @@ describe("voiding a sale", { skip: skipWithoutDb }, () => {
   });
 });
 
+// The premise the two suites below rest on, and every other query in the app
+// that filters on CURRENT_DATE: Postgres reads it in its own timezone, so a
+// date built here only means the same thing if the two clocks agree. When they
+// do not, those suites fail as a count that is short by two, which says nothing
+// about why. This says it.
+describe("the database and this process agree on the date", { skip: skipWithoutDb }, () => {
+  test("today() is the date Postgres will call CURRENT_DATE", async () => {
+    // Read either side of the query, so the instant the day turns over between
+    // the two is a pass rather than the one flake this test must not have.
+    const before = today();
+    const { current_date: theirs } = await one("SELECT CURRENT_DATE::text AS current_date");
+    const after = today();
+
+    assert.ok(
+      theirs === before || theirs === after,
+      `Postgres says ${theirs}, this process says ${after}. Dates built here are ` +
+      "compared against CURRENT_DATE, which is read in the database server's " +
+      "timezone — point the tests at a database in this machine's timezone."
+    );
+  });
+});
+
 describe("the sales summary", { skip: skipWithoutDb }, () => {
   let user;
   let shop;
