@@ -7,8 +7,20 @@ on:
 
 jobs:
   test:
-    name: Node app
+    name: Node app (${{ matrix.timezone }})
     runs-on: ubuntu-latest
+
+    # Dates built here are compared against CURRENT_DATE, which Postgres reads
+    # in its own timezone. A runner on UTC is the one setting where those two
+    # can never disagree, so a date built the wrong way round passes CI and
+    # fails only on a machine east of UTC, after midnight, and looks like a
+    # flake when it does. That is how the sales summary stayed broken. One leg
+    # keeps the UTC signal, since that is what production runs on; the other
+    # moves off it far enough that the two calendars differ for most of the day.
+    strategy:
+      fail-fast: false
+      matrix:
+        timezone: [UTC, Pacific/Kiritimati]
 
     services:
       postgres:
@@ -28,6 +40,7 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/cashflow_test
       DB_SSL: "false"
+      TZ: ${{ matrix.timezone }}
 
     steps:
       - uses: actions/checkout@v7
@@ -45,6 +58,16 @@ jobs:
       - name: Parse every source file
         run: npm run check
 
+      # Both clocks or neither. Moving the runner alone would only prove they
+      # can disagree — every date test would fail and none of it would mean
+      # anything. Setting it on the database rather than the container leaves
+      # nothing to the image's own timezone handling.
+      - name: Put the database on the runner's clock
+        run: |
+          psql "$DATABASE_URL" -c "ALTER DATABASE cashflow_test SET timezone TO '$TZ'"
+          echo "runner  $(date +'%Y-%m-%d %H:%M %Z')  (UTC $(date -u +'%Y-%m-%d %H:%M'))"
+          echo "database $(psql "$DATABASE_URL" -tAc 'SELECT CURRENT_DATE') $(psql "$DATABASE_URL" -tAc 'SHOW timezone')"
+
       - name: Tests
         run: npm test
 
@@ -54,6 +77,7 @@ jobs:
       - name: Install from scratch
         run: |
           psql "$DATABASE_URL" -c 'CREATE DATABASE cashflow_fresh'
+          psql "$DATABASE_URL" -c "ALTER DATABASE cashflow_fresh SET timezone TO '$TZ'"
           DATABASE_URL=postgres://postgres:postgres@localhost:5432/cashflow_fresh npm run seed
 
   analytics:
