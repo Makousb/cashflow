@@ -2,6 +2,8 @@
 // back a subject and two bodies, so what gets sent can be tested without a mail
 // server anywhere near it.
 
+import { toLocalDate } from "./dates.js";
+
 const SEVERITY_COLOUR = { high: "#b3261e", medium: "#8a6100", low: "#1b7a43" };
 
 // Findings quote vendor names, categories and notes the owner typed, so every
@@ -15,8 +17,11 @@ function esc(value) {
     .replace(/'/g, "&#39;");
 }
 
+// The close is usually run on the 1st, which is the one day of the month where
+// reading the date as UTC midnight would put the whole email in the month
+// before and title it accordingly.
 function monthName(date) {
-  return new Date(date).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  return toLocalDate(date).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
 export function reviewEmail({ business, tax, review, narrative, fmt, url, when }) {

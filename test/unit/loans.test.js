@@ -101,7 +101,11 @@ describe("projectPayoff", () => {
   });
 
   test("reports the date it comes off the books", () => {
-    const plan = projectPayoff(10000, 0, 2500, "2026-01-01");
-    assert.equal(plan.payoffDate, "2026-05-01");
+    // Mid-month deliberately. Starting on the 1st is the one date this cannot
+    // check: reading it as UTC midnight moves the start to the 31st, and adding
+    // months to a 31st overflows back onto the 1st again, so a wrong answer and
+    // the right one agree. On the 15th they do not.
+    const plan = projectPayoff(10000, 0, 2500, "2026-01-15");
+    assert.equal(plan.payoffDate, "2026-05-15");
   });
 });

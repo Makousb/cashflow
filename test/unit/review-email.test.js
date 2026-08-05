@@ -16,7 +16,11 @@ const build = (over = {}) =>
     narrative: over.narrative ?? "Three things need attention before month end.",
     fmt,
     url: over.url ?? "https://cashflow.example/business/1/accountant",
-    when: "2026-08-03"
+    // The 1st, because that is when a monthly close actually runs and the only
+    // day of the month on which naming it wrongly shows: read as UTC midnight
+    // this lands in July, and the subject assertion below would say so. Any
+    // other date hides that, which is why this one is not the 3rd.
+    when: over.when ?? "2026-08-01"
   });
 
 describe("the subject line", () => {

@@ -8,6 +8,25 @@ export function monthLabel(date = new Date()) {
   return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
+// A Date to read local components off. The case that matters is a bare
+// YYYY-MM-DD: it names a calendar day, and the Date constructor reads that
+// exact form as UTC midnight — which is the previous day everywhere behind
+// UTC, so every getter afterwards answers for the wrong date. Building it from
+// the parts keeps the day it names. Anything else is a real instant and is
+// left to Date, which is what it is for.
+export function toLocalDate(value) {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  const parts = typeof value === "string" && /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (parts) {
+    return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+  }
+
+  return new Date(value);
+}
+
 // Local-timezone YYYY-MM-DD (toISOString would shift the day near midnight).
 export function toISODate(value) {
   if (!value) {
@@ -63,7 +82,11 @@ export function nextOccurrence(isoDate, frequency) {
 }
 
 export function formatDate(value) {
-  const date = value instanceof Date ? value : new Date(value);
+  // Plenty of what reaches here is a date-only string rather than a Date: an
+  // estimated delivery from addDays, a recurring rule's next_run_iso, a date
+  // straight off a form. All of them are days, and none should be shown as the
+  // day before to anyone reading from behind UTC.
+  const date = toLocalDate(value);
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",

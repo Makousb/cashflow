@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { monthStart, nextOccurrence, toISODate } from "../../utils/dates.js";
+import { formatDate, monthStart, nextOccurrence, toISODate } from "../../utils/dates.js";
 
 describe("toISODate", () => {
   test("formats a Date in local time", () => {
@@ -34,6 +34,21 @@ describe("toISODate", () => {
   test("returns null for nothing", () => {
     assert.equal(toISODate(null), null);
     assert.equal(toISODate(undefined), null);
+  });
+});
+
+describe("formatDate", () => {
+  test("shows the day a date-only string names", () => {
+    // What reaches this is often a string rather than a Date — an estimated
+    // delivery, a recurring rule's next run, a date off a form. Read as UTC
+    // midnight they would all display a day early behind UTC, and the 1st
+    // would show the previous month with it.
+    assert.equal(formatDate("2026-08-08"), "Aug 8, 2026");
+    assert.equal(formatDate("2026-08-01"), "Aug 1, 2026");
+  });
+
+  test("formats a Date as the day it is locally", () => {
+    assert.equal(formatDate(new Date(2026, 7, 8)), "Aug 8, 2026");
   });
 });
 

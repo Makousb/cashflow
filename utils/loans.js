@@ -1,4 +1,4 @@
-import { toISODate } from "./dates.js";
+import { toISODate, toLocalDate } from "./dates.js";
 
 // Interest is modelled as an annual APR compounded monthly on the running
 // balance. All amounts are in the loan's base currency. Figures are estimates
@@ -87,8 +87,10 @@ export function projectPayoff(balance, apr, monthlyPayment, todayIso) {
     months += 1;
   }
 
-  const payoff = new Date(todayIso);
-  payoff.setMonth(payoff.getMonth() + months);
+  // Built from the start date's own parts rather than by handing the string to
+  // Date, which would read it as UTC midnight and count from the day before.
+  const start = toLocalDate(todayIso);
+  const payoff = new Date(start.getFullYear(), start.getMonth() + months, start.getDate());
 
   return { months, totalInterest, payoffDate: toISODate(payoff), neverPaysOff: false };
 }
