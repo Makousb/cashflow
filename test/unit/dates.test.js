@@ -50,6 +50,14 @@ describe("formatDate", () => {
   test("formats a Date as the day it is locally", () => {
     assert.equal(formatDate(new Date(2026, 7, 8)), "Aug 8, 2026");
   });
+
+  test("returns null for nothing, rather than the epoch", () => {
+    // Date reads null as 0, so the unguarded version of this answered
+    // "Jan 1, 1970" — a date, confidently wrong, where there was none.
+    assert.equal(formatDate(null), null);
+    assert.equal(formatDate(undefined), null);
+    assert.equal(formatDate(""), null);
+  });
 });
 
 describe("monthStart", () => {

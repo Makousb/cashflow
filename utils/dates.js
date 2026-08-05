@@ -88,6 +88,14 @@ export function nextOccurrence(isoDate, frequency) {
 }
 
 export function formatDate(value) {
+  // Nothing in, nothing out — as toISODate does. Date reads null as the epoch,
+  // so without this a missing date renders as a confident "Jan 1, 1970". Every
+  // caller today checks the value first and none of them would have seen it;
+  // the next one to forget would, and would have no reason to suspect this.
+  if (!value) {
+    return null;
+  }
+
   // Plenty of what reaches here is a date-only string rather than a Date: an
   // estimated delivery from addDays, a recurring rule's next_run_iso, a date
   // straight off a form. All of them are days, and none should be shown as the
