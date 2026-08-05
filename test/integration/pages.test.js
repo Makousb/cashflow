@@ -70,6 +70,16 @@ describe("every page renders", { skip: skipWithoutDb }, () => {
       signup.status, 302,
       `signup returned ${signup.status}: ${pageText(signup.text).slice(0, 200)}`
     );
+    // The cookie is what makes this a session rather than a series of strangers,
+    // and post picks it up out of an array it is willing to find empty. If none
+    // came back, every request after this one is anonymous and the first guarded
+    // route redirects to the login page — which is a 302, like success. That is
+    // how the failure this hook has already had would look from here, and this
+    // is the line that tells that apart from a session made and then lost.
+    assert.ok(
+      cookie,
+      "signup redirected but set no cashflow.sid cookie, so nothing after this is logged in"
+    );
     userId = (await q("SELECT id FROM users WHERE email = $1", [email]))[0].id;
 
     const created = await post("/business", { name: "Page Test Co", industry: "Retail" });
