@@ -188,6 +188,50 @@
           </p>
         <% } %>
 
+        <% if (f.card.statement) { %>
+          <div class="card <%= f.card.statement.missed ? "alert-critical" : "alert-warning" %>"
+               style="margin: 0.75rem 0;">
+            <p style="margin:0;">
+              <strong>
+                <%= f.card.statement.missed ? "Minimum payment missed" : "Minimum payment due" %>
+              </strong>
+              — <%= money(f.card.minimumDue) %>
+              <%= f.card.statement.missed ? "was due" : "by" %>
+              <%= formatDate(f.card.dueOn) %>,
+              on the statement drawn <%= formatDate(f.card.statement.closedOn) %>
+              for <%= money(f.card.statement.balance) %>.
+            </p>
+            <% if (f.card.statement.paidTowards > 0) { %>
+              <p class="muted" style="margin:0.25rem 0 0;">
+                <%= money(f.card.statement.paidTowards) %> put towards it so far.
+              </p>
+            <% } %>
+            <% if (f.card.missedCount > 1) { %>
+              <p class="muted" style="margin:0.25rem 0 0;">
+                <%= f.card.missedCount %> statements have gone unpaid. Nothing is
+                charged for missing one, but the balance keeps earning interest.
+              </p>
+            <% } %>
+            <% if (f.status === "active") { %>
+              <form action="/credit/<%= f.id %>/pay" method="POST" class="inline-form"
+                    style="margin-top:0.5rem;">
+                <input type="hidden" name="amount" value="<%= toDisplayNumber(f.card.minimumDue) %>" />
+                <select name="accountId">
+                  <% accounts.forEach((a) => { %>
+                    <option value="<%= a.id %>">From <%= a.name %></option>
+                  <% }) %>
+                </select>
+                <button type="submit" class="btn">Pay the minimum</button>
+              </form>
+            <% } %>
+          </div>
+        <% } else if (f.card.statements.length) { %>
+          <p class="muted">
+            Nothing outstanding on the last statement, drawn
+            <%= formatDate(f.card.statements.at(-1).closedOn) %>.
+          </p>
+        <% } %>
+
         <% if (f.status === "active") { %>
           <div class="two-col">
             <form action="/credit/<%= f.id %>/charges" method="POST" class="stacked-form">
@@ -252,6 +296,40 @@
                     <td><%= formatDate(p.paid_on) %></td>
                     <td class="muted">Payment</td>
                     <td class="num positive">−<%= money(p.amount) %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+
+        <% if (f.card.statements.length) { %>
+          <h4>Statements</h4>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Drawn</th><th class="num">Balance</th><th class="num">Interest</th>
+                  <th class="num">Minimum</th><th>Due</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% [...f.card.statements].reverse().forEach((s) => { %>
+                  <tr>
+                    <td><%= formatDate(s.closedOn) %></td>
+                    <td class="num"><%= money(s.balance) %></td>
+                    <td class="num"><%= money(s.interest) %></td>
+                    <td class="num"><%= money(s.minimumDue) %></td>
+                    <td><%= formatDate(s.dueOn) %></td>
+                    <td>
+                      <% if (s.met) { %>
+                        <span class="badge badge-done">met</span>
+                      <% } else if (s.missed) { %>
+                        <span class="badge badge-danger">missed</span>
+                      <% } else { %>
+                        <span class="badge badge-warn">due</span>
+                      <% } %>
+                    </td>
                   </tr>
                 <% }) %>
               </tbody>

@@ -236,15 +236,29 @@ const sumByMonth = (rows, dateField) => {
   return totals;
 };
 
-// What a card owes, month by month from the day it opened.
+// The statement cycle is the calendar month. A statement is drawn on the last
+// day of it and has to be paid 21 days later.
+const PAYMENT_DUE_DAYS = 21;
+// The minimum is a twentieth of what is owed, or the interest that month if
+// that is more. Never less than the interest, so paying the minimum always
+// leaves the balance smaller than it was rather than standing still.
+const MINIMUM_RATE = 0.05;
+
+// The last day of a YYYY-MM: day zero of the month after it.
+function lastDayOf(key) {
+  const [year, month] = key.split("-").map(Number);
+  return toISODate(new Date(year, month, 0));
+}
+
+// One walk over the months a card has been open, producing both what is owed
+// now and the statement drawn at the end of each month that has finished.
 //
 // Interest is charged on what is carried past the end of a month, which is what
 // the card says it does: spending inside a month and clearing it before the
 // month is out costs nothing. So each month takes its charges, takes off its
 // payments, and only then accrues on what is left — and the month in progress
 // does not accrue at all, not having ended.
-export function cardStanding(facility, charges = [], payments = [], todayIso = toISODate(new Date())) {
-  const limit = Number(facility.credit_limit || 0);
+function walkCard(facility, charges, payments, todayIso) {
   const monthlyRate = Number(facility.apr || 0) / 100 / 12;
   const chargesBy = sumByMonth(charges, "charged_on");
   const paymentsBy = sumByMonth(payments, "paid_on");
@@ -252,6 +266,7 @@ export function cardStanding(facility, charges = [], payments = [], todayIso = t
 
   let balance = 0;
   let interestCharged = 0;
+  const statements = [];
 
   for (const key of monthsBetween(facility.opened_on, todayIso)) {
     balance += chargesBy.get(key) || 0;
@@ -260,13 +275,60 @@ export function cardStanding(facility, charges = [], payments = [], todayIso = t
     if (balance < 0) balance = 0;
 
     if (key < thisMonth) {
-      const interest = balance * monthlyRate;
-      balance += interest;
-      interestCharged += interest;
+      const interest = round(balance * monthlyRate);
+      balance = round(balance + interest);
+      interestCharged = round(interestCharged + interest);
+
+      const closedOn = lastDayOf(key);
+      const dueOn = addDays(closedOn, PAYMENT_DUE_DAYS);
+      const minimumDue = balance <= 0
+        ? 0
+        : round(Math.min(balance, Math.max(balance * MINIMUM_RATE, interest)));
+
+      // What was put towards it: anything paid after the statement was drawn
+      // and by the day it is due. Those payments also come off the balance in
+      // the month they were made — one payment doing both jobs, which is what
+      // paying a card is.
+      const paidTowards = round(
+        payments
+          .filter((p) => {
+            const on = toISODate(p.paid_on);
+            return on > closedOn && on <= dueOn;
+          })
+          .reduce((sum, p) => sum + Number(p.amount), 0)
+      );
+
+      const met = paidTowards >= minimumDue;
+      statements.push({
+        cycle: key,
+        closedOn,
+        dueOn,
+        balance,
+        interest,
+        minimumDue,
+        paidTowards,
+        met,
+        // Not yet due is not yet missed.
+        missed: !met && dueOn < todayIso,
+        due: !met && dueOn >= todayIso
+      });
     }
   }
 
+  return { balance, interestCharged, statements };
+}
+
+// What a card owes and where its statements stand.
+export function cardStanding(facility, charges = [], payments = [], todayIso = toISODate(new Date())) {
+  const limit = Number(facility.credit_limit || 0);
+  const monthlyRate = Number(facility.apr || 0) / 100 / 12;
+  const { balance, interestCharged, statements } = walkCard(
+    facility, charges, payments, todayIso
+  );
+
   const owed = round(balance);
+  const latest = statements.length ? statements[statements.length - 1] : null;
+  const missed = statements.filter((s) => s.missed);
   const spent = round(charges.reduce((sum, c) => sum + Number(c.amount), 0));
   const repaid = round(payments.reduce((sum, p) => sum + Number(p.amount), 0));
 
@@ -279,7 +341,16 @@ export function cardStanding(facility, charges = [], payments = [], todayIso = t
     interestCharged: round(interestCharged),
     spent,
     repaid,
-    utilisation: limit > 0 ? Math.min(Math.round((owed / limit) * 100), 100) : 0
+    utilisation: limit > 0 ? Math.min(Math.round((owed / limit) * 100), 100) : 0,
+    statements,
+    // The statement that is still asking for something, if one is: the most
+    // recent one, unless it has already been met.
+    statement: latest && !latest.met ? latest : null,
+    // What has to be paid, and by when, to keep the card straight.
+    minimumDue: latest && !latest.met ? latest.minimumDue : 0,
+    dueOn: latest && !latest.met ? latest.dueOn : null,
+    missedCount: missed.length,
+    hasMissed: missed.length > 0
   };
 }
 

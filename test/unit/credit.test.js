@@ -268,6 +268,107 @@ describe("a card in use", () => {
   });
 });
 
+describe("a card's statement cycle", () => {
+  // 2% a month, opened at the start of June.
+  const card = { credit_limit: 10000, apr: 24, opened_on: "2026-06-01" };
+  const charge = (amount, charged_on) => ({ amount, charged_on });
+  const payment = (amount, paid_on) => ({ amount, paid_on });
+
+  test("nothing is drawn until a month has finished", () => {
+    const out = cardStanding(card, [charge(1000, "2026-06-10")], [], "2026-06-20");
+    assert.equal(out.statements.length, 0);
+    assert.equal(out.minimumDue, 0);
+    assert.equal(out.statement, null);
+  });
+
+  test("a statement closes on the last of the month and falls due 21 days later", () => {
+    const out = cardStanding(card, [charge(1000, "2026-06-10")], [], "2026-07-05");
+    assert.equal(out.statements.length, 1);
+    assert.equal(out.statements[0].closedOn, "2026-06-30");
+    assert.equal(out.statements[0].dueOn, "2026-07-21");
+  });
+
+  test("it asks for a twentieth of what is owed", () => {
+    const out = cardStanding(card, [charge(1000, "2026-06-10")], [], "2026-07-05");
+    // 1,000 plus 2% is 1,020; a twentieth of that is 51.
+    assert.equal(out.statements[0].balance, 1020);
+    assert.equal(out.statements[0].minimumDue, 51);
+    assert.equal(out.minimumDue, 51);
+    assert.equal(out.dueOn, "2026-07-21");
+  });
+
+  test("and never less than the interest, so paying it always gains ground", () => {
+    // At 120% a year the month's interest is more than a twentieth of the
+    // balance, and a minimum under it would leave the debt growing.
+    const dear = { ...card, apr: 120 };
+    const out = cardStanding(dear, [charge(100, "2026-06-10")], [], "2026-07-05");
+    assert.equal(out.statements[0].interest, 10);
+    assert.equal(out.statements[0].minimumDue, 10);
+    assert.ok(out.statements[0].minimumDue >= out.statements[0].interest);
+  });
+
+  test("paying it by the due date meets it", () => {
+    const out = cardStanding(
+      card, [charge(1000, "2026-06-10")], [payment(51, "2026-07-15")], "2026-07-20"
+    );
+    assert.equal(out.statements[0].met, true);
+    assert.equal(out.statements[0].missed, false);
+    assert.equal(out.statement, null, "a met statement is not still asking");
+    assert.equal(out.minimumDue, 0);
+  });
+
+  test("paying it late does not", () => {
+    const out = cardStanding(
+      card, [charge(1000, "2026-06-10")], [payment(51, "2026-07-22")], "2026-07-25"
+    );
+    assert.equal(out.statements[0].met, false);
+    assert.equal(out.statements[0].missed, true);
+    assert.equal(out.hasMissed, true);
+  });
+
+  test("not yet due is not yet missed", () => {
+    const out = cardStanding(card, [charge(1000, "2026-06-10")], [], "2026-07-05");
+    assert.equal(out.statements[0].missed, false);
+    assert.equal(out.statements[0].due, true);
+    assert.equal(out.hasMissed, false);
+  });
+
+  test("a month that closes owing nothing asks for nothing", () => {
+    const out = cardStanding(
+      card, [charge(1000, "2026-06-10")], [payment(1000, "2026-06-20")], "2026-07-05"
+    );
+    assert.equal(out.statements[0].balance, 0);
+    assert.equal(out.statements[0].minimumDue, 0);
+    assert.equal(out.statements[0].met, true);
+  });
+
+  test("each month left unpaid is counted", () => {
+    const out = cardStanding(card, [charge(1000, "2026-06-10")], [], "2026-08-25");
+    // June and July both drawn, both past their date, both unpaid.
+    assert.equal(out.statements.length, 2);
+    assert.equal(out.missedCount, 2);
+    assert.equal(out.statements.at(-1).cycle, "2026-07");
+  });
+
+  test("the one still asking is the latest, not the first missed", () => {
+    const out = cardStanding(card, [charge(1000, "2026-06-10")], [], "2026-08-05");
+    assert.equal(out.statement.cycle, "2026-07");
+    assert.equal(out.minimumDue, 52.02);
+    assert.equal(out.dueOn, "2026-08-21");
+  });
+
+  test("a payment counts towards the statement it lands in the window of", () => {
+    // Paid in July, after June's statement was drawn and before it fell due.
+    const out = cardStanding(
+      card, [charge(1000, "2026-06-10")], [payment(60, "2026-07-10")], "2026-07-20"
+    );
+    assert.equal(out.statements[0].paidTowards, 60);
+    assert.equal(out.statements[0].met, true);
+    // And it came off the balance as well, which is the same payment doing both.
+    assert.equal(out.balance, 960);
+  });
+});
+
 describe("charging a card", () => {
   const standing = { limit: 10000, balance: 4000, available: 6000 };
 
