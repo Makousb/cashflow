@@ -4,22 +4,28 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Nightly as well as on push, because not everything here fails reliably. The
-  # page suite's setup has failed once in a way nothing has managed to provoke
-  # since — not fifteen reruns, not any number of local ones — and a run a day
-  # is how a fault that rare gets caught: by waiting somewhere that costs
-  # nothing rather than by being chased. GitHub mails whoever last touched this
+  # On a timer as well as on push, because not everything here fails reliably.
+  # The page suite's setup has failed once in a way nothing has managed to
+  # provoke since — not fifteen reruns, not any number of runs against a fresh
+  # database locally — and a fault that rare is caught by waiting somewhere that
+  # costs nothing, not by being chased. GitHub mails whoever last touched this
   # schedule when a scheduled run fails, which is the point of it.
   #
-  # 02:17 UTC: off the hour, since scheduled runs queue behind everything else
-  # that asked for the top of one. Nothing here reads the clock except the
-  # timezone legs, and those cover every hour between them by construction — at
-  # this one the calendar the Niue leg is on is a day behind UTC's.
+  # Twice a day, twelve hours apart, so a fault that only shows at some hours is
+  # not permanently missed by a timer that only ever sees one of them. The pair
+  # also lands either side of the date line the timezone legs straddle: at 02:17
+  # the Niue leg's calendar is a day behind UTC's, and at 14:17 it is Kiritimati
+  # that is a day ahead. So each of the two legs spends one run a day on a date
+  # UTC does not agree with, which is what those legs are there for.
+  #
+  # Seventeen past, because scheduled runs queue behind everything that asked
+  # for the top of an hour.
   #
   # A scheduled workflow is disabled after 60 days without a commit to the
   # repository, so this stops on its own if the project goes quiet.
   schedule:
     - cron: "17 2 * * *"
+    - cron: "17 14 * * *"
 
 jobs:
   test:
