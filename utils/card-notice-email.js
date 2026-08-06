@@ -33,6 +33,58 @@ function ordinal(n) {
   return `${n}th`;
 }
 
+// Before the date, not after it. The difference from the missed notice is the
+// whole point: nothing has gone wrong yet, so this says what is coming and how
+// to be done with it, and nothing about consequences.
+export function minimumDueSoonEmail({ facility, statement, standing, fmt, url }) {
+  const label = facility.label || "your card";
+  const due = formatDate(statement.dueOn);
+  const outstanding = statement.minimumDue > statement.paidTowards
+    ? statement.minimumDue - statement.paidTowards
+    : 0;
+
+  const subject = `${fmt(outstanding)} due on ${label} by ${due}`;
+
+  const text = [
+    `The minimum payment on ${label} is due on ${due}.`,
+    "",
+    `Statement drawn ${formatDate(statement.closedOn)}: ${fmt(statement.balance)}`,
+    `Minimum to pay: ${fmt(statement.minimumDue)}`,
+    statement.paidTowards > 0
+      ? `Already paid: ${fmt(statement.paidTowards)} — ${fmt(outstanding)} to go`
+      : null,
+    "",
+    `Clearing the whole ${fmt(standing.balance)} stops the interest;`,
+    `paying the minimum keeps the card straight and costs`,
+    `${fmt(standing.monthlyInterest)} next month on what is left.`,
+    "",
+    `Pay it here: ${url}`
+  ].filter((line) => line !== null).join("\n");
+
+  const html = `
+    <div style="font-family: system-ui, sans-serif; max-width: 34rem; line-height: 1.5;">
+      <p>The minimum payment on <strong>${esc(label)}</strong> is due on ${esc(due)}.</p>
+      <table cellpadding="6" style="border-collapse: collapse; margin: 1rem 0;">
+        <tr><td>Statement drawn ${esc(formatDate(statement.closedOn))}</td>
+            <td align="right"><strong>${esc(fmt(statement.balance))}</strong></td></tr>
+        <tr><td>Minimum to pay</td>
+            <td align="right"><strong>${esc(fmt(statement.minimumDue))}</strong></td></tr>
+        ${
+          statement.paidTowards > 0
+            ? `<tr><td>Already paid</td><td align="right">${esc(fmt(statement.paidTowards))} — ${esc(fmt(outstanding))} to go</td></tr>`
+            : ""
+        }
+      </table>
+      <p>Clearing the whole <strong>${esc(fmt(standing.balance))}</strong> stops the interest;
+         paying the minimum keeps the card straight and costs
+         ${esc(fmt(standing.monthlyInterest))} next month on what is left.</p>
+      <p><a href="${esc(url)}">Pay it here</a></p>
+    </div>
+  `.trim();
+
+  return { subject, text, html };
+}
+
 export function missedMinimumEmail({ facility, statement, standing, fmt, url }) {
   const label = facility.label || "your card";
   const due = formatDate(statement.dueOn);

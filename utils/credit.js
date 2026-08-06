@@ -243,6 +243,9 @@ const PAYMENT_DUE_DAYS = 21;
 // that is more. Never less than the interest, so paying the minimum always
 // leaves the balance smaller than it was rather than standing still.
 const MINIMUM_RATE = 0.05;
+// How long before the date a reminder is worth having: long enough to move
+// money, short enough that it is still about this month.
+const REMINDER_DAYS = 3;
 
 // The last day of a YYYY-MM: day zero of the month after it.
 function lastDayOf(key) {
@@ -299,18 +302,26 @@ function walkCard(facility, charges, payments, todayIso) {
       );
 
       const met = paidTowards >= minimumDue;
+      const missed = !met && dueOn < todayIso;
+      // The day the reminder becomes worth sending. A statement asking for
+      // nothing is met from the moment it is drawn, so it never gets here.
+      const remindOn = addDays(dueOn, -REMINDER_DAYS);
+
       statements.push({
         cycle: key,
         closedOn,
         dueOn,
+        remindOn,
         balance,
         interest,
         minimumDue,
         paidTowards,
         met,
         // Not yet due is not yet missed.
-        missed: !met && dueOn < todayIso,
-        due: !met && dueOn >= todayIso
+        missed,
+        due: !met && dueOn >= todayIso,
+        // Due, and close enough to the date to say so.
+        dueSoon: !met && !missed && todayIso >= remindOn
       });
     }
   }
@@ -352,6 +363,22 @@ export function cardStanding(facility, charges = [], payments = [], todayIso = t
     missedCount: missed.length,
     hasMissed: missed.length > 0
   };
+}
+
+// Which notice a card is owed, if any.
+//
+// A statement already past its date beats one merely approaching it: being late
+// on June is the more useful thing to hear about, and nobody wants both emails
+// in the same breath. Each is sent once per statement, which is what stops a
+// reminder arriving every day of the three it is open for.
+export function noticeDue(standing) {
+  const missed = standing.statements.filter((s) => s.missed).at(-1);
+  if (missed) return { kind: "missed", statement: missed };
+
+  const soon = standing.statements.filter((s) => s.dueSoon).at(-1);
+  if (soon) return { kind: "reminder", statement: soon };
+
+  return null;
 }
 
 // A charge is refused for one reason only: there is not the room for it.

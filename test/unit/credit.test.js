@@ -10,6 +10,7 @@ import {
   assessSecuredCard,
   cardStanding,
   facilityStanding,
+  noticeDue,
   splitEvenly
 } from "../../utils/credit.js";
 
@@ -366,6 +367,63 @@ describe("a card's statement cycle", () => {
     assert.equal(out.statements[0].met, true);
     // And it came off the balance as well, which is the same payment doing both.
     assert.equal(out.balance, 960);
+  });
+});
+
+describe("which notice a card is owed", () => {
+  const card = { credit_limit: 10000, apr: 24, opened_on: "2026-06-01" };
+  const charge = (amount, charged_on) => ({ amount, charged_on });
+  const payment = (amount, paid_on) => ({ amount, paid_on });
+  // June's statement is drawn 2026-06-30 and due 2026-07-21, so the reminder
+  // window opens on the 18th.
+  const june = [charge(1000, "2026-06-10")];
+
+  test("nothing, while the date is still a way off", () => {
+    const out = cardStanding(card, june, [], "2026-07-17");
+    assert.equal(out.statements[0].dueSoon, false);
+    assert.equal(noticeDue(out), null);
+  });
+
+  test("a reminder, once it is close", () => {
+    const out = cardStanding(card, june, [], "2026-07-18");
+    assert.equal(out.statements[0].remindOn, "2026-07-18");
+    assert.equal(out.statements[0].dueSoon, true);
+    assert.equal(noticeDue(out).kind, "reminder");
+    assert.equal(noticeDue(out).statement.cycle, "2026-06");
+  });
+
+  test("still a reminder on the day itself", () => {
+    const out = cardStanding(card, june, [], "2026-07-21");
+    assert.equal(noticeDue(out).kind, "reminder");
+  });
+
+  test("and the missed notice the day after", () => {
+    const out = cardStanding(card, june, [], "2026-07-22");
+    assert.equal(out.statements[0].dueSoon, false);
+    assert.equal(noticeDue(out).kind, "missed");
+  });
+
+  test("nothing at all once the minimum is met", () => {
+    const out = cardStanding(card, june, [payment(51, "2026-07-19")], "2026-07-20");
+    assert.equal(out.statements[0].met, true);
+    assert.equal(noticeDue(out), null);
+  });
+
+  test("a statement asking for nothing never asks for anything", () => {
+    // Cleared inside the month, so the minimum is zero and met on sight.
+    const out = cardStanding(
+      card, june, [payment(1000, "2026-06-20")], "2026-07-19"
+    );
+    assert.equal(out.statements[0].minimumDue, 0);
+    assert.equal(noticeDue(out), null);
+  });
+
+  test("being late beats being nearly due", () => {
+    // June went unpaid and July is now approaching its own date. The late one
+    // is the more useful thing to hear about, and only one email goes.
+    const out = cardStanding(card, june, [], "2026-08-18");
+    assert.equal(out.statements.length, 2);
+    assert.equal(noticeDue(out).kind, "missed");
   });
 });
 

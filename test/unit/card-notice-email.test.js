@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { missedMinimumEmail } from "../../utils/card-notice-email.js";
+import { minimumDueSoonEmail, missedMinimumEmail } from "../../utils/card-notice-email.js";
 
 const fmt = (n) => `KSh ${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -83,6 +83,63 @@ describe("both bodies carry the figures", () => {
     const { text, html } = build();
     assert.match(text, /https:\/\/cashflow\.example\/credit/);
     assert.match(html, /href="https:\/\/cashflow\.example\/credit"/);
+  });
+});
+
+describe("the reminder that goes before the date", () => {
+  const soon = (over = {}) =>
+    minimumDueSoonEmail({
+      facility: { label: "Everyday card" },
+      statement: {
+        cycle: "2026-06", closedOn: "2026-06-30", dueOn: "2026-07-21",
+        balance: 4100, interest: 100, minimumDue: 205, paidTowards: 0,
+        ...(over.statement || {})
+      },
+      standing: { balance: 4202.5, monthlyInterest: 105.06, ...(over.standing || {}) },
+      fmt,
+      url: "https://cashflow.example/credit"
+    });
+
+  test("leads with what is owed and when, not with what went wrong", () => {
+    const { subject } = soon();
+    assert.match(subject, /KSh 205\.00 due on Everyday card by Jul 21, 2026/);
+    assert.doesNotMatch(subject, /missed/i);
+  });
+
+  test("says it is due, never that it was not met", () => {
+    // Nothing has gone wrong yet, and an email implying otherwise about
+    // somebody's own money would be its own small harm.
+    const { text, html } = soon();
+    assert.match(text, /is due on Jul 21, 2026/);
+    assert.doesNotMatch(text, /has not been met|missed/i);
+    assert.doesNotMatch(html, /has not been met|missed/i);
+  });
+
+  test("offers the way out of the interest as well as the minimum", () => {
+    const { text } = soon();
+    assert.match(text, /Clearing the whole KSh 4,202\.50 stops the interest/);
+    assert.match(text, /KSh 105\.06 next month/);
+  });
+
+  test("a part payment changes what it asks for", () => {
+    const { subject, text } = soon({ statement: { paidTowards: 80 } });
+    assert.match(subject, /KSh 125\.00 due/);
+    assert.match(text, /Already paid: KSh 80\.00 — KSh 125\.00 to go/);
+  });
+
+  test("the card's name is escaped here too", () => {
+    const { html } = minimumDueSoonEmail({
+      facility: { label: '<img src=x onerror="alert(1)">' },
+      statement: {
+        closedOn: "2026-06-30", dueOn: "2026-07-21",
+        balance: 100, minimumDue: 5, paidTowards: 0
+      },
+      standing: { balance: 100, monthlyInterest: 2 },
+      fmt,
+      url: "https://cashflow.example/credit"
+    });
+    assert.doesNotMatch(html, /<img/);
+    assert.match(html, /&lt;img/);
   });
 });
 

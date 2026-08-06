@@ -767,10 +767,21 @@ const SCHEMA_SQL = `
     facility_id INTEGER NOT NULL REFERENCES credit_facilities(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     cycle TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'missed' CHECK (kind IN ('reminder', 'missed')),
     sent_to TEXT,
-    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (facility_id, cycle)
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  -- A statement can now be written about twice: once before the date and once
+  -- after it. The first version of this table allowed one notice per cycle
+  -- full stop, so the old constraint has to go before the new key can mean
+  -- anything. These sit here rather than with the supplier migration at the
+  -- end because they touch only the table above them, which by this point in
+  -- the batch exists.
+  ALTER TABLE credit_notices ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'missed';
+  ALTER TABLE credit_notices DROP CONSTRAINT IF EXISTS credit_notices_facility_id_cycle_key;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_notices_once
+    ON credit_notices (facility_id, cycle, kind);
 
   -- The supplier migration comes last, once every table it touches has been
   -- created above. This is one statement batch run against a database that may

@@ -23,7 +23,7 @@ import {
 import { createTransaction, deleteTransaction } from "../db/queries/transactions.js";
 import { config } from "../config/env.js";
 import { formatCurrency } from "../utils/currency.js";
-import { missedMinimumEmail } from "../utils/card-notice-email.js";
+import { minimumDueSoonEmail, missedMinimumEmail } from "../utils/card-notice-email.js";
 import { mailEnabled, sendMail } from "../services/mailer.js";
 import { toBase } from "../services/fx.js";
 import {
@@ -32,6 +32,7 @@ import {
   assessCharge,
   cardStanding,
   facilityStanding,
+  noticeDue,
   PRODUCTS
 } from "../utils/credit.js";
 import { today } from "../utils/dates.js";
@@ -109,16 +110,19 @@ async function creditPageModel(userId) {
   };
 }
 
-// Tell the holder about a statement whose minimum has gone past its date.
+// Tell the holder about a statement that wants paying — before its date, or
+// after it if that has already gone by. Which of the two is noticeDue's call.
 //
 // The claim is taken before the mail goes and handed back if it does not, so a
 // mail server having a bad afternoon costs a reminder rather than swallowing it
 // — and the unique key means two requests arriving together cannot both send.
-// One notice per statement, ever: this is a card, not a nag.
+// Once per statement per kind: two emails about one statement at the very most,
+// and never the same one twice.
 async function noticeFor(user, facility, standing) {
-  const statement = standing.statements.filter((s) => s.missed).at(-1);
-  if (!statement) return { sent: false };
+  const owed = noticeDue(standing);
+  if (!owed) return { sent: false };
 
+  const { kind, statement } = owed;
   const to = (user.email || "").trim();
   if (!to || !mailEnabled()) return { sent: false, reason: "nowhere to send it" };
 
@@ -126,13 +130,15 @@ async function noticeFor(user, facility, standing) {
     facilityId: facility.id,
     userId: user.id,
     cycle: statement.cycle,
+    kind,
     sentTo: to
   });
   if (!claimed) return { sent: false, reason: "already told" };
 
   const base = config.appUrl || `http://localhost:${config.port}`;
   const currency = user.currency || user.base_currency;
-  const { subject, text, html } = missedMinimumEmail({
+  const build = kind === "reminder" ? minimumDueSoonEmail : missedMinimumEmail;
+  const { subject, text, html } = build({
     facility,
     statement,
     standing,
@@ -142,9 +148,9 @@ async function noticeFor(user, facility, standing) {
 
   const result = await sendMail({ to, subject, text, html });
   if (!result.sent) {
-    await releaseCardNotice({ facilityId: facility.id, cycle: statement.cycle });
+    await releaseCardNotice({ facilityId: facility.id, cycle: statement.cycle, kind });
   }
-  return result;
+  return { ...result, kind };
 }
 
 // Called from pages the holder is likely to open. Never awaited by the request:
@@ -155,7 +161,10 @@ export function catchUpCardNotices(user) {
   return creditPageModel(user.id)
     .then(async (model) => {
       for (const facility of model.active) {
-        if (facility.card?.hasMissed) {
+        // Whether anything is owed at all is noticeDue's decision, not a
+        // condition to duplicate here — gating on "missed" was how the first
+        // version of this would never have sent a reminder.
+        if (facility.card) {
           await noticeFor(user, facility, facility.card);
         }
       }

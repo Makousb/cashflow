@@ -219,29 +219,30 @@ export async function addCardPayment({ facilityId, userId, amount, paidOn, trans
 // Take the right to tell someone about one missed statement. Exactly one caller
 // gets it: the unique key on (facility, cycle) settles a race in the database
 // rather than in whichever request happened to read first.
-export async function claimCardNotice({ facilityId, userId, cycle, sentTo }) {
+export async function claimCardNotice({ facilityId, userId, cycle, kind = "missed", sentTo }) {
   const { rowCount } = await pool.query(
-    `INSERT INTO credit_notices (facility_id, user_id, cycle, sent_to)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (facility_id, cycle) DO NOTHING`,
-    [facilityId, userId, cycle, sentTo]
+    `INSERT INTO credit_notices (facility_id, user_id, cycle, kind, sent_to)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (facility_id, cycle, kind) DO NOTHING`,
+    [facilityId, userId, cycle, kind, sentTo]
   );
   return rowCount === 1;
 }
 
 // Hand the claim back when the mail did not go, so the next visit tries again.
-export async function releaseCardNotice({ facilityId, cycle }) {
+export async function releaseCardNotice({ facilityId, cycle, kind = "missed" }) {
   await pool.query(
-    "DELETE FROM credit_notices WHERE facility_id = $1 AND cycle = $2",
-    [facilityId, cycle]
+    "DELETE FROM credit_notices WHERE facility_id = $1 AND cycle = $2 AND kind = $3",
+    [facilityId, cycle, kind]
   );
 }
 
 export async function listCardNotices(userId) {
   const { rows } = await pool.query(
-    `SELECT facility_id, cycle, sent_to, sent_at
+    `SELECT facility_id, cycle, kind, sent_to, sent_at
      FROM credit_notices
-     WHERE user_id = $1`,
+     WHERE user_id = $1
+     ORDER BY id`,
     [userId]
   );
   return rows;
