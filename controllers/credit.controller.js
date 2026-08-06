@@ -3,6 +3,7 @@ import { getDefaultCategoryId } from "../db/queries/categories.js";
 import {
   addCardPayment,
   addCharge,
+  claimCardNotice,
   closeFacility,
   creditExposure,
   getFacility,
@@ -16,9 +17,14 @@ import {
   monthlyMeans,
   openFacility,
   recordApplication,
+  releaseCardNotice,
   settleInstallment
 } from "../db/queries/credit.js";
 import { createTransaction, deleteTransaction } from "../db/queries/transactions.js";
+import { config } from "../config/env.js";
+import { formatCurrency } from "../utils/currency.js";
+import { missedMinimumEmail } from "../utils/card-notice-email.js";
+import { mailEnabled, sendMail } from "../services/mailer.js";
 import { toBase } from "../services/fx.js";
 import {
   affordability,
@@ -103,8 +109,65 @@ async function creditPageModel(userId) {
   };
 }
 
+// Tell the holder about a statement whose minimum has gone past its date.
+//
+// The claim is taken before the mail goes and handed back if it does not, so a
+// mail server having a bad afternoon costs a reminder rather than swallowing it
+// — and the unique key means two requests arriving together cannot both send.
+// One notice per statement, ever: this is a card, not a nag.
+async function noticeFor(user, facility, standing) {
+  const statement = standing.statements.filter((s) => s.missed).at(-1);
+  if (!statement) return { sent: false };
+
+  const to = (user.email || "").trim();
+  if (!to || !mailEnabled()) return { sent: false, reason: "nowhere to send it" };
+
+  const claimed = await claimCardNotice({
+    facilityId: facility.id,
+    userId: user.id,
+    cycle: statement.cycle,
+    sentTo: to
+  });
+  if (!claimed) return { sent: false, reason: "already told" };
+
+  const base = config.appUrl || `http://localhost:${config.port}`;
+  const currency = user.currency || user.base_currency;
+  const { subject, text, html } = missedMinimumEmail({
+    facility,
+    statement,
+    standing,
+    fmt: (amount) => formatCurrency(amount, currency),
+    url: `${base}/credit`
+  });
+
+  const result = await sendMail({ to, subject, text, html });
+  if (!result.sent) {
+    await releaseCardNotice({ facilityId: facility.id, cycle: statement.cycle });
+  }
+  return result;
+}
+
+// Called from pages the holder is likely to open. Never awaited by the request:
+// nothing on a page should wait on a mail server, and a reminder that fails is
+// logged and tried again next time rather than surfaced. The promise is handed
+// back all the same, so a test can wait for what a request will not.
+export function catchUpCardNotices(user) {
+  return creditPageModel(user.id)
+    .then(async (model) => {
+      for (const facility of model.active) {
+        if (facility.card?.hasMissed) {
+          await noticeFor(user, facility, facility.card);
+        }
+      }
+    })
+    .catch((error) => {
+      console.warn(`Credit: card notices for user ${user.id} failed (${error.message})`);
+    });
+}
+
 export async function showCreditPage(req, res, next) {
   try {
+    catchUpCardNotices(req.session.user);
     const model = await creditPageModel(req.session.user.id);
     res.render("credit", {
       title: "Credit",

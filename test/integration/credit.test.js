@@ -4,9 +4,11 @@ import { after, before, describe, test } from "node:test";
 import {
   addCardPayment,
   addCharge,
+  claimCardNotice,
   closeFacility,
   creditExposure,
   listApplications,
+  listCardNotices,
   listCardPayments,
   listCharges,
   listFacilities,
@@ -15,6 +17,7 @@ import {
   monthlyMeans,
   openFacility,
   recordApplication,
+  releaseCardNotice,
   settleInstallment
 } from "../../db/queries/credit.js";
 import { affordability, assessCharge, assessDayLoan, cardStanding } from "../../utils/credit.js";
@@ -342,6 +345,72 @@ describe("spending on a card", { skip: skipWithoutDb }, () => {
     assert.equal(
       (await listCharges(user.id)).filter((c) => c.facility_id === doomed.id).length, 0
     );
+  });
+});
+
+describe("telling someone their minimum was missed", { skip: skipWithoutDb }, () => {
+  let user;
+  let card;
+
+  before(async () => {
+    user = await makeUser("credit-notice");
+    card = await openFacility({
+      userId: user.id, product: "secured_card", label: "Card",
+      apr: 30, creditLimit: 10000, deposit: 10000, openedOn: today()
+    });
+  });
+
+  after(async () => { await dropUser(user?.id); });
+
+  test("the first claim on a statement is the only one", async () => {
+    const first = await claimCardNotice({
+      facilityId: card.id, userId: user.id, cycle: "2026-06", sentTo: "a@b.test"
+    });
+    const second = await claimCardNotice({
+      facilityId: card.id, userId: user.id, cycle: "2026-06", sentTo: "a@b.test"
+    });
+
+    assert.equal(first, true);
+    assert.equal(second, false, "the same statement must not be emailed about twice");
+  });
+
+  test("two requests racing produce exactly one notice", async () => {
+    // The whole reason the cycle is a unique key rather than a read followed
+    // by a write.
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        claimCardNotice({
+          facilityId: card.id, userId: user.id, cycle: "2026-07", sentTo: "a@b.test"
+        })
+      )
+    );
+    assert.equal(results.filter(Boolean).length, 1);
+  });
+
+  test("a different statement is its own notice", async () => {
+    assert.equal(
+      await claimCardNotice({
+        facilityId: card.id, userId: user.id, cycle: "2026-08", sentTo: "a@b.test"
+      }),
+      true
+    );
+    assert.equal((await listCardNotices(user.id)).length, 3);
+  });
+
+  test("handing the claim back lets it be tried again", async () => {
+    await releaseCardNotice({ facilityId: card.id, cycle: "2026-08" });
+    assert.equal(
+      await claimCardNotice({
+        facilityId: card.id, userId: user.id, cycle: "2026-08", sentTo: "a@b.test"
+      }),
+      true,
+      "a notice whose mail did not go must be retriable"
+    );
+  });
+
+  test("notices go with the card when it is deleted", async () => {
+    await q("DELETE FROM credit_facilities WHERE id = $1", [card.id]);
+    assert.equal((await listCardNotices(user.id)).length, 0);
   });
 });
 

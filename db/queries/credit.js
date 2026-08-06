@@ -216,6 +216,37 @@ export async function addCardPayment({ facilityId, userId, amount, paidOn, trans
   return rows[0];
 }
 
+// Take the right to tell someone about one missed statement. Exactly one caller
+// gets it: the unique key on (facility, cycle) settles a race in the database
+// rather than in whichever request happened to read first.
+export async function claimCardNotice({ facilityId, userId, cycle, sentTo }) {
+  const { rowCount } = await pool.query(
+    `INSERT INTO credit_notices (facility_id, user_id, cycle, sent_to)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (facility_id, cycle) DO NOTHING`,
+    [facilityId, userId, cycle, sentTo]
+  );
+  return rowCount === 1;
+}
+
+// Hand the claim back when the mail did not go, so the next visit tries again.
+export async function releaseCardNotice({ facilityId, cycle }) {
+  await pool.query(
+    "DELETE FROM credit_notices WHERE facility_id = $1 AND cycle = $2",
+    [facilityId, cycle]
+  );
+}
+
+export async function listCardNotices(userId) {
+  const { rows } = await pool.query(
+    `SELECT facility_id, cycle, sent_to, sent_at
+     FROM credit_notices
+     WHERE user_id = $1`,
+    [userId]
+  );
+  return rows;
+}
+
 export async function closeFacility(id, userId) {
   const { rows } = await pool.query(
     `UPDATE credit_facilities

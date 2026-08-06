@@ -758,6 +758,20 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_credit_payments_facility
     ON credit_payments (user_id, facility_id, paid_on);
 
+  -- One row per statement anybody has been told about. Statements themselves
+  -- are worked out rather than stored, so the cycle they belong to is the key,
+  -- and the uniqueness of it is what stops the same missed payment being
+  -- emailed about twice — two requests racing, one insert wins.
+  CREATE TABLE IF NOT EXISTS credit_notices (
+    id SERIAL PRIMARY KEY,
+    facility_id INTEGER NOT NULL REFERENCES credit_facilities(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cycle TEXT NOT NULL,
+    sent_to TEXT,
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (facility_id, cycle)
+  );
+
   -- The supplier migration comes last, once every table it touches has been
   -- created above. This is one statement batch run against a database that may
   -- be brand new, so an ALTER sitting next to the suppliers tables would reach
