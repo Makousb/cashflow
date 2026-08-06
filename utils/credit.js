@@ -10,7 +10,7 @@
 // Pure. Everything takes plain figures and returns plain objects, so the rules
 // can be read and tested without a database anywhere near them.
 
-import { addDays, addMonths, toISODate } from "./dates.js";
+import { addDays, addMonths, monthKey, monthsBetween, toISODate } from "./dates.js";
 
 export const PRODUCTS = {
   day_loan: {
@@ -225,6 +225,77 @@ export function assess(product, input) {
   if (product === "bnpl") return assessBnpl(input);
   if (product === "secured_card") return assessSecuredCard(input);
   return declined("Unknown product.");
+}
+
+const sumByMonth = (rows, dateField) => {
+  const totals = new Map();
+  for (const row of rows) {
+    const key = monthKey(row[dateField]);
+    totals.set(key, (totals.get(key) || 0) + Number(row.amount));
+  }
+  return totals;
+};
+
+// What a card owes, month by month from the day it opened.
+//
+// Interest is charged on what is carried past the end of a month, which is what
+// the card says it does: spending inside a month and clearing it before the
+// month is out costs nothing. So each month takes its charges, takes off its
+// payments, and only then accrues on what is left — and the month in progress
+// does not accrue at all, not having ended.
+export function cardStanding(facility, charges = [], payments = [], todayIso = toISODate(new Date())) {
+  const limit = Number(facility.credit_limit || 0);
+  const monthlyRate = Number(facility.apr || 0) / 100 / 12;
+  const chargesBy = sumByMonth(charges, "charged_on");
+  const paymentsBy = sumByMonth(payments, "paid_on");
+  const thisMonth = monthKey(todayIso);
+
+  let balance = 0;
+  let interestCharged = 0;
+
+  for (const key of monthsBetween(facility.opened_on, todayIso)) {
+    balance += chargesBy.get(key) || 0;
+    balance -= paymentsBy.get(key) || 0;
+    // Paying in more than is owed leaves a credit, not a debt earning interest.
+    if (balance < 0) balance = 0;
+
+    if (key < thisMonth) {
+      const interest = balance * monthlyRate;
+      balance += interest;
+      interestCharged += interest;
+    }
+  }
+
+  const owed = round(balance);
+  const spent = round(charges.reduce((sum, c) => sum + Number(c.amount), 0));
+  const repaid = round(payments.reduce((sum, p) => sum + Number(p.amount), 0));
+
+  return {
+    limit,
+    balance: owed,
+    available: round(Math.max(limit - owed, 0)),
+    // What this month will cost if the balance is still here when it ends.
+    monthlyInterest: round(owed * monthlyRate),
+    interestCharged: round(interestCharged),
+    spent,
+    repaid,
+    utilisation: limit > 0 ? Math.min(Math.round((owed / limit) * 100), 100) : 0
+  };
+}
+
+// A charge is refused for one reason only: there is not the room for it.
+export function assessCharge({ amount, standing }) {
+  const value = round(amount);
+  if (!Number.isFinite(value) || value <= 0) {
+    return declined("Enter what the purchase cost.");
+  }
+  if (value > standing.available) {
+    return declined(
+      `That is more than the ${standing.available.toFixed(2)} left on the card. ` +
+      `The limit is ${standing.limit.toFixed(2)} and ${standing.balance.toFixed(2)} of it is already used.`
+    );
+  }
+  return { approved: true, reason: `Charged ${value.toFixed(2)}.`, terms: { amount: value } };
 }
 
 // What a facility still owes, and where it stands. Instalments are the truth

@@ -2,7 +2,9 @@ import { Router } from "express";
 
 import {
   apply,
+  chargeCard,
   closeCard,
+  payCard,
   payInstallment,
   showCreditPage
 } from "../controllers/credit.controller.js";
@@ -14,6 +16,8 @@ router.use(requireAuth);
 router.get("/", showCreditPage);
 router.post("/apply", apply);
 router.post("/installments/:id/pay", payInstallment);
+router.post("/:id/charges", chargeCard);
+router.post("/:id/pay", payCard);
 router.post("/:id/close", closeCard);
 
 export default router;

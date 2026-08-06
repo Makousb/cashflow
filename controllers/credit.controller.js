@@ -1,11 +1,15 @@
 import { listAccounts } from "../db/queries/accounts.js";
 import { getDefaultCategoryId } from "../db/queries/categories.js";
 import {
+  addCardPayment,
+  addCharge,
   closeFacility,
   creditExposure,
   getFacility,
   getInstallment,
   listApplications,
+  listCardPayments,
+  listCharges,
   listFacilities,
   listInstallments,
   monthlyCommitments,
@@ -16,7 +20,14 @@ import {
 } from "../db/queries/credit.js";
 import { createTransaction, deleteTransaction } from "../db/queries/transactions.js";
 import { toBase } from "../services/fx.js";
-import { affordability, assess, facilityStanding, PRODUCTS } from "../utils/credit.js";
+import {
+  affordability,
+  assess,
+  assessCharge,
+  cardStanding,
+  facilityStanding,
+  PRODUCTS
+} from "../utils/credit.js";
 import { today } from "../utils/dates.js";
 
 // Everything a decision is made from, gathered once.
@@ -37,25 +48,45 @@ async function meansFor(userId) {
   };
 }
 
-async function creditPageModel(userId) {
-  const [facilities, installments, applications, accounts, gathered] = await Promise.all([
-    listFacilities(userId),
-    listInstallments(userId),
-    listApplications(userId),
-    listAccounts(userId),
-    meansFor(userId)
-  ]);
-
-  const byFacility = new Map();
-  for (const row of installments) {
-    if (!byFacility.has(row.facility_id)) byFacility.set(row.facility_id, []);
-    byFacility.get(row.facility_id).push(row);
+const groupBy = (rows, key) => {
+  const out = new Map();
+  for (const row of rows) {
+    if (!out.has(row[key])) out.set(row[key], []);
+    out.get(row[key]).push(row);
   }
+  return out;
+};
+
+async function creditPageModel(userId) {
+  const [facilities, installments, charges, cardPayments, applications, accounts, gathered] =
+    await Promise.all([
+      listFacilities(userId),
+      listInstallments(userId),
+      listCharges(userId),
+      listCardPayments(userId),
+      listApplications(userId),
+      listAccounts(userId),
+      meansFor(userId)
+    ]);
+
+  const byFacility = groupBy(installments, "facility_id");
+  const chargesBy = groupBy(charges, "facility_id");
+  const paymentsBy = groupBy(cardPayments, "facility_id");
 
   const todayIso = today();
   const withStanding = facilities.map((facility) => ({
     ...facility,
     installments: byFacility.get(facility.id) || [],
+    charges: chargesBy.get(facility.id) || [],
+    cardPayments: paymentsBy.get(facility.id) || [],
+    card: facility.product === "secured_card"
+      ? cardStanding(
+          facility,
+          chargesBy.get(facility.id) || [],
+          paymentsBy.get(facility.id) || [],
+          todayIso
+        )
+      : null,
     standing: facilityStanding(facility, byFacility.get(facility.id) || [], todayIso)
   }));
 
@@ -275,18 +306,147 @@ export async function payInstallment(req, res, next) {
   }
 }
 
+// A card is only good for what is left on it, so both of these read the
+// standing first and refuse against it.
+async function cardWithStanding(id, userId) {
+  const facility = await getFacility(id, userId);
+  if (!facility || facility.product !== "secured_card") return null;
+
+  const [charges, payments] = await Promise.all([listCharges(userId), listCardPayments(userId)]);
+  return {
+    facility,
+    standing: cardStanding(
+      facility,
+      charges.filter((c) => c.facility_id === facility.id),
+      payments.filter((p) => p.facility_id === facility.id),
+      today()
+    )
+  };
+}
+
+// Spending on the card. Nothing is posted to the ledger here — the books are
+// cash basis and the spending lands when the card is paid, so recording it in
+// both places would count the same purchase twice.
+export async function chargeCard(req, res, next) {
+  try {
+    const user = req.session.user;
+    const held = await cardWithStanding(Number(req.params.id), user.id);
+
+    if (!held) {
+      req.flash("error", "That card is not here.");
+      return res.redirect("/credit");
+    }
+    if (held.facility.status !== "active") {
+      req.flash("error", "That card is closed.");
+      return res.redirect("/credit");
+    }
+
+    const merchant = (req.body.merchant || "").trim().slice(0, 120);
+    if (!merchant) {
+      req.flash("error", "Say what the purchase was.");
+      return res.redirect("/credit");
+    }
+
+    const amount = toBase(user, Number.parseFloat(req.body.amount));
+    const decision = assessCharge({ amount, standing: held.standing });
+    if (!decision.approved) {
+      req.flash("error", `Declined: ${decision.reason}`);
+      return res.redirect("/credit");
+    }
+
+    await addCharge({
+      facilityId: held.facility.id,
+      userId: user.id,
+      merchant,
+      amount: decision.terms.amount,
+      chargedOn: req.body.chargedOn || today()
+    });
+
+    req.flash("success", `Charged to the card. ${decision.reason}`);
+    return res.redirect("/credit");
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// Paying the card down. This is where the spending reaches the ledger.
+export async function payCard(req, res, next) {
+  try {
+    const user = req.session.user;
+    const held = await cardWithStanding(Number(req.params.id), user.id);
+
+    if (!held) {
+      req.flash("error", "That card is not here.");
+      return res.redirect("/credit");
+    }
+
+    const asked = toBase(user, Number.parseFloat(req.body.amount));
+    if (!Number.isFinite(asked) || asked <= 0) {
+      req.flash("error", "Enter a payment greater than zero.");
+      return res.redirect("/credit");
+    }
+    if (held.standing.balance <= 0) {
+      req.flash("error", "There is nothing owing on that card.");
+      return res.redirect("/credit");
+    }
+
+    // Paying in more than is owed would leave a credit balance nothing here
+    // knows what to do with, so it is capped at what is actually owed.
+    const amount = Math.min(asked, held.standing.balance);
+    const categoryId = await getDefaultCategoryId("Loan Payment");
+    const transaction = await createTransaction({
+      userId: user.id,
+      accountId: req.body.accountId || null,
+      categoryId,
+      kind: "expense",
+      amount,
+      note: `Card payment — ${held.facility.label}`,
+      occurredOn: req.body.paidOn || today()
+    });
+
+    await addCardPayment({
+      facilityId: held.facility.id,
+      userId: user.id,
+      amount,
+      paidOn: req.body.paidOn || today(),
+      transactionId: transaction.id
+    });
+
+    req.flash(
+      "success",
+      amount < asked
+        ? "Paid off in full — only what was owing was taken."
+        : "Card payment recorded and logged as an expense."
+    );
+    return res.redirect("/credit");
+  } catch (error) {
+    return next(error);
+  }
+}
+
 // Closing a card returns the deposit to the wallet it came from.
 export async function closeCard(req, res, next) {
   try {
     const userId = req.session.user.id;
-    const facility = await getFacility(Number(req.params.id), userId);
+    const held = await cardWithStanding(Number(req.params.id), userId);
 
-    if (!facility || facility.product !== "secured_card") {
+    if (!held) {
       req.flash("error", "That card is not here.");
       return res.redirect("/credit");
     }
+    const facility = held.facility;
     if (facility.status !== "active") {
       req.flash("error", "That card is already closed.");
+      return res.redirect("/credit");
+    }
+    // The deposit is not a way to pay the card off. Clearing the balance first
+    // is the point of it being a deposit rather than a payment.
+    if (held.standing.balance > 0) {
+      req.flash(
+        "error",
+        `There is still ${held.standing.balance.toFixed(2)} owing on that card. ` +
+        "Pay it off and the deposit comes back."
+      );
       return res.redirect("/credit");
     }
 

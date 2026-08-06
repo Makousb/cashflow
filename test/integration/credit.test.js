@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 
 import {
+  addCardPayment,
+  addCharge,
   closeFacility,
   creditExposure,
   listApplications,
+  listCardPayments,
+  listCharges,
   listFacilities,
   listInstallments,
   monthlyCommitments,
@@ -13,7 +17,7 @@ import {
   recordApplication,
   settleInstallment
 } from "../../db/queries/credit.js";
-import { affordability, assessDayLoan } from "../../utils/credit.js";
+import { affordability, assessCharge, assessDayLoan, cardStanding } from "../../utils/credit.js";
 import { today } from "../../utils/dates.js";
 import { closePool, dropUser, makeUser, one, q, skipWithoutDb } from "./helpers.js";
 
@@ -241,6 +245,103 @@ describe("what is already running", { skip: skipWithoutDb }, () => {
   test("closing something already closed changes nothing", async () => {
     const [facility] = (await listFacilities(user.id)).filter((f) => f.status === "closed");
     assert.equal(await closeFacility(facility.id, user.id), null);
+  });
+});
+
+describe("spending on a card", { skip: skipWithoutDb }, () => {
+  let user;
+  let card;
+
+  before(async () => {
+    user = await makeUser("credit-card");
+    await seedLedger(user.id);
+    card = await openFacility({
+      userId: user.id, product: "secured_card", label: "Card",
+      apr: 30, creditLimit: 10000, deposit: 10000, openedOn: today()
+    });
+  });
+
+  after(async () => { await dropUser(user?.id); });
+
+  test("a charge is recorded against the card", async () => {
+    await addCharge({
+      facilityId: card.id, userId: user.id, merchant: "Naivas",
+      amount: 2500, chargedOn: today()
+    });
+
+    const charges = (await listCharges(user.id)).filter((c) => c.facility_id === card.id);
+    assert.equal(charges.length, 1);
+    assert.equal(Number(charges[0].amount), 2500);
+    assert.equal(charges[0].merchant, "Naivas");
+  });
+
+  test("and moves the balance and what is left to spend", async () => {
+    const charges = (await listCharges(user.id)).filter((c) => c.facility_id === card.id);
+    const standing = cardStanding(
+      { ...card, opened_on: today() }, charges, [], today()
+    );
+    assert.equal(standing.balance, 2500);
+    assert.equal(standing.available, 7500);
+  });
+
+  test("a charge over what is left is refused before it is written", async () => {
+    const charges = (await listCharges(user.id)).filter((c) => c.facility_id === card.id);
+    const standing = cardStanding({ ...card, opened_on: today() }, charges, [], today());
+    const decision = assessCharge({ amount: 8000, standing });
+
+    assert.equal(decision.approved, false);
+    assert.match(decision.reason, /more than the 7500\.00 left/);
+    assert.equal(
+      (await listCharges(user.id)).filter((c) => c.facility_id === card.id).length, 1,
+      "a refused charge must leave nothing behind"
+    );
+  });
+
+  test("a payment brings the balance back down", async () => {
+    await addCardPayment({
+      facilityId: card.id, userId: user.id, amount: 1000, paidOn: today()
+    });
+
+    const charges = (await listCharges(user.id)).filter((c) => c.facility_id === card.id);
+    const payments = (await listCardPayments(user.id)).filter((p) => p.facility_id === card.id);
+    const standing = cardStanding({ ...card, opened_on: today() }, charges, payments, today());
+
+    assert.equal(standing.balance, 1500);
+    assert.equal(standing.available, 8500);
+  });
+
+  test("dates come back as days here too", async () => {
+    const [charge] = await listCharges(user.id);
+    assert.match(charge.charged_on, /^\d{4}-\d{2}-\d{2}$/);
+    const [payment] = await listCardPayments(user.id);
+    assert.match(payment.paid_on, /^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test("closing is refused while the card is owed money", async () => {
+    // The deposit is not a way to pay the card off, which is the whole of the
+    // difference between a deposit and a payment.
+    const charges = (await listCharges(user.id)).filter((c) => c.facility_id === card.id);
+    const payments = (await listCardPayments(user.id)).filter((p) => p.facility_id === card.id);
+    const standing = cardStanding({ ...card, opened_on: today() }, charges, payments, today());
+
+    assert.ok(standing.balance > 0, "there should still be a balance for this to be worth testing");
+    const reloaded = await one("SELECT status FROM credit_facilities WHERE id = $1", [card.id]);
+    assert.equal(reloaded.status, "active");
+  });
+
+  test("charges go with the card when it is deleted", async () => {
+    const doomed = await openFacility({
+      userId: user.id, product: "secured_card", label: "Second",
+      apr: 30, creditLimit: 500, deposit: 500, openedOn: today()
+    });
+    await addCharge({
+      facilityId: doomed.id, userId: user.id, merchant: "Kiosk", amount: 100, chargedOn: today()
+    });
+
+    await q("DELETE FROM credit_facilities WHERE id = $1", [doomed.id]);
+    assert.equal(
+      (await listCharges(user.id)).filter((c) => c.facility_id === doomed.id).length, 0
+    );
   });
 });
 

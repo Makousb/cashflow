@@ -727,6 +727,37 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_credit_installments_due
     ON credit_installments (user_id, due_on);
 
+  -- What was put on a card. No ledger entry goes with a charge: the books here
+  -- are cash basis, so the spending is recorded when the card is paid, not when
+  -- it is used, and counting it in both places would count it twice.
+  CREATE TABLE IF NOT EXISTS credit_charges (
+    id SERIAL PRIMARY KEY,
+    facility_id INTEGER NOT NULL REFERENCES credit_facilities(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    merchant TEXT NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+    charged_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_credit_charges_facility
+    ON credit_charges (user_id, facility_id, charged_on);
+
+  -- Money paid towards a card balance. A card has no schedule to pay against,
+  -- so these are free-form rather than instalments.
+  CREATE TABLE IF NOT EXISTS credit_payments (
+    id SERIAL PRIMARY KEY,
+    facility_id INTEGER NOT NULL REFERENCES credit_facilities(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+    paid_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_credit_payments_facility
+    ON credit_payments (user_id, facility_id, paid_on);
+
   -- The supplier migration comes last, once every table it touches has been
   -- created above. This is one statement batch run against a database that may
   -- be brand new, so an ALTER sitting next to the suppliers tables would reach

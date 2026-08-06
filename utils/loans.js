@@ -1,28 +1,8 @@
-import { addMonths, toISODate } from "./dates.js";
+import { addMonths, monthKey, monthsBetween, toISODate } from "./dates.js";
 
 // Interest is modelled as an annual APR compounded monthly on the running
 // balance. All amounts are in the loan's base currency. Figures are estimates
 // for planning — not a lender's exact statement.
-
-function monthKey(isoDate) {
-  return isoDate.slice(0, 7);
-}
-
-// Chronological YYYY-MM keys from `startIso`'s month through `todayIso`'s month.
-function monthsBetween(startIso, todayIso) {
-  const keys = [];
-  let [year, month] = startIso.slice(0, 7).split("-").map(Number);
-  const [endYear, endMonth] = todayIso.slice(0, 7).split("-").map(Number);
-  while (year < endYear || (year === endYear && month <= endMonth)) {
-    keys.push(`${year}-${String(month).padStart(2, "0")}`);
-    month += 1;
-    if (month > 12) {
-      year += 1;
-      month = 1;
-    }
-  }
-  return keys;
-}
 
 // Current balance, total paid, and interest accrued to date for one loan.
 export function loanMetrics(loan, payments, todayIso) {

@@ -172,6 +172,50 @@ export async function settleInstallment({ installmentId, userId, paidOn, transac
   }
 }
 
+export async function listCharges(userId) {
+  const { rows } = await pool.query(
+    `SELECT id, facility_id, merchant, amount,
+            to_char(charged_on, 'YYYY-MM-DD') AS charged_on
+     FROM credit_charges
+     WHERE user_id = $1
+     ORDER BY charged_on DESC, id DESC`,
+    [userId]
+  );
+  return rows;
+}
+
+export async function listCardPayments(userId) {
+  const { rows } = await pool.query(
+    `SELECT id, facility_id, amount,
+            to_char(paid_on, 'YYYY-MM-DD') AS paid_on, transaction_id
+     FROM credit_payments
+     WHERE user_id = $1
+     ORDER BY paid_on DESC, id DESC`,
+    [userId]
+  );
+  return rows;
+}
+
+export async function addCharge({ facilityId, userId, merchant, amount, chargedOn }) {
+  const { rows } = await pool.query(
+    `INSERT INTO credit_charges (facility_id, user_id, merchant, amount, charged_on)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [facilityId, userId, merchant, amount, chargedOn]
+  );
+  return rows[0];
+}
+
+export async function addCardPayment({ facilityId, userId, amount, paidOn, transactionId = null }) {
+  const { rows } = await pool.query(
+    `INSERT INTO credit_payments (facility_id, user_id, amount, paid_on, transaction_id)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [facilityId, userId, amount, paidOn, transactionId]
+  );
+  return rows[0];
+}
+
 export async function closeFacility(id, userId) {
   const { rows } = await pool.query(
     `UPDATE credit_facilities

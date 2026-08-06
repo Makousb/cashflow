@@ -77,6 +77,28 @@ export function addDays(value, n) {
   );
 }
 
+// The YYYY-MM a day falls in.
+export function monthKey(value) {
+  return toISODate(value).slice(0, 7);
+}
+
+// Chronological YYYY-MM keys from one day's month through another's, both ends
+// included. What anything accruing month by month walks over.
+export function monthsBetween(startIso, endIso) {
+  const keys = [];
+  let [year, month] = monthKey(startIso).split("-").map(Number);
+  const [endYear, endMonth] = monthKey(endIso).split("-").map(Number);
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    keys.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month > 12) {
+      year += 1;
+      month = 1;
+    }
+  }
+  return keys;
+}
+
 // The same clamped step, for callers holding a date rather than its parts.
 export function addMonths(value, n) {
   const date = toLocalDate(value);

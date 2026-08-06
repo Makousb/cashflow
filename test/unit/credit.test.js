@@ -5,8 +5,10 @@ import {
   affordability,
   assess,
   assessBnpl,
+  assessCharge,
   assessDayLoan,
   assessSecuredCard,
+  cardStanding,
   facilityStanding,
   splitEvenly
 } from "../../utils/credit.js";
@@ -16,6 +18,7 @@ const comfortable = affordability({
   monthlyIncome: 100000, monthlyExpenses: 60000, monthlyCommitments: 10000
 });
 const FROM = "2026-08-05";
+const round2 = (n) => Math.round(n * 100) / 100;
 
 describe("splitEvenly", () => {
   test("the parts add back up to the whole", () => {
@@ -187,6 +190,103 @@ describe("a secured card", () => {
   test("asks nothing of income, the money being the applicant's own", () => {
     const out = assessSecuredCard({ deposit: 500, walletBalance: 500 });
     assert.equal(out.approved, true);
+  });
+});
+
+describe("a card in use", () => {
+  // Opened in June, 10,000 limit, 24% a year — 2% a month.
+  const card = { credit_limit: 10000, apr: 24, opened_on: "2026-06-01" };
+  const charge = (amount, charged_on) => ({ amount, charged_on });
+  const payment = (amount, paid_on) => ({ amount, paid_on });
+
+  test("spending uses the limit up and the rest stays available", () => {
+    const out = cardStanding(card, [charge(2500, "2026-08-02")], [], "2026-08-05");
+    assert.equal(out.balance, 2500);
+    assert.equal(out.available, 7500);
+    assert.equal(out.utilisation, 25);
+  });
+
+  test("cleared inside the month, it costs nothing", () => {
+    const out = cardStanding(
+      card, [charge(2000, "2026-08-02")], [payment(2000, "2026-08-04")], "2026-08-05"
+    );
+    assert.equal(out.balance, 0);
+    assert.equal(out.interestCharged, 0);
+    assert.equal(out.available, 10000);
+  });
+
+  test("carried past the month, it does not", () => {
+    // 1,000 left at the end of July, so August opens owing 1,000 plus 2%.
+    const out = cardStanding(card, [charge(1000, "2026-07-10")], [], "2026-08-05");
+    assert.equal(out.interestCharged, 20);
+    assert.equal(out.balance, 1020);
+  });
+
+  test("interest compounds over the months it is carried", () => {
+    // June and July both close owing, so 2% is charged twice.
+    const out = cardStanding(card, [charge(1000, "2026-06-10")], [], "2026-08-05");
+    assert.equal(out.balance, round2(1000 * 1.02 ** 2));
+    assert.equal(out.interestCharged, round2(1000 * 1.02 ** 2 - 1000));
+  });
+
+  test("the month in progress has not ended, so it has not been charged for", () => {
+    const out = cardStanding(card, [charge(1000, "2026-08-01")], [], "2026-08-31");
+    assert.equal(out.interestCharged, 0);
+    // What it will cost if it is still there when the month turns.
+    assert.equal(out.monthlyInterest, 20);
+  });
+
+  test("interest eats into what is left to spend", () => {
+    const out = cardStanding(card, [charge(5000, "2026-07-10")], [], "2026-08-05");
+    assert.equal(out.balance, 5100);
+    assert.equal(out.available, 4900);
+  });
+
+  test("paying in more than is owed leaves no debt earning interest", () => {
+    const out = cardStanding(
+      card, [charge(500, "2026-06-10")], [payment(900, "2026-06-20")], "2026-08-05"
+    );
+    assert.equal(out.balance, 0);
+    assert.equal(out.interestCharged, 0);
+  });
+
+  test("what was spent and what was repaid are both kept", () => {
+    const out = cardStanding(
+      card, [charge(300, "2026-08-01"), charge(200, "2026-08-02")],
+      [payment(100, "2026-08-03")], "2026-08-05"
+    );
+    assert.equal(out.spent, 500);
+    assert.equal(out.repaid, 100);
+    assert.equal(out.balance, 400);
+  });
+
+  test("a card never used owes nothing and offers the lot", () => {
+    const out = cardStanding(card, [], [], "2026-08-05");
+    assert.equal(out.balance, 0);
+    assert.equal(out.available, 10000);
+    assert.equal(out.utilisation, 0);
+  });
+});
+
+describe("charging a card", () => {
+  const standing = { limit: 10000, balance: 4000, available: 6000 };
+
+  test("goes through when there is room", () => {
+    const out = assessCharge({ amount: 6000, standing });
+    assert.equal(out.approved, true);
+    assert.equal(out.terms.amount, 6000);
+  });
+
+  test("is declined over the limit, and says by how much there is", () => {
+    const out = assessCharge({ amount: 6000.01, standing });
+    assert.equal(out.approved, false);
+    assert.match(out.reason, /more than the 6000\.00 left/);
+    assert.match(out.reason, /4000\.00 of it is already used/);
+  });
+
+  test("refuses nothing and less than nothing", () => {
+    assert.equal(assessCharge({ amount: 0, standing }).approved, false);
+    assert.equal(assessCharge({ amount: -5, standing }).approved, false);
   });
 });
 
