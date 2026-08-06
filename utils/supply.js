@@ -2,7 +2,11 @@
 // performance numbers behind the reports page. Pure functions — everything
 // takes plain rows and returns plain objects.
 
-import { toISODate } from "./dates.js";
+import { addDays, toISODate } from "./dates.js";
+
+// Re-exported: this module owned it first, and its callers still import it from
+// here, but stepping a date by days is nobody's supply chain logic.
+export { addDays };
 
 // The happy path an order walks, in order.
 export const ORDER_FLOW = ["placed", "confirmed", "shipped", "delivered", "received"];
@@ -64,11 +68,6 @@ export function statusMeta(status) {
 
 export function isOpen(order) {
   return OPEN_STATUSES.includes(order.status);
-}
-
-export function addDays(isoDate, days) {
-  const [year, month, day] = String(isoDate).slice(0, 10).split("-").map(Number);
-  return toISODate(new Date(year, month - 1, day + Number(days || 0)));
 }
 
 // Whole calendar days from a to b (negative if b is earlier).

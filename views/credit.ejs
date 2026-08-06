@@ -1,0 +1,254 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1>Credit</h1>
+  <p class="muted">
+    Short-term borrowing, purchase plans, and a card secured by your own deposit.
+    Every answer is worked out from this ledger — what you earn, what you spend,
+    and what you already owe here.
+  </p>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">💷</span>
+    <span class="stat-body">
+      <span class="stat-label">Spare each month</span>
+      <span class="stat-value <%= means.disposable > 0 ? "positive" : "" %>"><%= money(means.disposable) %></span>
+      <small class="muted">
+        <%= money(means.income) %> in, <%= money(means.expenses) %> out,
+        <%= money(means.commitments) %> already promised
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon tint-red">📄</span>
+    <span class="stat-body">
+      <span class="stat-label">Outstanding here</span>
+      <span class="stat-value <%= owed > 0 ? "negative" : "" %>"><%= money(owed) %></span>
+      <small class="muted"><%= active.length %> live</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">💳</span>
+    <span class="stat-body">
+      <span class="stat-label">Card limit</span>
+      <%
+        const card = active.find((f) => f.product === "secured_card");
+      %>
+      <span class="stat-value"><%= card ? money(card.credit_limit) : "—" %></span>
+      <small class="muted"><%= card ? "secured by your deposit" : "no card open" %></small>
+    </span>
+  </div>
+</section>
+
+<% if (means.income <= 0) { %>
+  <section class="card">
+    <p class="muted" style="margin:0;">
+      Nothing has been recorded as income yet, so there is nothing here to lend
+      against. <a href="/transactions" class="link">Record what you earn →</a>
+    </p>
+  </section>
+<% } %>
+
+<h2>Apply</h2>
+<div class="two-col">
+  <section class="card">
+    <h3><%= products.day_loan.label %></h3>
+    <p class="muted"><%= products.day_loan.blurb %></p>
+    <form action="/credit/apply" method="POST" class="stacked-form">
+      <input type="hidden" name="product" value="day_loan" />
+      <label>
+        How much
+        <input type="number" name="amount" step="0.01" min="0.01" required />
+        <small class="muted">Capped at half a month's income.</small>
+      </label>
+      <label>
+        Repay in
+        <select name="term">
+          <% products.day_loan.terms.forEach((t) => { %>
+            <option value="<%= t %>"><%= t %> days — fee <%= (t / 7).toFixed(0) %>% of the amount</option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
+        Pay into
+        <select name="accountId">
+          <% accounts.forEach((a) => { %>
+            <option value="<%= a.id %>"><%= a.name %> (<%= money(a.balance) %>)</option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
+        What for (optional)
+        <input type="text" name="purpose" maxlength="200" placeholder="e.g. Car repair" />
+      </label>
+      <button type="submit" class="btn btn-primary">Apply</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h3><%= products.bnpl.label %></h3>
+    <p class="muted"><%= products.bnpl.blurb %></p>
+    <form action="/credit/apply" method="POST" class="stacked-form">
+      <input type="hidden" name="product" value="bnpl" />
+      <label>
+        Purchase amount
+        <input type="number" name="amount" step="0.01" min="0.01" required />
+        <small class="muted">Nothing leaves your wallet until an instalment falls due.</small>
+      </label>
+      <label>
+        Split into
+        <select name="term">
+          <% products.bnpl.terms.forEach((t) => { %>
+            <option value="<%= t %>"><%= t %> monthly payments</option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
+        What for (optional)
+        <input type="text" name="purpose" maxlength="200" placeholder="e.g. Washing machine" />
+      </label>
+      <button type="submit" class="btn btn-primary">Apply</button>
+    </form>
+  </section>
+</div>
+
+<section class="card">
+  <h3><%= products.secured_card.label %></h3>
+  <p class="muted"><%= products.secured_card.blurb %></p>
+  <form action="/credit/apply" method="POST" class="stacked-form">
+    <input type="hidden" name="product" value="secured_card" />
+    <input type="hidden" name="term" value="0" />
+    <label>
+      Deposit
+      <input type="number" name="amount" step="0.01" min="0.01" required />
+      <small class="muted">
+        Your limit is the same as your deposit. It leaves the wallet you choose
+        and comes back when you close the card.
+      </small>
+    </label>
+    <label>
+      Take the deposit from
+      <select name="accountId">
+        <% accounts.forEach((a) => { %>
+          <option value="<%= a.id %>"><%= a.name %> (<%= money(a.balance) %>)</option>
+        <% }) %>
+      </select>
+    </label>
+    <button type="submit" class="btn btn-primary">Apply</button>
+  </form>
+</section>
+
+<h2>What you hold</h2>
+<% if (!facilities.length) { %>
+  <section class="card">
+    <p class="muted" style="margin:0;">Nothing yet. An approved application shows up here.</p>
+  </section>
+<% } else { %>
+  <% facilities.forEach((f) => { %>
+    <section class="card">
+      <div class="card-head">
+        <h3 style="margin:0;">
+          <%= f.label %>
+          <span class="badge <%= f.status === "active" ? "badge-warn" : "badge-done" %>"><%= f.status %></span>
+          <% if (f.standing.isOverdue) { %><span class="badge badge-danger">overdue</span><% } %>
+        </h3>
+        <span class="muted"><%= products[f.product].label %> · opened <%= formatDate(f.opened_on) %></span>
+      </div>
+
+      <% if (f.product === "secured_card") { %>
+        <p class="muted">
+          Limit <strong><%= money(f.credit_limit) %></strong>, secured by a
+          <%= money(f.deposit) %> deposit. <%= Number(f.apr).toFixed(0) %>% APR on
+          anything carried past the month.
+        </p>
+        <% if (f.status === "active") { %>
+          <form action="/credit/<%= f.id %>/close" method="POST" class="inline-form">
+            <select name="accountId">
+              <% accounts.forEach((a) => { %>
+                <option value="<%= a.id %>">Return to <%= a.name %></option>
+              <% }) %>
+            </select>
+            <button type="submit" class="btn">Close and get the deposit back</button>
+          </form>
+        <% } %>
+      <% } else { %>
+        <p class="muted">
+          <%= money(f.principal) %> borrowed<% if (Number(f.fee) > 0) { %>,
+          <%= money(f.fee) %> fee<% } %> ·
+          <strong><%= money(f.standing.outstanding) %></strong> still to pay
+          <% if (f.standing.paid > 0) { %>· <%= money(f.standing.paid) %> paid<% } %>
+        </p>
+
+        <div class="table-scroll">
+          <table class="data-table">
+          <thead>
+            <tr><th>#</th><th>Due</th><th>Amount</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            <% f.installments.forEach((i) => { %>
+              <tr>
+                <td><%= i.sequence %></td>
+                <td><%= formatDate(i.due_on) %></td>
+                <td><%= money(i.amount) %></td>
+                <td>
+                  <% if (i.paid_on) { %>
+                    <span class="badge badge-done">paid <%= formatDate(i.paid_on) %></span>
+                  <% } else if (i.due_on < today) { %>
+                    <span class="badge badge-danger">overdue</span>
+                  <% } else { %>
+                    <span class="badge badge-warn">due</span>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (!i.paid_on) { %>
+                    <form action="/credit/installments/<%= i.id %>/pay" method="POST" class="inline-form">
+                      <select name="accountId">
+                        <% accounts.forEach((a) => { %>
+                          <option value="<%= a.id %>"><%= a.name %></option>
+                        <% }) %>
+                      </select>
+                      <button type="submit" class="btn">Pay</button>
+                    </form>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        </div>
+      <% } %>
+    </section>
+  <% }) %>
+<% } %>
+
+<% if (applications.length) { %>
+  <h2>Decisions</h2>
+  <section class="card">
+    <div class="table-scroll">
+          <table class="data-table">
+      <thead>
+        <tr><th>Applied for</th><th>Amount</th><th>Answer</th><th>Why</th><th>When</th></tr>
+      </thead>
+      <tbody>
+        <% applications.forEach((a) => { %>
+          <tr>
+            <td><%= products[a.product].label %></td>
+            <td><%= money(a.amount) %></td>
+            <td>
+              <span class="badge <%= a.status === "approved" ? "badge-done" : "badge-danger" %>">
+                <%= a.status %>
+              </span>
+            </td>
+            <td class="muted"><%= a.reason %></td>
+            <td class="muted"><%= formatDate(a.decided_on) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+        </div>
+  </section>
+<% } %>
+
+<%- include("partials/footer") %>

@@ -67,6 +67,16 @@ function addMonthsClamped(year, monthIndex, day, n) {
   );
 }
 
+// n days on from a calendar day, as YYYY-MM-DD. Day arithmetic needs no
+// clamping — every month has all of its own days — so this is the plain step
+// that addMonths cannot be.
+export function addDays(value, n) {
+  const date = toLocalDate(value);
+  return toISODate(
+    new Date(date.getFullYear(), date.getMonth(), date.getDate() + Number(n || 0))
+  );
+}
+
 // The same clamped step, for callers holding a date rather than its parts.
 export function addMonths(value, n) {
   const date = toLocalDate(value);

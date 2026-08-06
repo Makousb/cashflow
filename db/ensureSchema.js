@@ -657,6 +657,76 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_supply_messages_order
     ON supply_messages (order_id, id);
 
+  -- Personal credit: short-term loans, pay-in-instalments plans, and secured
+  -- cards. Every application is kept, approved or not — a decline is only
+  -- useful if it says what would have to change, and that reason is the row.
+  CREATE TABLE IF NOT EXISTS credit_applications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product TEXT NOT NULL
+      CHECK (product IN ('day_loan', 'bnpl', 'secured_card')),
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+    -- Days for a day loan, instalments for a plan, unused for a card.
+    term INTEGER NOT NULL DEFAULT 0,
+    purpose TEXT,
+    status TEXT NOT NULL CHECK (status IN ('approved', 'declined')),
+    reason TEXT NOT NULL,
+    fee NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    apr NUMERIC(6, 2) NOT NULL DEFAULT 0,
+    -- "limit" is reserved, hence the prefix.
+    credit_limit NUMERIC(12, 2),
+    deposit NUMERIC(12, 2),
+    decided_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_credit_applications_user
+    ON credit_applications (user_id, id DESC);
+
+  -- What an approved application turns into: the thing that is actually owed.
+  CREATE TABLE IF NOT EXISTS credit_facilities (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    application_id INTEGER REFERENCES credit_applications(id) ON DELETE SET NULL,
+    product TEXT NOT NULL
+      CHECK (product IN ('day_loan', 'bnpl', 'secured_card')),
+    label TEXT NOT NULL,
+    principal NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    fee NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    apr NUMERIC(6, 2) NOT NULL DEFAULT 0,
+    credit_limit NUMERIC(12, 2),
+    deposit NUMERIC(12, 2),
+    status TEXT NOT NULL DEFAULT 'active'
+      CHECK (status IN ('active', 'settled', 'closed')),
+    opened_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    due_on DATE,
+    -- The ledger entry that paid the money out, so closing can reverse it.
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    closed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_credit_facilities_user
+    ON credit_facilities (user_id, status);
+
+  -- The repayment schedule. A day loan has one row, a plan has one per
+  -- instalment; a card has none, having nothing fixed to repay.
+  CREATE TABLE IF NOT EXISTS credit_installments (
+    id SERIAL PRIMARY KEY,
+    facility_id INTEGER NOT NULL REFERENCES credit_facilities(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sequence INTEGER NOT NULL,
+    due_on DATE NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+    paid_on DATE,
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (facility_id, sequence)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_credit_installments_due
+    ON credit_installments (user_id, due_on);
+
   -- The supplier migration comes last, once every table it touches has been
   -- created above. This is one statement batch run against a database that may
   -- be brand new, so an ALTER sitting next to the suppliers tables would reach
