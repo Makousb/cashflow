@@ -5,8 +5,8 @@
 // The tone is deliberate. This is somebody's own money going wrong, and the
 // email exists to be useful at the moment it lands: what was owed, when it was
 // owed, what it costs to leave it, and where to go. No urgency it has not
-// earned, and nothing about consequences that do not exist here — missing a
-// minimum in this app charges no fee and tells nobody else.
+// earned, and no consequence that does not exist here — the interest and the
+// late fee are named because they are real, and nothing else is implied.
 
 import { formatDate } from "./dates.js";
 
@@ -58,6 +58,8 @@ export function minimumDueSoonEmail({ facility, statement, standing, fmt, url })
     `paying the minimum keeps the card straight and costs`,
     `${fmt(standing.monthlyInterest)} next month on what is left.`,
     "",
+    "Missing it adds a late fee of a tenth of whatever is still short.",
+    "",
     `Pay it here: ${url}`
   ].filter((line) => line !== null).join("\n");
 
@@ -78,6 +80,7 @@ export function minimumDueSoonEmail({ facility, statement, standing, fmt, url })
       <p>Clearing the whole <strong>${esc(fmt(standing.balance))}</strong> stops the interest;
          paying the minimum keeps the card straight and costs
          ${esc(fmt(standing.monthlyInterest))} next month on what is left.</p>
+      <p>Missing it adds a late fee of a tenth of whatever is still short.</p>
       <p><a href="${esc(url)}">Pay it here</a></p>
     </div>
   `.trim();
@@ -106,7 +109,10 @@ export function missedMinimumEmail({ facility, statement, standing, fmt, url }) 
       : "Paid towards it: nothing",
     "",
     `The balance now stands at ${fmt(standing.balance)}, and carrying it costs`,
-    `${fmt(standing.monthlyInterest)} in interest next month. There is no late fee.`,
+    `${fmt(standing.monthlyInterest)} in interest next month.`,
+    statement.lateFee > 0
+      ? `A late fee of ${fmt(statement.lateFee)} has been added — a tenth of the ${fmt(statement.shortfall)} you were short.`
+      : null,
     standing.missedCount > 1
       ? `\nThis is the ${ordinal(standing.missedCount)} statement in a row to go unpaid.`
       : "",
@@ -133,8 +139,13 @@ export function missedMinimumEmail({ facility, statement, standing, fmt, url }) 
             }</td></tr>
       </table>
       <p>The balance now stands at <strong>${esc(fmt(standing.balance))}</strong>, and
-         carrying it costs ${esc(fmt(standing.monthlyInterest))} in interest next month.
-         There is no late fee.</p>
+         carrying it costs ${esc(fmt(standing.monthlyInterest))} in interest next month.</p>
+      ${
+        statement.lateFee > 0
+          ? `<p>A late fee of <strong>${esc(fmt(statement.lateFee))}</strong> has been added —
+             a tenth of the ${esc(fmt(statement.shortfall))} you were short.</p>`
+          : ""
+      }
       ${
         standing.missedCount > 1
           ? `<p>This is the ${ordinal(standing.missedCount)} statement in a row to go unpaid.</p>`

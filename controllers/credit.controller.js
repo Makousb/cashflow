@@ -64,7 +64,9 @@ const groupBy = (rows, key) => {
   return out;
 };
 
-async function creditPageModel(userId) {
+// todayIso is a parameter rather than a call to today() so a test can put the
+// clock where it needs it. Requests never pass one.
+async function creditPageModel(userId, todayIso = today()) {
   const [facilities, installments, charges, cardPayments, applications, accounts, gathered] =
     await Promise.all([
       listFacilities(userId),
@@ -80,7 +82,6 @@ async function creditPageModel(userId) {
   const chargesBy = groupBy(charges, "facility_id");
   const paymentsBy = groupBy(cardPayments, "facility_id");
 
-  const todayIso = today();
   const withStanding = facilities.map((facility) => ({
     ...facility,
     installments: byFacility.get(facility.id) || [],
@@ -157,8 +158,8 @@ async function noticeFor(user, facility, standing) {
 // nothing on a page should wait on a mail server, and a reminder that fails is
 // logged and tried again next time rather than surfaced. The promise is handed
 // back all the same, so a test can wait for what a request will not.
-export function catchUpCardNotices(user) {
-  return creditPageModel(user.id)
+export function catchUpCardNotices(user, todayIso = today()) {
+  return creditPageModel(user.id, todayIso)
     .then(async (model) => {
       for (const facility of model.active) {
         // Whether anything is owed at all is noticeDue's decision, not a

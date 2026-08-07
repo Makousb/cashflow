@@ -68,7 +68,7 @@ describe("a missed minimum reaches the holder", { skip: skipWithoutDb }, () => {
     assert.match(sent[0].subject, /Everyday card/);
     assert.match(sent[0].subject, /missed/i);
     assert.match(sent[0].text, /Minimum asked for/);
-    assert.match(sent[0].text, /no late fee/i);
+    assert.match(sent[0].text, /late fee of/i);
   });
 
   test("and it is recorded, so the statement is not raised twice", async () => {
@@ -149,6 +149,51 @@ describe("a reminder before the date", { skip: skipWithoutDb }, () => {
       false,
       "but neither kind twice"
     );
+  });
+
+  test("the reminder itself goes, with the clock put where it needs to be", async () => {
+    // The fixtures are absolute dates and the date is handed in, so this does
+    // not depend on what day it happens to be run. A card opened 1 June with a
+    // charge on the 10th draws its statement on the 30th, due the 21st of July;
+    // the window opens on the 18th, and the 19th is inside it.
+    const own = await makeUser("notice-window");
+    const card2 = await openFacility({
+      userId: own.id, product: "secured_card", label: "Windowed card",
+      apr: 30, creditLimit: 10000, deposit: 10000, openedOn: "2026-06-01"
+    });
+    await q(
+      `INSERT INTO credit_charges (facility_id, user_id, merchant, amount, charged_on)
+       VALUES ($1, $2, 'June shop', 4000, '2026-06-10')`,
+      [card2.id, own.id]
+    );
+
+    sent.length = 0;
+    await catchUpCardNotices(
+      { id: own.id, email: "windowed@example.test", currency: "KES" }, "2026-07-19"
+    );
+
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].subject, /due on Windowed card by Jul 21, 2026/);
+    assert.doesNotMatch(sent[0].subject, /missed/i);
+
+    const notices = (await listCardNotices(own.id)).filter((n) => n.facility_id === card2.id);
+    assert.deepEqual(notices.map((n) => `${n.cycle}/${n.kind}`), ["2026-06/reminder"]);
+
+    // The same day again sends nothing; the day after it is due, the missed
+    // notice is a separate claim and does go.
+    sent.length = 0;
+    await catchUpCardNotices(
+      { id: own.id, email: "windowed@example.test", currency: "KES" }, "2026-07-19"
+    );
+    assert.equal(sent.length, 0, "the reminder is not repeated every day of its window");
+
+    await catchUpCardNotices(
+      { id: own.id, email: "windowed@example.test", currency: "KES" }, "2026-07-22"
+    );
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].subject, /missed/i);
+
+    await dropUser(own.id);
   });
 
   test("and a notice already sent is not sent again by the other kind", async () => {

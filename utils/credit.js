@@ -246,6 +246,11 @@ const MINIMUM_RATE = 0.05;
 // How long before the date a reminder is worth having: long enough to move
 // money, short enough that it is still about this month.
 const REMINDER_DAYS = 3;
+// Missing the minimum costs a tenth of what was short. A share rather than a
+// flat sum, so it means the same thing in any currency, and so paying most of
+// the minimum costs most of nothing — the fee is for the gap, not for being
+// late as such.
+const LATE_FEE_RATE = 0.1;
 
 // The last day of a YYYY-MM: day zero of the month after it.
 function lastDayOf(key) {
@@ -269,9 +274,24 @@ function walkCard(facility, charges, payments, todayIso) {
 
   let balance = 0;
   let interestCharged = 0;
+  let lateFeesCharged = 0;
   const statements = [];
 
   for (const key of monthsBetween(facility.opened_on, todayIso)) {
+    // A statement falls due in the month after the one it was drawn for, so the
+    // month being walked is where the previous statement's date has just gone
+    // by. If it went by unmet, the fee lands here — before the month's interest,
+    // because that is when it was charged, and it earns interest like the rest.
+    const fellDue = statements.at(-1);
+    if (fellDue && fellDue.missed && monthKey(fellDue.dueOn) === key) {
+      const fee = round(fellDue.shortfall * LATE_FEE_RATE);
+      if (fee > 0) {
+        balance = round(balance + fee);
+        lateFeesCharged = round(lateFeesCharged + fee);
+        fellDue.lateFee = fee;
+      }
+    }
+
     balance += chargesBy.get(key) || 0;
     balance -= paymentsBy.get(key) || 0;
     // Paying in more than is owed leaves a credit, not a debt earning interest.
@@ -303,6 +323,7 @@ function walkCard(facility, charges, payments, todayIso) {
 
       const met = paidTowards >= minimumDue;
       const missed = !met && dueOn < todayIso;
+      const shortfall = round(Math.max(minimumDue - paidTowards, 0));
       // The day the reminder becomes worth sending. A statement asking for
       // nothing is met from the moment it is drawn, so it never gets here.
       const remindOn = addDays(dueOn, -REMINDER_DAYS);
@@ -316,6 +337,10 @@ function walkCard(facility, charges, payments, todayIso) {
         interest,
         minimumDue,
         paidTowards,
+        shortfall,
+        // Filled in when the month its date falls in is walked; a statement
+        // still inside its window has not been charged for anything yet.
+        lateFee: 0,
         met,
         // Not yet due is not yet missed.
         missed,
@@ -326,14 +351,14 @@ function walkCard(facility, charges, payments, todayIso) {
     }
   }
 
-  return { balance, interestCharged, statements };
+  return { balance, interestCharged, lateFeesCharged, statements };
 }
 
 // What a card owes and where its statements stand.
 export function cardStanding(facility, charges = [], payments = [], todayIso = toISODate(new Date())) {
   const limit = Number(facility.credit_limit || 0);
   const monthlyRate = Number(facility.apr || 0) / 100 / 12;
-  const { balance, interestCharged, statements } = walkCard(
+  const { balance, interestCharged, lateFeesCharged, statements } = walkCard(
     facility, charges, payments, todayIso
   );
 
@@ -350,6 +375,7 @@ export function cardStanding(facility, charges = [], payments = [], todayIso = t
     // What this month will cost if the balance is still here when it ends.
     monthlyInterest: round(owed * monthlyRate),
     interestCharged: round(interestCharged),
+    lateFeesCharged: round(lateFeesCharged),
     spent,
     repaid,
     utilisation: limit > 0 ? Math.min(Math.round((owed / limit) * 100), 100) : 0,

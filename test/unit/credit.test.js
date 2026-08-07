@@ -224,10 +224,24 @@ describe("a card in use", () => {
   });
 
   test("interest compounds over the months it is carried", () => {
-    // June and July both close owing, so 2% is charged twice.
+    // June and July both close owing, so 2% is charged twice — and June's
+    // minimum going unmet puts a fee in between, which the second month's
+    // interest is then charged on. 1,000 → 1,020 → +5.10 fee → 1,025.10 → 1,045.60.
     const out = cardStanding(card, [charge(1000, "2026-06-10")], [], "2026-08-05");
-    assert.equal(out.balance, round2(1000 * 1.02 ** 2));
-    assert.equal(out.interestCharged, round2(1000 * 1.02 ** 2 - 1000));
+    assert.equal(out.interestCharged, 40.5);
+    assert.equal(out.lateFeesCharged, 5.1);
+    assert.equal(out.balance, 1045.6);
+  });
+
+  test("nothing is charged for a month whose minimum was met", () => {
+    // The same two months, with June's 51 paid inside its window. No fee, and
+    // the compounding is the whole of what happened.
+    const out = cardStanding(
+      card, [charge(1000, "2026-06-10")], [payment(51, "2026-07-10")], "2026-08-05"
+    );
+    assert.equal(out.lateFeesCharged, 0);
+    // 1,020 less the 51 paid is 969, and 2% of that is 19.38.
+    assert.equal(out.balance, round2(969 * 1.02));
   });
 
   test("the month in progress has not ended, so it has not been charged for", () => {
@@ -354,7 +368,8 @@ describe("a card's statement cycle", () => {
   test("the one still asking is the latest, not the first missed", () => {
     const out = cardStanding(card, [charge(1000, "2026-06-10")], [], "2026-08-05");
     assert.equal(out.statement.cycle, "2026-07");
-    assert.equal(out.minimumDue, 52.02);
+    // A twentieth of 1,045.60 — the balance including June's fee.
+    assert.equal(out.minimumDue, 52.28);
     assert.equal(out.dueOn, "2026-08-21");
   });
 
@@ -367,6 +382,59 @@ describe("a card's statement cycle", () => {
     assert.equal(out.statements[0].met, true);
     // And it came off the balance as well, which is the same payment doing both.
     assert.equal(out.balance, 960);
+  });
+});
+
+describe("the fee for missing a minimum", () => {
+  const card = { credit_limit: 10000, apr: 24, opened_on: "2026-06-01" };
+  const charge = (amount, charged_on) => ({ amount, charged_on });
+  const payment = (amount, paid_on) => ({ amount, paid_on });
+  const june = [charge(1000, "2026-06-10")];
+
+  test("is not charged while the date is still ahead", () => {
+    const out = cardStanding(card, june, [], "2026-07-20");
+    assert.equal(out.lateFeesCharged, 0);
+    assert.equal(out.statements[0].lateFee, 0);
+  });
+
+  test("lands in the month the date fell in, once it has gone by", () => {
+    const out = cardStanding(card, june, [], "2026-08-05");
+    // A tenth of the 51 that was short.
+    assert.equal(out.statements[0].lateFee, 5.1);
+    assert.equal(out.lateFeesCharged, 5.1);
+  });
+
+  test("is a tenth of the gap, not of the whole minimum", () => {
+    // 41 of the 51 paid, so 10 short, so a fee of 1.
+    const out = cardStanding(card, june, [payment(41, "2026-07-10")], "2026-08-05");
+    assert.equal(out.statements[0].shortfall, 10);
+    assert.equal(out.statements[0].lateFee, 1);
+  });
+
+  test("paying all but a penny of it costs almost nothing", () => {
+    // The point of charging the gap: being nearly right is nearly free.
+    const out = cardStanding(card, june, [payment(50.99, "2026-07-10")], "2026-08-05");
+    assert.equal(out.statements[0].shortfall, 0.01);
+    assert.equal(out.statements[0].lateFee, 0);
+  });
+
+  test("is charged once, not again every month it stays unpaid", () => {
+    const out = cardStanding(card, june, [], "2026-09-05");
+    // June and July both missed by September, so two fees — one each, not one
+    // for June repeated.
+    const fees = out.statements.map((s) => s.lateFee);
+    assert.equal(fees.length, 3);
+    assert.equal(fees.filter((f) => f > 0).length, 2);
+    assert.equal(round2(fees.reduce((a, b) => a + b, 0)), out.lateFeesCharged);
+  });
+
+  test("a statement asking for nothing cannot be missed, so costs nothing", () => {
+    const out = cardStanding(
+      card, june, [payment(1000, "2026-06-20")], "2026-08-05"
+    );
+    assert.equal(out.statements[0].minimumDue, 0);
+    assert.equal(out.lateFeesCharged, 0);
+    assert.equal(out.balance, 0);
   });
 });
 

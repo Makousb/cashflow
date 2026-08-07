@@ -176,9 +176,11 @@
         <div class="progress" title="<%= f.card.utilisation %>% used">
           <span class="progress-fill" style="width: <%= f.card.utilisation %>%;"></span>
         </div>
-        <% if (f.card.interestCharged > 0) { %>
+        <% if (f.card.interestCharged > 0 || f.card.lateFeesCharged > 0) { %>
           <p class="muted">
-            <%= money(f.card.interestCharged) %> of interest charged so far.
+            <%= money(f.card.interestCharged) %> of interest charged so far<%
+              %><% if (f.card.lateFeesCharged > 0) { %>, and
+            <%= money(f.card.lateFeesCharged) %> in late fees<% } %>.
             Carrying this balance costs <%= money(f.card.monthlyInterest) %> next month.
           </p>
         <% } else if (f.card.balance > 0) { %>
@@ -208,8 +210,8 @@
             <% } %>
             <% if (f.card.missedCount > 1) { %>
               <p class="muted" style="margin:0.25rem 0 0;">
-                <%= f.card.missedCount %> statements have gone unpaid. Nothing is
-                charged for missing one, but the balance keeps earning interest.
+                <%= f.card.missedCount %> statements have gone unpaid, and each
+                added a fee of a tenth of what was short.
               </p>
             <% } %>
             <% if (f.status === "active") { %>
@@ -310,7 +312,7 @@
               <thead>
                 <tr>
                   <th>Drawn</th><th class="num">Balance</th><th class="num">Interest</th>
-                  <th class="num">Minimum</th><th>Due</th><th>Status</th>
+                  <th class="num">Minimum</th><th>Due</th><th>Status</th><th class="num">Fee</th>
                 </tr>
               </thead>
               <tbody>
@@ -330,6 +332,7 @@
                         <span class="badge badge-warn">due</span>
                       <% } %>
                     </td>
+                    <td class="num"><%= s.lateFee > 0 ? money(s.lateFee) : "—" %></td>
                   </tr>
                 <% }) %>
               </tbody>

@@ -44,11 +44,18 @@ describe("both bodies carry the figures", () => {
     assert.match(html, /KSh 105\.06/);
   });
 
-  test("and says plainly that nothing else happens", () => {
-    // There is no late fee here, and an email implying one would be a lie
-    // about somebody's money.
-    assert.match(build().text, /no late fee/i);
-    assert.match(build().html, /no late fee/i);
+  test("names the fee that was charged, and what it was a tenth of", () => {
+    const { text, html } = build({ statement: { lateFee: 20.5, shortfall: 205 } });
+    assert.match(text, /late fee of KSh 20\.50 has been added — a tenth of the KSh 205\.00/);
+    assert.match(html, /KSh 20\.50/);
+  });
+
+  test("and mentions no fee when none was charged", () => {
+    // A statement inside its window has not been charged for anything, and an
+    // email inventing a fee would be a lie about somebody's money.
+    const { text, html } = build({ statement: { lateFee: 0 } });
+    assert.doesNotMatch(text, /late fee/i);
+    assert.doesNotMatch(html, /late fee/i);
   });
 
   test("a part payment is credited rather than ignored", () => {
