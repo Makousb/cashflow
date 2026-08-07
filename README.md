@@ -16,7 +16,8 @@ JavaScript (Chart.js).
 
 Signing up asks what you are here for, and that decides where you land:
 
-- **Personal** — your own money: wallets, budgets, goals, loans, receipts.
+- **Personal** — your own money: wallets, budgets, goals, loans, credit,
+  receipts.
 - **Business** — a small business's books: bookkeeping, statements, stock,
   sales, payroll, tax, supply chain, marketing and the accounting agent.
 - **Supplier** — selling to businesses: a catalog, a trade code buyers connect
@@ -68,6 +69,35 @@ just decides the front door.
   spending, flags over-budget and discretionary categories to trim, and builds
   an avalanche repayment schedule showing your debt-free date and the interest
   you'd save versus paying only the minimums
+- **Credit — day loans, purchase plans, and a secured card** — apply for credit
+  from the personal side. Every answer is worked out from your own ledger: what
+  comes in, what goes out, and what you have already promised elsewhere in the
+  app. There is no bureau behind it and no lender — the point is that a decline
+  names the figure that caused it rather than just saying no, and every
+  application is kept, refused ones included, because the reason is the useful
+  part
+  - **Day loan** — a small amount for 7, 14 or 30 days, repaid in one go. It
+    costs 1% of the amount for each week it is held, is capped at half a month's
+    income, and is refused if repaying it would not fit in what you have spare.
+    Approval pays the money into a wallet and books it in the ledger
+  - **Pay in instalments** — split a purchase over 3, 4 or 6 equal monthly
+    payments at no interest. An instalment may not take more than a quarter of
+    what is spare, and plans cannot stack past a month's income. Nothing leaves
+    your wallet until an instalment falls due; each one posts as an expense when
+    it is paid
+  - **Secured card** — a limit equal to a deposit you put up yourself, so there
+    is no minimum: a small deposit simply buys a small card. Spend against it up
+    to the limit, and a balance carried past the end of a month is charged
+    interest — clear it inside the month and it costs nothing. A statement is
+    drawn each month asking for a twentieth of the balance, never less than that
+    month's interest, so paying the minimum always leaves the debt smaller than
+    it was. It falls due 21 days later, and missing it adds a fee of a tenth of
+    whatever was short. Closing the card returns the deposit, once the balance
+    is clear — the deposit secures the card rather than settling it
+  - **Reminders** — an email three days before the minimum falls due, and
+    another if the date goes by unpaid, each sent once per statement. They go
+    from the dashboard as well as the credit page, since somebody who has
+    stopped opening the card is who they are for
 - **Business** — a separate area for running a business's books apart from your
   personal money, with modules on the business dashboard:
   - **Bookkeeping** — record income and expenses by category and track live
@@ -258,7 +288,9 @@ install.
 The **unit tests** cover the arithmetic the app is judged on: how cost of goods
 sold is derived, what a delivery estimate does with a supplier's history, how a
 month-end recurring date clamps into February, payslip rounding, loan interest
-and payoff projection, and currency formatting.
+and payoff projection, which credit application the figures allow and why a
+refused one was refused, what a card owes after a month of interest and a missed
+minimum, and currency formatting.
 
 One of the integration tests starts the app on an ephemeral port and requests
 every page. `npm run check` parses files but cannot see a missing import — the
@@ -267,9 +299,10 @@ dashboard once while every other test stayed green.
 
 The rest of the **integration tests** run against a real PostgreSQL and exercise
 the query layer directly — selling stock, refusing to oversell, voiding a sale back out
-again, an order moving from placed to received across two businesses, and the
-ledger feeding the statements. Each builds its own throwaway user and deletes
-it afterwards, so they leave nothing behind. Without a database configured they
+again, an order moving from placed to received across two businesses, the ledger
+feeding the statements, and a card charged, paid down and reminded about. Each
+builds its own throwaway user and deletes it afterwards, so they leave nothing
+behind. Without a database configured they
 skip rather than fail, so `npm test` works on a fresh clone.
 
 `npm run check` parses every `.js` and compiles every `.ejs` without executing
@@ -277,9 +310,19 @@ anything. The schema is a single long template literal, so one stray backtick in
 an SQL comment breaks the file in a way nothing notices until the app won't
 boot — this catches that class of mistake, and unclosed tags in views.
 
-CI runs all of it on every push, plus a from-scratch install against an empty
-database, and imports the Python service. A first install is its own code path,
-and it is where the last two schema bugs were hiding.
+CI runs all of it on every push and twice a day on a schedule, plus a
+from-scratch install against an empty database. A first install is its own code
+path, and it is where the last two schema bugs were hiding. The Python service
+has its own tests now as well, run in the job that imports it.
+
+It runs the whole suite three times over: in UTC, and in a zone either side of
+it — UTC+14 and UTC−11 — with the database put on the same clock as the runner
+each time. A date built the wrong way round is only wrong when the two disagree
+about which day it is, and on a UTC runner they never can. That is how a test
+that failed between midnight and 3am on a machine east of UTC passed here every
+time, for as long as it took to notice. Between the two non-UTC legs there is no
+hour of the day when at least one of them is not on a date UTC disagrees with,
+so the mistake now fails on every run rather than on some of them.
 
 ## Deployment
 
