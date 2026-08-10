@@ -1,0 +1,212 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1>Credit report <%= report.year %></h1>
+  <p class="muted">
+    A year of borrowing and spending, worked out from your own records.
+    <a href="/credit" class="link">← back to credit</a>
+  </p>
+</section>
+
+<section class="card">
+  <form method="GET" action="/credit/report" class="inline-form">
+    <label style="margin:0;">
+      Year
+      <select name="year" onchange="this.form.submit()">
+        <% years.forEach((y) => { %>
+          <option value="<%= y %>" <%= y === report.year ? "selected" : "" %>><%= y %></option>
+        <% }) %>
+      </select>
+    </label>
+    <noscript><button type="submit" class="btn">Show</button></noscript>
+  </form>
+</section>
+
+<% if (!report.hasActivity) { %>
+  <section class="card">
+    <p class="muted" style="margin:0;">
+      Nothing was borrowed or spent in <%= report.year %>, so there is nothing to
+      report. <a href="/credit" class="link">Apply for something →</a>
+    </p>
+  </section>
+<% } else { %>
+
+  <section class="stat-grid">
+    <div class="card stat-card">
+      <span class="stat-icon tint-red">📄</span>
+      <span class="stat-body">
+        <span class="stat-label">Owed right now</span>
+        <span class="stat-value <%= report.owed > 0 ? "negative" : "" %>"><%= money(report.owed) %></span>
+        <small class="muted">
+          <%= money(report.owedOnPlans) %> on plans and loans,
+          <%= money(report.owedOnCards) %> on the card
+        </small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon">📆</span>
+      <span class="stat-body">
+        <span class="stat-label">Payments missed</span>
+        <span class="stat-value <%= report.record.missed > 0 ? "negative" : "positive" %>"><%= report.record.missed %></span>
+        <small class="muted">
+          <%= report.record.onTime %> of <%= report.record.due %> arrived on time<%
+            %><% if (report.record.late > 0) { %>, <%= report.record.late %> arrived late<% } %>
+        </small>
+      </span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-icon">💸</span>
+      <span class="stat-body">
+        <span class="stat-label">Borrowing cost you</span>
+        <span class="stat-value"><%= money(report.costOfBorrowing) %></span>
+        <small class="muted">
+          <%= money(report.fees) %> in fees, <%= money(report.interest) %> interest,
+          <%= money(report.lateFees) %> late fees
+        </small>
+      </span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2 style="margin:0;">Your standing</h2>
+      <% if (report.score.score !== null) { %>
+        <span class="badge <%= report.score.score >= 60 ? "badge-done" : report.score.score >= 40 ? "badge-warn" : "badge-danger" %>">
+          <%= report.score.band %>
+        </span>
+      <% } %>
+    </div>
+
+    <% if (report.score.score === null) { %>
+      <p class="muted"><%= report.score.summary %></p>
+    <% } else { %>
+      <p>
+        <strong style="font-size:2rem;"><%= report.score.score %></strong>
+        <span class="muted">out of 100</span>
+      </p>
+      <div class="progress" title="<%= report.score.score %> out of 100">
+        <span class="progress-fill" style="width: <%= report.score.score %>%;"></span>
+      </div>
+      <p class="muted"><%= report.score.summary %></p>
+
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>What is counted</th><th class="num">Points</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <% report.score.parts.forEach((p) => { %>
+              <tr>
+                <td><%= p.label %></td>
+                <td class="num"><%= p.points %> / <%= p.max %></td>
+                <td class="muted"><%= p.detail %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <p class="muted" style="margin-bottom:0;">
+      This score is Cashflow's own, worked out from what you have done here and
+      nothing else. It is not a credit bureau score, nobody outside has been
+      asked about you, nobody outside is told, and it follows you nowhere.
+    </p>
+  </section>
+
+  <div class="two-col">
+    <section class="card">
+      <h2>What you borrowed in <%= report.year %></h2>
+      <% if (!report.opened.length) { %>
+        <p class="muted" style="margin:0;">Nothing new was opened this year.</p>
+      <% } else { %>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>Product</th><th class="num">Times</th><th class="num">Borrowed</th></tr>
+            </thead>
+            <tbody>
+              <% report.opened.forEach((row) => { %>
+                <tr>
+                  <td><%= products[row.product].label %></td>
+                  <td class="num"><%= row.count %></td>
+                  <td class="num">
+                    <% if (row.product === "secured_card") { %>
+                      <span class="muted"><%= money(row.credit_limit) %> limit</span>
+                    <% } else { %>
+                      <%= money(row.principal) %>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+
+    <section class="card">
+      <h2>Where the money went</h2>
+      <% if (!report.topCategory) { %>
+        <p class="muted" style="margin:0;">Nothing was spent this year.</p>
+      <% } else { %>
+        <p>
+          Most of it went on
+          <strong><%= report.topCategory.icon %> <%= report.topCategory.name %></strong> —
+          <strong><%= money(report.topCategory.total) %></strong> across
+          <%= report.topCategory.count %> payment<%= report.topCategory.count === 1 ? "" : "s" %>.
+        </p>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>Category</th><th class="num">Spent</th><th class="num">Payments</th></tr>
+            </thead>
+            <tbody>
+              <% report.categories.slice(0, 8).forEach((c) => { %>
+                <tr>
+                  <td><%= c.icon %> <%= c.name %></td>
+                  <td class="num"><%= money(c.total) %></td>
+                  <td class="num"><%= c.count %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Biggest purchases of <%= report.year %></h2>
+    <% if (!report.purchases.length) { %>
+      <p class="muted" style="margin:0;">Nothing was bought this year.</p>
+    <% } else { %>
+      <p class="muted">
+        Money spent on something, from a wallet or on the card. Repayments are
+        left out — they settle what an earlier purchase already bought.
+      </p>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Date</th><th>What</th><th>Category</th><th class="num">Amount</th></tr>
+          </thead>
+          <tbody>
+            <% report.purchases.forEach((p) => { %>
+              <tr>
+                <td><%= formatDate(p.spent_on) %></td>
+                <td><%= p.what %></td>
+                <td>
+                  <%= p.category %>
+                  <% if (p.source === "card") { %><span class="badge badge-warn">card</span><% } %>
+                </td>
+                <td class="num"><%= money(p.amount) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+<% } %>
+
+<%- include("partials/footer") %>

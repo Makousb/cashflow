@@ -4,8 +4,10 @@ import { after, before, describe, test } from "node:test";
 import {
   addCardPayment,
   addCharge,
+  biggestPurchasesInYear,
   claimCardNotice,
   closeFacility,
+  creditOpenedInYear,
   creditExposure,
   listApplications,
   listCardNotices,
@@ -18,7 +20,9 @@ import {
   openFacility,
   recordApplication,
   releaseCardNotice,
-  settleInstallment
+  settleInstallment,
+  spendingByCategoryInYear,
+  yearsWithActivity
 } from "../../db/queries/credit.js";
 import { affordability, assessCharge, assessDayLoan, cardStanding } from "../../utils/credit.js";
 import { today } from "../../utils/dates.js";
@@ -411,6 +415,119 @@ describe("telling someone their minimum was missed", { skip: skipWithoutDb }, ()
   test("notices go with the card when it is deleted", async () => {
     await q("DELETE FROM credit_facilities WHERE id = $1", [card.id]);
     assert.equal((await listCardNotices(user.id)).length, 0);
+  });
+});
+
+describe("a year of it, gathered up", { skip: skipWithoutDb }, () => {
+  let user;
+  let card;
+
+  before(async () => {
+    user = await makeUser("credit-report");
+    card = await openFacility({
+      userId: user.id, product: "secured_card", label: "Card",
+      apr: 30, creditLimit: 10000, deposit: 10000, openedOn: "2026-02-01"
+    });
+    await openFacility({
+      userId: user.id, product: "day_loan", label: "Bridge", principal: 8000,
+      fee: 160, openedOn: "2026-03-01", dueOn: "2026-03-08"
+    });
+    // And one from the year before, which this year's report must not claim.
+    await openFacility({
+      userId: user.id, product: "day_loan", label: "Old one", principal: 5000,
+      fee: 100, openedOn: "2025-06-01", dueOn: "2025-06-08"
+    });
+
+    const category = await one("SELECT id FROM categories WHERE name = 'Housing' AND user_id IS NULL");
+    const other = await one("SELECT id FROM categories WHERE name = 'Food & Dining' AND user_id IS NULL");
+    const spend = async (categoryId, amount, note, on) => q(
+      `INSERT INTO transactions (user_id, category_id, kind, amount, note, occurred_on)
+       VALUES ($1, $2, 'expense', $3, $4, $5)`,
+      [user.id, categoryId, amount, note, on]
+    );
+
+    await spend(category.id, 60000, "Rent for the year", "2026-04-01");
+    await spend(category.id, 30000, "Deposit", "2026-05-01");
+    await spend(other.id, 4000, "Big dinner", "2026-06-01");
+    // Repayments: money out, but nothing bought.
+    await spend(null, 45000, "Card payment — Card", "2026-07-01");
+    await spend(null, 40000, "Credit repayment: Bridge", "2026-07-02");
+    // A deposit is not a purchase either: it leaves the wallet and comes back
+    // when the card closes, and it buys nothing on the way.
+    await spend(null, 50000, "Secured card deposit — Card", "2026-02-01");
+    // And last year's, which must not appear in this year's figures.
+    await spend(category.id, 99000, "Last year's rent", "2025-04-01");
+
+    await addCharge({
+      facilityId: card.id, userId: user.id, merchant: "Fridge",
+      amount: 35000, chargedOn: "2026-05-20"
+    });
+  });
+
+  after(async () => { await dropUser(user?.id); });
+
+  test("what was opened counts only the year asked for", async () => {
+    const opened = await creditOpenedInYear(user.id, 2026);
+    const byProduct = Object.fromEntries(opened.map((r) => [r.product, r]));
+    assert.equal(opened.length, 2);
+    assert.equal(byProduct.day_loan.count, 1);
+    assert.equal(byProduct.day_loan.principal, 8000);
+    assert.equal(byProduct.secured_card.count, 1);
+
+    const before = await creditOpenedInYear(user.id, 2025);
+    assert.equal(before[0].principal, 5000);
+  });
+
+  test("the biggest category is the biggest, and last year is not in it", async () => {
+    const categories = await spendingByCategoryInYear(user.id, 2026);
+    assert.equal(categories[0].name, "Housing");
+    assert.equal(categories[0].total, 90000);
+    assert.equal(categories[0].count, 2);
+    assert.ok(
+      categories.every((c) => c.total !== 99000),
+      "last year's rent must not be counted in this year"
+    );
+    // The repayments and the deposit come to 135,000 between them, which would
+    // top this table and tell someone their biggest outgoing of the year was
+    // paying off a card — while the purchases beside it say those are left out.
+    assert.ok(
+      categories.every((c) => c.name !== "Uncategorized"),
+      "settling credit is not a spending category"
+    );
+  });
+
+  test("the biggest purchases come from the wallet and the card alike", async () => {
+    const purchases = await biggestPurchasesInYear(user.id, 2026, 10);
+    assert.equal(purchases[0].what, "Rent for the year");
+    assert.equal(purchases[0].amount, 60000);
+    assert.equal(purchases[0].source, "wallet");
+
+    const fridge = purchases.find((p) => p.what === "Fridge");
+    assert.ok(fridge, "a card charge is a purchase too");
+    assert.equal(fridge.amount, 35000);
+    assert.equal(fridge.source, "card");
+  });
+
+  test("and repayments are not purchases, however large", async () => {
+    // Both are bigger than the fridge, and neither bought anything.
+    const purchases = await biggestPurchasesInYear(user.id, 2026, 20);
+    const notes = purchases.map((p) => p.what);
+    assert.ok(!notes.some((n) => n.startsWith("Card payment")), "card payments settle, not buy");
+    assert.ok(!notes.some((n) => n.startsWith("Credit repayment")), "instalments settle, not buy");
+    assert.ok(
+      !notes.some((n) => n.startsWith("Secured card deposit")),
+      "a deposit is held, not spent — it was the largest thing on the page before this"
+    );
+  });
+
+  test("dates come back as days here too", async () => {
+    const [first] = await biggestPurchasesInYear(user.id, 2026, 1);
+    assert.match(first.spent_on, /^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test("the years offered are the ones with something in them", async () => {
+    const years = await yearsWithActivity(user.id);
+    assert.deepEqual(years, [2026, 2025]);
   });
 });
 

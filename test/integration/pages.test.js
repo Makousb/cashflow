@@ -107,7 +107,8 @@ describe("every page renders", { skip: skipWithoutDb }, () => {
 
   const personal = [
     "/", "/dashboard", "/transactions", "/recurring", "/receipts", "/budgets",
-    "/goals", "/loans", "/credit", "/reports", "/accounts", "/settings", "/business"
+    "/goals", "/loans", "/credit", "/credit/report", "/reports", "/accounts",
+    "/settings", "/business"
   ];
 
   for (const path of personal) {

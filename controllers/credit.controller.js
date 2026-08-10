@@ -3,8 +3,10 @@ import { getDefaultCategoryId } from "../db/queries/categories.js";
 import {
   addCardPayment,
   addCharge,
+  biggestPurchasesInYear,
   claimCardNotice,
   closeFacility,
+  creditOpenedInYear,
   creditExposure,
   getFacility,
   getInstallment,
@@ -18,12 +20,15 @@ import {
   openFacility,
   recordApplication,
   releaseCardNotice,
-  settleInstallment
+  settleInstallment,
+  spendingByCategoryInYear,
+  yearsWithActivity
 } from "../db/queries/credit.js";
 import { createTransaction, deleteTransaction } from "../db/queries/transactions.js";
 import { config } from "../config/env.js";
 import { formatCurrency } from "../utils/currency.js";
 import { minimumDueSoonEmail, missedMinimumEmail } from "../utils/card-notice-email.js";
+import { creditReport } from "../utils/credit-report.js";
 import { mailEnabled, sendMail } from "../services/mailer.js";
 import { toBase } from "../services/fx.js";
 import {
@@ -184,6 +189,48 @@ export async function showCreditPage(req, res, next) {
       products: PRODUCTS,
       ...model,
       today: model.todayIso
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// A year of it, in one page. The year comes off the query string so an old one
+// can be looked at; anything that is not a year falls back to this one.
+export async function showCreditReport(req, res, next) {
+  try {
+    const user = req.session.user;
+    const todayIso = today();
+    const thisYear = Number(todayIso.slice(0, 4));
+
+    const asked = Number.parseInt(req.query.year, 10);
+    const year = Number.isInteger(asked) && asked >= 1970 && asked <= thisYear
+      ? asked
+      : thisYear;
+
+    const [model, opened, categories, purchases, years] = await Promise.all([
+      creditPageModel(user.id, todayIso),
+      creditOpenedInYear(user.id, year),
+      spendingByCategoryInYear(user.id, year),
+      biggestPurchasesInYear(user.id, year, 10),
+      yearsWithActivity(user.id)
+    ]);
+
+    const report = creditReport({
+      year,
+      facilities: model.facilities,
+      opened,
+      categories,
+      purchases,
+      monthlyIncome: model.means.income,
+      todayIso
+    });
+
+    res.render("credit-report", {
+      title: `Credit report ${year}`,
+      report,
+      years: years.length ? years : [thisYear],
+      products: PRODUCTS
     });
   } catch (error) {
     next(error);

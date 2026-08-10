@@ -98,6 +98,17 @@ just decides the front door.
     another if the date goes by unpaid, each sent once per statement. They go
     from the dashboard as well as the credit page, since somebody who has
     stopped opening the card is who they are for
+  - **A report for the year** — what you owe now and on what, how many payments
+    arrived on time and how many did not, what the borrowing cost you in fees,
+    interest and late fees, your biggest purchases (from a wallet and on the
+    card alike), and the category that took the most. It carries a standing out
+    of 100, deliberately not on the 300-850 scale a bureau uses, because it is
+    not a bureau score: it is worked out from what you have done in this app and
+    nothing else, nobody outside is asked and nobody outside is told. Every
+    point is attributed, so it says which part is holding the number back.
+    Settling credit is left out of the spending figures throughout — paying a
+    card off is not a category you spent money on, it is paying for spending
+    already counted where it happened
 - **Business** — a separate area for running a business's books apart from your
   personal money, with modules on the business dashboard:
   - **Bookkeeping** — record income and expenses by category and track live

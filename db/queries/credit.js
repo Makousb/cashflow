@@ -259,6 +259,118 @@ export async function closeFacility(id, userId) {
   return rows[0] || null;
 }
 
+// What was opened during a year, by product — the borrowing side of the annual
+// report. Years are bounded by make_date rather than by extracting the year
+// from the column, so the index on the date can still be used.
+export async function creditOpenedInYear(userId, year) {
+  const { rows } = await pool.query(
+    `SELECT product,
+            COUNT(*)::int AS count,
+            COALESCE(SUM(principal), 0)::float AS principal,
+            COALESCE(SUM(fee), 0)::float AS fee,
+            COALESCE(SUM(credit_limit), 0)::float AS credit_limit
+     FROM credit_facilities
+     WHERE user_id = $1
+       AND opened_on >= make_date($2, 1, 1)
+       AND opened_on < make_date($2 + 1, 1, 1)
+     GROUP BY product
+     ORDER BY principal DESC`,
+    [userId, year]
+  );
+  return rows;
+}
+
+// Where a year's money went, biggest category first.
+//
+// Repayments and card deposits are left out, for the same reason they are left
+// out of the purchases below and so that the two halves of the page agree:
+// settling a card is not spending on a category, it is paying for spending that
+// already happened and was already counted where it happened. Left in, anyone
+// who cleared a card would be told their biggest category of the year was
+// paying off the card.
+export async function spendingByCategoryInYear(userId, year) {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(c.name, 'Uncategorized') AS name,
+            COALESCE(c.icon, '🧾') AS icon,
+            SUM(t.amount)::float AS total,
+            COUNT(*)::int AS count
+     FROM transactions t
+     LEFT JOIN categories c ON c.id = t.category_id
+     WHERE t.user_id = $1
+       AND t.kind = 'expense'
+       AND t.occurred_on >= make_date($2, 1, 1)
+       AND t.occurred_on < make_date($2 + 1, 1, 1)
+       AND (t.note IS NULL
+            OR (t.note NOT LIKE 'Card payment —%'
+                AND t.note NOT LIKE 'Credit repayment:%'
+                AND t.note NOT LIKE 'Loan payment:%'
+                AND t.note NOT LIKE 'Secured card deposit%'))
+     GROUP BY 1, 2
+     ORDER BY total DESC`,
+    [userId, year]
+  );
+  return rows;
+}
+
+// The year's biggest purchases, from both sides of how one can be made: money
+// out of a wallet, and anything put on the card.
+//
+// Repayments are left out on purpose. Paying a card or an instalment moves money
+// but buys nothing — it settles what an earlier purchase already bought, and
+// counting it here would list the same spending twice under a duller name.
+export async function biggestPurchasesInYear(userId, year, limit = 10) {
+  const { rows } = await pool.query(
+    `(SELECT to_char(t.occurred_on, 'YYYY-MM-DD') AS spent_on,
+             COALESCE(NULLIF(t.note, ''), 'Expense') AS what,
+             COALESCE(c.name, 'Uncategorized') AS category,
+             t.amount::float AS amount,
+             'wallet' AS source
+      FROM transactions t
+      LEFT JOIN categories c ON c.id = t.category_id
+      WHERE t.user_id = $1
+        AND t.kind = 'expense'
+        AND t.occurred_on >= make_date($2, 1, 1)
+        AND t.occurred_on < make_date($2 + 1, 1, 1)
+        AND (t.note IS NULL
+             OR (t.note NOT LIKE 'Card payment —%'
+                 AND t.note NOT LIKE 'Credit repayment:%'
+                 AND t.note NOT LIKE 'Loan payment:%'
+                 -- Nor is a card deposit a purchase. It leaves the wallet and
+                 -- comes back when the card closes; it buys nothing on the way.
+                 AND t.note NOT LIKE 'Secured card deposit%')))
+     UNION ALL
+     (SELECT to_char(ch.charged_on, 'YYYY-MM-DD'),
+             ch.merchant,
+             'On the card',
+             ch.amount::float,
+             'card'
+      FROM credit_charges ch
+      WHERE ch.user_id = $1
+        AND ch.charged_on >= make_date($2, 1, 1)
+        AND ch.charged_on < make_date($2 + 1, 1, 1))
+     ORDER BY amount DESC, spent_on DESC
+     LIMIT $3`,
+    [userId, year, limit]
+  );
+  return rows;
+}
+
+// Which years there is anything to report on, newest first.
+export async function yearsWithActivity(userId) {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT year FROM (
+       SELECT EXTRACT(YEAR FROM occurred_on)::int AS year
+         FROM transactions WHERE user_id = $1
+       UNION
+       SELECT EXTRACT(YEAR FROM opened_on)::int
+         FROM credit_facilities WHERE user_id = $1
+     ) years
+     ORDER BY year DESC`,
+    [userId]
+  );
+  return rows.map((r) => r.year);
+}
+
 // The figures every decision is made from, straight out of the ledger: what a
 // month typically brings in and takes out, averaged over the months given.
 export async function monthlyMeans(userId, months = 3) {
