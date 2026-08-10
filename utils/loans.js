@@ -1,5 +1,11 @@
 import { addMonths, monthKey, monthsBetween, toISODate } from "./dates.js";
 
+// The note a loan payment writes into the ledger. Exported because the
+// affordability query has to recognise these and leave them out: a loan's
+// minimum is already counted as a commitment, and counting the payment as
+// spending too would charge the same obligation twice.
+export const LOAN_PAYMENT_NOTE = "Loan payment";
+
 // Interest is modelled as an annual APR compounded monthly on the running
 // balance. All amounts are in the loan's base currency. Figures are estimates
 // for planning — not a lender's exact statement.

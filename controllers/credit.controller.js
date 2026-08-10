@@ -36,6 +36,7 @@ import {
   assess,
   assessCharge,
   cardStanding,
+  CREDIT_REPAYMENT_NOTE,
   DEPOSIT_RETURNED_NOTE,
   DRAWDOWN_NOTE,
   facilityStanding,
@@ -399,7 +400,7 @@ export async function payInstallment(req, res, next) {
       categoryId,
       kind: "expense",
       amount: Number(installment.amount),
-      note: `Credit repayment: ${facility ? facility.label : "credit"}`,
+      note: `${CREDIT_REPAYMENT_NOTE}: ${facility ? facility.label : "credit"}`,
       occurredOn: paidOn
     });
 

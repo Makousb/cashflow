@@ -1,5 +1,5 @@
 import { pool } from "../index.js";
-import { NOT_EARNINGS } from "../../utils/credit.js";
+import { ALREADY_COMMITTED, NOT_EARNINGS } from "../../utils/credit.js";
 
 // Dates leave here as YYYY-MM-DD strings rather than as Dates, so nothing
 // downstream has to remember which of the two it was handed.
@@ -384,14 +384,20 @@ export async function monthlyMeans(userId, months = 3) {
            -- the next loan — so borrowing would buy the room to borrow again.
            AND (note IS NULL OR note NOT LIKE ALL($3::text[]))
        ), 0)::float / $2 AS monthly_income,
-       COALESCE(SUM(amount) FILTER (WHERE kind = 'expense'), 0)::float / $2 AS monthly_expenses
+       COALESCE(SUM(amount) FILTER (
+         WHERE kind = 'expense'
+           -- Repayments of things already counted as commitments are left out.
+           -- Meeting an obligation is not a second obligation beside it, and
+           -- counting both charged one promise twice against what is spare.
+           AND (note IS NULL OR note NOT LIKE ALL($4::text[]))
+       ), 0)::float / $2 AS monthly_expenses
      FROM transactions
      WHERE user_id = $1
        AND occurred_on >= date_trunc('month', CURRENT_DATE)
                           -- Cast: $2 is divided above, which fixes it as a
                           -- float, and make_interval will not take one.
                           - make_interval(months => ($2 - 1)::int)`,
-    [userId, months, NOT_EARNINGS]
+    [userId, months, NOT_EARNINGS, ALREADY_COMMITTED]
   );
   return rows[0];
 }
@@ -403,11 +409,18 @@ export async function monthlyCommitments(userId) {
     `SELECT
        (SELECT COALESCE(SUM(minimum_payment), 0)::float FROM loans WHERE user_id = $1)
        +
-       (SELECT COALESCE(SUM(i.amount), 0)::float
-        FROM credit_installments i
-        JOIN credit_facilities f ON f.id = i.facility_id
-        WHERE i.user_id = $1 AND i.paid_on IS NULL AND f.status = 'active'
-          AND i.due_on < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month')
+       -- The next instalment still owed on each live plan, whichever month it
+       -- falls in. Counting only the ones due this month meant that paying it
+       -- dropped the promise to nothing until the next month turned — and now
+       -- that repayments are out of the spending average too, that would have
+       -- lost the obligation from both sides at once.
+       (SELECT COALESCE(SUM(next_due), 0)::float FROM (
+          SELECT DISTINCT ON (i.facility_id) i.amount AS next_due
+          FROM credit_installments i
+          JOIN credit_facilities f ON f.id = i.facility_id
+          WHERE i.user_id = $1 AND i.paid_on IS NULL AND f.status = 'active'
+          ORDER BY i.facility_id, i.due_on
+        ) nexts)
        AS monthly_commitments`,
     [userId]
   );

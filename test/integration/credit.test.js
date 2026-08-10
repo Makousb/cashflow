@@ -29,9 +29,11 @@ import {
   assessCharge,
   assessDayLoan,
   cardStanding,
+  CREDIT_REPAYMENT_NOTE,
   DEPOSIT_RETURNED_NOTE,
   DRAWDOWN_NOTE
 } from "../../utils/credit.js";
+import { LOAN_PAYMENT_NOTE } from "../../utils/loans.js";
 import { today } from "../../utils/dates.js";
 import { closePool, dropUser, makeUser, one, q, skipWithoutDb } from "./helpers.js";
 
@@ -95,6 +97,50 @@ describe("what the ledger says a person can afford", { skip: skipWithoutDb }, ()
       [user.id]
     );
     assert.equal(Number((await monthlyMeans(user.id, 3)).monthly_income), before + 10000);
+  });
+
+  test("meeting an obligation is not a second obligation beside it", async () => {
+    // The minimum is already counted as a commitment, so counting the payment
+    // as spending too charged one promise twice against what is spare.
+    const before = Number((await monthlyMeans(user.id, 3)).monthly_expenses);
+
+    await q(
+      `INSERT INTO transactions (user_id, kind, amount, note, occurred_on)
+       VALUES ($1, 'expense', 9000, $2, CURRENT_DATE)`,
+      [user.id, `${LOAN_PAYMENT_NOTE}: Car`]
+    );
+    await q(
+      `INSERT INTO transactions (user_id, kind, amount, note, occurred_on)
+       VALUES ($1, 'expense', 9000, $2, CURRENT_DATE)`,
+      [user.id, `${CREDIT_REPAYMENT_NOTE}: Washing machine`]
+    );
+
+    assert.equal(
+      Number((await monthlyMeans(user.id, 3)).monthly_expenses), before,
+      "a repayment must not be spending as well as a commitment"
+    );
+  });
+
+  test("but a card payment is, nothing else counting it", async () => {
+    // A card has no schedule, so no commitment carries it forward. Taking it
+    // out of spending would lose the outgoing altogether.
+    const before = Number((await monthlyMeans(user.id, 3)).monthly_expenses);
+    await q(
+      `INSERT INTO transactions (user_id, kind, amount, note, occurred_on)
+       VALUES ($1, 'expense', 3000, 'Card payment — Everyday card', CURRENT_DATE)`,
+      [user.id]
+    );
+    assert.equal(Number((await monthlyMeans(user.id, 3)).monthly_expenses), before + 1000);
+  });
+
+  test("and ordinary spending certainly is", async () => {
+    const before = Number((await monthlyMeans(user.id, 3)).monthly_expenses);
+    await q(
+      `INSERT INTO transactions (user_id, kind, amount, note, occurred_on)
+       VALUES ($1, 'expense', 6000, 'Groceries', CURRENT_DATE)`,
+      [user.id]
+    );
+    assert.equal(Number((await monthlyMeans(user.id, 3)).monthly_expenses), before + 2000);
   });
 
   test("an existing loan's minimum is a promise already made", async () => {

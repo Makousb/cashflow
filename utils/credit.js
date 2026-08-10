@@ -11,6 +11,7 @@
 // can be read and tested without a database anywhere near them.
 
 import { addDays, addMonths, monthKey, monthsBetween, toISODate } from "./dates.js";
+import { LOAN_PAYMENT_NOTE } from "./loans.js";
 
 export const PRODUCTS = {
   day_loan: {
@@ -54,6 +55,18 @@ const SECURED_CARD_APR = 30;
 export const DRAWDOWN_NOTE = "Day loan drawdown";
 export const DEPOSIT_RETURNED_NOTE = "Secured card deposit returned";
 export const NOT_EARNINGS = [`${DRAWDOWN_NOTE}%`, `${DEPOSIT_RETURNED_NOTE}%`];
+
+// Outgoings that are already counted as commitments, and so must not be counted
+// as spending as well. Paying an instalment is not a second obligation on top of
+// owing it — it is that obligation being met.
+//
+// A card payment is not among them. A card has no schedule, so nothing counts it
+// forward, and taking it out of spending would lose it altogether.
+export const CREDIT_REPAYMENT_NOTE = "Credit repayment";
+export const ALREADY_COMMITTED = [
+  `${LOAN_PAYMENT_NOTE}%`,
+  `${CREDIT_REPAYMENT_NOTE}%`
+];
 
 const round = (n) => Math.round(Number(n) * 100) / 100;
 

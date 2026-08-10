@@ -13,7 +13,7 @@ import { createTransaction } from "../db/queries/transactions.js";
 import { getLoanPlan } from "../services/analytics.js";
 import { toBase } from "../services/fx.js";
 import { today } from "../utils/dates.js";
-import { loanMetrics } from "../utils/loans.js";
+import { LOAN_PAYMENT_NOTE, loanMetrics } from "../utils/loans.js";
 
 function groupPayments(payments) {
   const byLoan = new Map();
@@ -121,8 +121,8 @@ export async function addPayment(req, res, next) {
     const paidOn = req.body.paidOn || today();
     const userNote = (req.body.note || "").trim();
     const note = userNote
-      ? `Loan payment: ${loan.name} — ${userNote}`
-      : `Loan payment: ${loan.name}`;
+      ? `${LOAN_PAYMENT_NOTE}: ${loan.name} — ${userNote}`
+      : `${LOAN_PAYMENT_NOTE}: ${loan.name}`;
 
     // Post the payment as an expense in the ledger (and deduct the chosen
     // wallet's balance), then record it against the loan and link the two.
