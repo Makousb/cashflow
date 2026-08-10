@@ -44,6 +44,17 @@ const BNPL_DISPOSABLE_SHARE = 0.25;
 // limit; it does not make the borrowing free.
 const SECURED_CARD_APR = 30;
 
+// Credit puts two kinds of money into the ledger that are not earnings: what is
+// handed over when a loan is drawn, and a card deposit coming back when the card
+// closes. Both are real — the money genuinely arrives — but neither is income,
+// and counting them as such lets borrowing raise the ceiling on borrowing.
+//
+// The notes are written from these and matched against them, so the entries the
+// ledger carries and the entries the assessment ignores cannot drift apart.
+export const DRAWDOWN_NOTE = "Day loan drawdown";
+export const DEPOSIT_RETURNED_NOTE = "Secured card deposit returned";
+export const NOT_EARNINGS = [`${DRAWDOWN_NOTE}%`, `${DEPOSIT_RETURNED_NOTE}%`];
+
 const round = (n) => Math.round(Number(n) * 100) / 100;
 
 // Split a total into n parts that add back up to it exactly. Done in cents,

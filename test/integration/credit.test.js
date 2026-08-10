@@ -24,7 +24,14 @@ import {
   spendingByCategoryInYear,
   yearsWithActivity
 } from "../../db/queries/credit.js";
-import { affordability, assessCharge, assessDayLoan, cardStanding } from "../../utils/credit.js";
+import {
+  affordability,
+  assessCharge,
+  assessDayLoan,
+  cardStanding,
+  DEPOSIT_RETURNED_NOTE,
+  DRAWDOWN_NOTE
+} from "../../utils/credit.js";
 import { today } from "../../utils/dates.js";
 import { closePool, dropUser, makeUser, one, q, skipWithoutDb } from "./helpers.js";
 
@@ -55,6 +62,39 @@ describe("what the ledger says a person can afford", { skip: skipWithoutDb }, ()
     const means = await monthlyMeans(user.id, 3);
     assert.equal(Math.round(Number(means.monthly_income)), 90000);
     assert.equal(Math.round(Number(means.monthly_expenses)), 30000);
+  });
+
+  test("borrowed money arriving is not money earned", async () => {
+    // Left in, the drawdown raises the income that caps the next day loan, so
+    // borrowing would buy the room to borrow again. The notes are built from
+    // the same constants the query filters on, so this cannot drift.
+    const before = Number((await monthlyMeans(user.id, 3)).monthly_income);
+
+    await q(
+      `INSERT INTO transactions (user_id, kind, amount, note, occurred_on)
+       VALUES ($1, 'income', 30000, $2, CURRENT_DATE)`,
+      [user.id, `${DRAWDOWN_NOTE} — Car repair`]
+    );
+    await q(
+      `INSERT INTO transactions (user_id, kind, amount, note, occurred_on)
+       VALUES ($1, 'income', 45000, $2, CURRENT_DATE)`,
+      [user.id, `${DEPOSIT_RETURNED_NOTE} — Everyday card`]
+    );
+
+    assert.equal(
+      Number((await monthlyMeans(user.id, 3)).monthly_income), before,
+      "a drawdown and a returned deposit must not read as earnings"
+    );
+  });
+
+  test("but real income still is", async () => {
+    const before = Number((await monthlyMeans(user.id, 3)).monthly_income);
+    await q(
+      `INSERT INTO transactions (user_id, kind, amount, note, occurred_on)
+       VALUES ($1, 'income', 30000, 'Bonus', CURRENT_DATE)`,
+      [user.id]
+    );
+    assert.equal(Number((await monthlyMeans(user.id, 3)).monthly_income), before + 10000);
   });
 
   test("an existing loan's minimum is a promise already made", async () => {

@@ -36,6 +36,8 @@ import {
   assess,
   assessCharge,
   cardStanding,
+  DEPOSIT_RETURNED_NOTE,
+  DRAWDOWN_NOTE,
   facilityStanding,
   noticeDue,
   PRODUCTS
@@ -330,7 +332,7 @@ async function openApproved({ req, userId, product, application, decision, purpo
       categoryId,
       kind: "income",
       amount: terms.principal,
-      note: `Day loan drawdown — ${label}`,
+      note: `${DRAWDOWN_NOTE} — ${label}`,
       occurredOn: decidedOn
     });
     transactionId = transaction.id;
@@ -583,7 +585,7 @@ export async function closeCard(req, res, next) {
       categoryId,
       kind: "income",
       amount: Number(facility.deposit || 0),
-      note: `Secured card deposit returned — ${facility.label}`,
+      note: `${DEPOSIT_RETURNED_NOTE} — ${facility.label}`,
       occurredOn: today()
     });
 

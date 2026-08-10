@@ -1,4 +1,5 @@
 import { pool } from "../index.js";
+import { NOT_EARNINGS } from "../../utils/credit.js";
 
 // Dates leave here as YYYY-MM-DD strings rather than as Dates, so nothing
 // downstream has to remember which of the two it was handed.
@@ -376,7 +377,13 @@ export async function yearsWithActivity(userId) {
 export async function monthlyMeans(userId, months = 3) {
   const { rows } = await pool.query(
     `SELECT
-       COALESCE(SUM(amount) FILTER (WHERE kind = 'income'), 0)::float / $2 AS monthly_income,
+       COALESCE(SUM(amount) FILTER (
+         WHERE kind = 'income'
+           -- Borrowed money arriving is not money earned. Left in, a drawdown
+           -- raises the income this is averaging, and the income is what caps
+           -- the next loan — so borrowing would buy the room to borrow again.
+           AND (note IS NULL OR note NOT LIKE ALL($3::text[]))
+       ), 0)::float / $2 AS monthly_income,
        COALESCE(SUM(amount) FILTER (WHERE kind = 'expense'), 0)::float / $2 AS monthly_expenses
      FROM transactions
      WHERE user_id = $1
@@ -384,7 +391,7 @@ export async function monthlyMeans(userId, months = 3) {
                           -- Cast: $2 is divided above, which fixes it as a
                           -- float, and make_interval will not take one.
                           - make_interval(months => ($2 - 1)::int)`,
-    [userId, months]
+    [userId, months, NOT_EARNINGS]
   );
   return rows[0];
 }
