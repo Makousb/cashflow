@@ -34,3 +34,11 @@ export async function updateUserCurrency(userId, currency) {
   );
   return rows[0] || null;
 }
+
+// Just the name. Used when a lender opens a credit check the person gave them:
+// they need to know whose history they are looking at, and nothing else about
+// the person is theirs to see.
+export async function getUserName(id) {
+  const { rows } = await pool.query("SELECT name FROM users WHERE id = $1", [id]);
+  return rows[0]?.name || null;
+}

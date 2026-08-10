@@ -762,6 +762,40 @@ const SCHEMA_SQL = `
   -- are worked out rather than stored, so the cycle they belong to is the key,
   -- and the uniqueness of it is what stops the same missed payment being
   -- emailed about twice — two requests racing, one insert wins.
+  -- A lender's sight of somebody's credit history, given by that somebody.
+  --
+  -- Nothing here lets a bank go looking. A check exists because the person made
+  -- it, for a lender they named and a purpose they gave, and it stops working
+  -- when they revoke it or when it runs out — whichever comes first. The token
+  -- is the whole of the authority to view, so it is long and random, and every
+  -- use of it is written down where the person can see.
+  CREATE TABLE IF NOT EXISTS credit_checks (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    lender TEXT NOT NULL,
+    purpose TEXT NOT NULL
+      CHECK (purpose IN ('mortgage', 'car_loan', 'business_loan', 'other')),
+    amount_sought NUMERIC(14, 2),
+    expires_on DATE NOT NULL,
+    revoked_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_credit_checks_user
+    ON credit_checks (user_id, id DESC);
+
+  -- Every time a check was opened. The person is shown this, so that handing a
+  -- link to a bank does not mean losing track of what the bank did with it.
+  CREATE TABLE IF NOT EXISTS credit_check_views (
+    id SERIAL PRIMARY KEY,
+    check_id INTEGER NOT NULL REFERENCES credit_checks(id) ON DELETE CASCADE,
+    viewed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_credit_check_views_check
+    ON credit_check_views (check_id, viewed_at DESC);
+
   CREATE TABLE IF NOT EXISTS credit_notices (
     id SERIAL PRIMARY KEY,
     facility_id INTEGER NOT NULL REFERENCES credit_facilities(id) ON DELETE CASCADE,

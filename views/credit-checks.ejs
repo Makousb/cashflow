@@ -1,0 +1,116 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1>Share your credit history</h1>
+  <p class="muted">
+    For borrowing this app does not do — a mortgage, a car, a business loan. You
+    make a check, hand the link to the lender, and stop it whenever you like.
+    <a href="/credit" class="link">← back to credit</a>
+  </p>
+</section>
+
+<section class="card">
+  <h2>What a lender sees</h2>
+  <p class="muted" style="margin-bottom:0.5rem;">
+    Your standing and how you have paid: what you owe, how many payments arrived
+    on time, how long you have been borrowing here, and one line per account.
+    They do <strong>not</strong> see what you spend or what on, your wallet
+    balances, individual purchases, or your contact details. No lender can look
+    without a check you made, and every time one is opened it is listed below.
+  </p>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Make a check</h2>
+    <form action="/credit/checks" method="POST" class="stacked-form">
+      <label>
+        Who is it for
+        <input type="text" name="lender" maxlength="120" required
+               placeholder="e.g. Equity Bank" />
+      </label>
+      <label>
+        What are you borrowing for
+        <select name="purpose">
+          <% Object.entries(purposes).forEach(([key, p]) => { %>
+            <option value="<%= key %>"><%= p.label %> — <%= p.blurb %></option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
+        How much are you asking them for (optional)
+        <input type="number" name="amountSought" step="0.01" min="0.01" />
+      </label>
+      <label>
+        Stops working after
+        <input type="number" name="days" min="1" max="<%= maxDays %>"
+               value="<%= defaultDays %>" />
+        <small class="muted">Days. At most <%= maxDays %>, and you can stop it sooner.</small>
+      </label>
+      <button type="submit" class="btn btn-primary">Make the check</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Checks you have made</h2>
+    <% if (!checks.length) { %>
+      <p class="muted" style="margin:0;">
+        None yet. Nobody can see your history until you make one.
+      </p>
+    <% } else { %>
+      <p class="muted">
+        <%= checks.filter((c) => c.status === "active").length %> working now.
+      </p>
+    <% } %>
+  </section>
+</div>
+
+<% checks.forEach((check) => { %>
+  <section class="card">
+    <div class="card-head">
+      <h3 style="margin:0;">
+        <%= check.lender %>
+        <span class="badge <%= check.status === "active" ? "badge-warn" : "badge-done" %>">
+          <%= check.status %>
+        </span>
+      </h3>
+      <span class="muted">
+        <%= purposes[check.purpose].label %><% if (check.amount_sought) { %>
+          · <%= money(check.amount_sought) %> sought<% } %>
+        · <%= check.status === "active" ? "until" : "ran to" %>
+        <%= formatDate(check.expires_on) %>
+      </span>
+    </div>
+
+    <% if (check.status === "active") { %>
+      <label>
+        The link to give them
+        <input type="text" value="<%= check.url %>" readonly
+               onclick="this.select()" style="width:100%;" />
+        <small class="muted">
+          Anyone with this link can see the standing above until
+          <%= formatDate(check.expires_on) %>. Give it only to the lender.
+        </small>
+      </label>
+      <form action="/credit/checks/<%= check.id %>/stop" method="POST" class="inline-form">
+        <button type="submit" class="btn">Stop this check</button>
+      </form>
+    <% } else { %>
+      <p class="muted" style="margin:0;">
+        <%= check.status === "revoked" ? "You stopped this." : "This ran out." %>
+        Opening the link now shows nothing.
+      </p>
+    <% } %>
+
+    <p class="muted" style="margin-bottom:0;">
+      <% if (check.views === 0) { %>
+        Not opened yet.
+      <% } else { %>
+        Opened <%= check.views %> time<%= check.views === 1 ? "" : "s" %>, last on
+        <%= formatDate(check.last_viewed_at) %>.
+      <% } %>
+    </p>
+  </section>
+<% }) %>
+
+<%- include("partials/footer") %>

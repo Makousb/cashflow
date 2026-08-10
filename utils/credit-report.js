@@ -3,10 +3,11 @@
 //
 // The score here is this app's own, out of 100, worked out from this app's own
 // records. It is deliberately not on the 300-850 scale a bureau uses, because it
-// is not a bureau score: nobody outside has been asked, nobody outside is told,
-// and it follows you nowhere. What it is good for is the same thing the rest of
-// this module is good for — showing which of your own figures moved a number,
-// and what would move it back.
+// is not a bureau score: nobody outside has been asked about the person, and it
+// follows them nowhere. A lender sees it only if the person makes a check and
+// hands it over — see utils/credit-check.js — and never otherwise. What it is
+// good for is the same thing the rest of this module is good for: showing which
+// of your own figures moved a number, and what would move it back.
 //
 // Pure. Rows in, plain object out.
 
@@ -19,14 +20,17 @@ const inYear = (iso, year) => Boolean(iso) && toISODate(iso).slice(0, 4) === Str
 // time if it was paid by its date; a statement counts only if it asked for
 // something, since one that asked for nothing is met the moment it is drawn and
 // would otherwise pad the record with payments nobody made.
+// A null year means every year of it, which is what a lender is shown: one year
+// can flatter or damn a record that years of it would not.
 export function paymentRecord(facilities, year, todayIso = toISODate(new Date())) {
+  const wanted = (iso) => (year == null ? Boolean(iso) : inYear(iso, year));
   let onTime = 0;
   let late = 0;
   let missed = 0;
 
   for (const facility of facilities) {
     for (const installment of facility.installments || []) {
-      if (!inYear(installment.due_on, year)) continue;
+      if (!wanted(installment.due_on)) continue;
       if (installment.paid_on) {
         if (toISODate(installment.paid_on) <= toISODate(installment.due_on)) onTime += 1;
         else late += 1;
@@ -36,7 +40,7 @@ export function paymentRecord(facilities, year, todayIso = toISODate(new Date())
     }
 
     for (const statement of facility.card?.statements || []) {
-      if (!inYear(statement.dueOn, year)) continue;
+      if (!wanted(statement.dueOn)) continue;
       if (statement.minimumDue <= 0) continue;
       if (statement.met) onTime += 1;
       else if (statement.missed) missed += 1;

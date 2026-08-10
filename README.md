@@ -109,6 +109,17 @@ just decides the front door.
     Settling credit is left out of the spending figures throughout — paying a
     card off is not a category you spent money on, it is paying for spending
     already counted where it happened
+  - **Showing a lender** — for borrowing this app does not do: a mortgage, a
+    car, a business loan. You make a check for a named lender, hand them the
+    link, and they see your standing without an account here. Consent is the
+    whole mechanism — nothing lets a bank go looking, and there is no way to ask
+    for somebody's history, only to be given it. A check runs out on a date you
+    set (90 days at the outside), you can stop it at any moment, and every time
+    it is opened is counted back to you. What it shows is the credit standing
+    and nothing else: not what you spend or what on, not your balances, not
+    individual purchases, not your contact details, and not even what you called
+    an account — a lender deciding on a mortgage needs to know whether debts get
+    paid, not what the groceries cost
 - **Business** — a separate area for running a business's books apart from your
   personal money, with modules on the business dashboard:
   - **Bookkeeping** — record income and expenses by category and track live

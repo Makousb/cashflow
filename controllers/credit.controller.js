@@ -1,4 +1,5 @@
 import { listAccounts } from "../db/queries/accounts.js";
+import { getUserName } from "../db/queries/users.js";
 import { getDefaultCategoryId } from "../db/queries/categories.js";
 import {
   addCardPayment,
@@ -118,6 +119,23 @@ async function creditPageModel(userId, todayIso = today()) {
     exposure: gathered.exposure,
     owed: active.reduce((sum, f) => sum + f.standing.outstanding, 0),
     todayIso
+  };
+}
+
+// The credit standing of a named person, for a lender holding a check they were
+// given. Deliberately narrow: the facilities, what a month brings in, and the
+// name to put at the top. Not the accounts, not the applications, not the
+// spending — see utils/credit-check.js for why.
+export async function creditHistoryFor(userId, todayIso = today()) {
+  const [model, name] = await Promise.all([
+    creditPageModel(userId, todayIso),
+    getUserName(userId)
+  ]);
+
+  return {
+    facilities: model.facilities,
+    monthlyIncome: model.means.income,
+    owner: { name: name || "This person" }
   };
 }
 

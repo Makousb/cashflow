@@ -1,0 +1,131 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1>Credit history — <%= subject %></h1>
+  <p class="muted">
+    Shared with <strong><%= check.lender %></strong> for
+    <%= purpose.label.toLowerCase() %><% if (check.amount_sought) { %>
+      of <%= money(check.amount_sought) %><% } %>.
+    Works until <%= formatDate(check.expires_on) %>, and can be stopped before
+    then by the person who made it.
+  </p>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon tint-red">📄</span>
+    <span class="stat-body">
+      <span class="stat-label">Owed now</span>
+      <span class="stat-value <%= history.owed > 0 ? "negative" : "" %>"><%= money(history.owed) %></span>
+      <small class="muted">
+        <%= money(history.owedOnPlans) %> on plans and loans,
+        <%= money(history.owedOnCards) %> on cards
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📆</span>
+    <span class="stat-body">
+      <span class="stat-label">Payments missed</span>
+      <span class="stat-value <%= history.record.missed > 0 ? "negative" : "positive" %>"><%= history.record.missed %></span>
+      <small class="muted">
+        <%= history.record.onTime %> of <%= history.record.due %> on time<%
+          %><% if (history.record.late > 0) { %>, <%= history.record.late %> late<% } %>
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📅</span>
+    <span class="stat-body">
+      <span class="stat-label">History here</span>
+      <span class="stat-value"><%= history.historyMonths %></span>
+      <small class="muted">
+        months · <%= history.openedCount %> opened, <%= history.settledCount %> settled
+      </small>
+    </span>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2 style="margin:0;">Standing</h2>
+    <% if (history.score.score !== null) { %>
+      <span class="badge <%= history.score.score >= 60 ? "badge-done" : history.score.score >= 40 ? "badge-warn" : "badge-danger" %>">
+        <%= history.score.band %>
+      </span>
+    <% } %>
+  </div>
+
+  <% if (history.score.score === null) { %>
+    <p class="muted"><%= history.score.summary %></p>
+  <% } else { %>
+    <p>
+      <strong style="font-size:2rem;"><%= history.score.score %></strong>
+      <span class="muted">out of 100</span>
+    </p>
+    <div class="progress" title="<%= history.score.score %> out of 100">
+      <span class="progress-fill" style="width: <%= history.score.score %>%;"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>What is counted</th><th class="num">Points</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          <% history.score.parts.forEach((p) => { %>
+            <tr>
+              <td><%= p.label %></td>
+              <td class="num"><%= p.points %> / <%= p.max %></td>
+              <td class="muted"><%= p.detail %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2>Accounts</h2>
+  <% if (!history.accounts.length) { %>
+    <p class="muted" style="margin:0;">Nothing has been opened here.</p>
+  <% } else { %>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>Kind</th><th>Opened</th><th>Status</th><th class="num">Outstanding</th><th class="num">Limit</th></tr>
+        </thead>
+        <tbody>
+          <% history.accounts.forEach((a) => { %>
+            <tr>
+              <td><%= a.product.replace("_", " ") %></td>
+              <td><%= formatDate(a.openedOn) %></td>
+              <td><%= a.status %></td>
+              <td class="num"><%= money(a.outstanding) %></td>
+              <td class="num"><%= a.limit === null ? "—" : money(a.limit) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2>What this does not show</h2>
+  <p class="muted">
+    This is a credit standing, not a financial history in full. It deliberately
+    leaves out:
+  </p>
+  <ul class="muted">
+    <% history.withheld.forEach((item) => { %><li><%= item %></li><% }) %>
+  </ul>
+  <p class="muted" style="margin-bottom:0;">
+    The score is Cashflow's own, out of 100, worked out from activity in this app
+    alone. It is not a credit bureau score and no bureau was consulted. This page
+    exists because <%= subject %> made a check and gave you the link; opening it
+    has been recorded and shown to them.
+  </p>
+</section>
+
+<%- include("partials/footer") %>
