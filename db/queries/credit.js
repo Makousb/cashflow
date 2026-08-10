@@ -1,5 +1,5 @@
 import { pool } from "../index.js";
-import { ALREADY_COMMITTED, NOT_EARNINGS } from "../../utils/credit.js";
+import { NOT_A_PURCHASE, NOT_EARNINGS, NOT_SPENDING } from "../../utils/credit.js";
 
 // Dates leave here as YYYY-MM-DD strings rather than as Dates, so nothing
 // downstream has to remember which of the two it was handed.
@@ -301,14 +301,10 @@ export async function spendingByCategoryInYear(userId, year) {
        AND t.kind = 'expense'
        AND t.occurred_on >= make_date($2, 1, 1)
        AND t.occurred_on < make_date($2 + 1, 1, 1)
-       AND (t.note IS NULL
-            OR (t.note NOT LIKE 'Card payment —%'
-                AND t.note NOT LIKE 'Credit repayment:%'
-                AND t.note NOT LIKE 'Loan payment:%'
-                AND t.note NOT LIKE 'Secured card deposit%'))
+       AND (t.note IS NULL OR t.note NOT LIKE ALL($3::text[]))
      GROUP BY 1, 2
      ORDER BY total DESC`,
-    [userId, year]
+    [userId, year, NOT_A_PURCHASE]
   );
   return rows;
 }
@@ -332,13 +328,7 @@ export async function biggestPurchasesInYear(userId, year, limit = 10) {
         AND t.kind = 'expense'
         AND t.occurred_on >= make_date($2, 1, 1)
         AND t.occurred_on < make_date($2 + 1, 1, 1)
-        AND (t.note IS NULL
-             OR (t.note NOT LIKE 'Card payment —%'
-                 AND t.note NOT LIKE 'Credit repayment:%'
-                 AND t.note NOT LIKE 'Loan payment:%'
-                 -- Nor is a card deposit a purchase. It leaves the wallet and
-                 -- comes back when the card closes; it buys nothing on the way.
-                 AND t.note NOT LIKE 'Secured card deposit%')))
+        AND (t.note IS NULL OR t.note NOT LIKE ALL($4::text[])))
      UNION ALL
      (SELECT to_char(ch.charged_on, 'YYYY-MM-DD'),
              ch.merchant,
@@ -351,7 +341,7 @@ export async function biggestPurchasesInYear(userId, year, limit = 10) {
         AND ch.charged_on < make_date($2 + 1, 1, 1))
      ORDER BY amount DESC, spent_on DESC
      LIMIT $3`,
-    [userId, year, limit]
+    [userId, year, limit, NOT_A_PURCHASE]
   );
   return rows;
 }
@@ -386,9 +376,8 @@ export async function monthlyMeans(userId, months = 3) {
        ), 0)::float / $2 AS monthly_income,
        COALESCE(SUM(amount) FILTER (
          WHERE kind = 'expense'
-           -- Repayments of things already counted as commitments are left out.
-           -- Meeting an obligation is not a second obligation beside it, and
-           -- counting both charged one promise twice against what is spare.
+           -- Repayments of what is already a commitment, and the deposit,
+           -- which is held rather than spent. See NOT_SPENDING for why each.
            AND (note IS NULL OR note NOT LIKE ALL($4::text[]))
        ), 0)::float / $2 AS monthly_expenses
      FROM transactions
@@ -397,7 +386,7 @@ export async function monthlyMeans(userId, months = 3) {
                           -- Cast: $2 is divided above, which fixes it as a
                           -- float, and make_interval will not take one.
                           - make_interval(months => ($2 - 1)::int)`,
-    [userId, months, NOT_EARNINGS, ALREADY_COMMITTED]
+    [userId, months, NOT_EARNINGS, NOT_SPENDING]
   );
   return rows[0];
 }

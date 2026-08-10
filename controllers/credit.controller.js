@@ -36,7 +36,9 @@ import {
   assess,
   assessCharge,
   cardStanding,
+  CARD_PAYMENT_NOTE,
   CREDIT_REPAYMENT_NOTE,
+  DEPOSIT_NOTE,
   DEPOSIT_RETURNED_NOTE,
   DRAWDOWN_NOTE,
   facilityStanding,
@@ -349,7 +351,7 @@ async function openApproved({ req, userId, product, application, decision, purpo
       categoryId,
       kind: "expense",
       amount: terms.deposit,
-      note: `Secured card deposit — ${label}`,
+      note: `${DEPOSIT_NOTE} — ${label}`,
       occurredOn: decidedOn
     });
     transactionId = transaction.id;
@@ -523,7 +525,7 @@ export async function payCard(req, res, next) {
       categoryId,
       kind: "expense",
       amount,
-      note: `Card payment — ${held.facility.label}`,
+      note: `${CARD_PAYMENT_NOTE} — ${held.facility.label}`,
       occurredOn: req.body.paidOn || today()
     });
 

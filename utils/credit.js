@@ -45,28 +45,43 @@ const BNPL_DISPOSABLE_SHARE = 0.25;
 // limit; it does not make the borrowing free.
 const SECURED_CARD_APR = 30;
 
-// Credit puts two kinds of money into the ledger that are not earnings: what is
-// handed over when a loan is drawn, and a card deposit coming back when the card
-// closes. Both are real — the money genuinely arrives — but neither is income,
-// and counting them as such lets borrowing raise the ceiling on borrowing.
-//
-// The notes are written from these and matched against them, so the entries the
-// ledger carries and the entries the assessment ignores cannot drift apart.
+// The notes credit writes into the ledger, and the three sets of them the rest
+// of the app has to recognise. Written from these and matched against these, so
+// the entry the ledger carries and the entry a query ignores cannot drift.
 export const DRAWDOWN_NOTE = "Day loan drawdown";
-export const DEPOSIT_RETURNED_NOTE = "Secured card deposit returned";
+export const CREDIT_REPAYMENT_NOTE = "Credit repayment";
+export const CARD_PAYMENT_NOTE = "Card payment";
+export const DEPOSIT_NOTE = "Secured card deposit";
+export const DEPOSIT_RETURNED_NOTE = `${DEPOSIT_NOTE} returned`;
+
+// Money arriving that is not income. Borrowed money is real — it does arrive —
+// but counting it as earnings lets borrowing raise the ceiling on borrowing, and
+// a deposit coming back is the holder's own money returning.
 export const NOT_EARNINGS = [`${DRAWDOWN_NOTE}%`, `${DEPOSIT_RETURNED_NOTE}%`];
 
-// Outgoings that are already counted as commitments, and so must not be counted
-// as spending as well. Paying an instalment is not a second obligation on top of
-// owing it — it is that obligation being met.
+// Money leaving that is not spending, for two different reasons.
 //
-// A card payment is not among them. A card has no schedule, so nothing counts it
-// forward, and taking it out of spending would lose it altogether.
-export const CREDIT_REPAYMENT_NOTE = "Credit repayment";
-export const ALREADY_COMMITTED = [
+// A repayment of something already counted as a commitment is not a second
+// obligation beside it; it is that obligation being met, and counting both
+// charged one promise twice against what was spare.
+//
+// A deposit is not spent at all. It is held against the limit and comes back
+// when the card closes, so treating it as a month's spending made somebody look
+// poorer for money they still owned — and since it returns as income, which is
+// excluded above, counting it on the way out but not on the way back was
+// lopsided into the bargain.
+//
+// A card payment is in neither list. Nothing counts it forward, so leaving it
+// out would lose the outgoing rather than stop it being counted twice.
+export const NOT_SPENDING = [
   `${LOAN_PAYMENT_NOTE}%`,
-  `${CREDIT_REPAYMENT_NOTE}%`
+  `${CREDIT_REPAYMENT_NOTE}%`,
+  `${DEPOSIT_NOTE}%`
 ];
+
+// Money leaving that bought nothing, which is the above plus card payments —
+// settling a card is paying for a purchase already counted where it was made.
+export const NOT_A_PURCHASE = [...NOT_SPENDING, `${CARD_PAYMENT_NOTE}%`];
 
 const round = (n) => Math.round(Number(n) * 100) / 100;
 

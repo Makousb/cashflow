@@ -30,6 +30,7 @@ import {
   assessDayLoan,
   cardStanding,
   CREDIT_REPAYMENT_NOTE,
+  DEPOSIT_NOTE,
   DEPOSIT_RETURNED_NOTE,
   DRAWDOWN_NOTE
 } from "../../utils/credit.js";
@@ -118,6 +119,21 @@ describe("what the ledger says a person can afford", { skip: skipWithoutDb }, ()
     assert.equal(
       Number((await monthlyMeans(user.id, 3)).monthly_expenses), before,
       "a repayment must not be spending as well as a commitment"
+    );
+  });
+
+  test("nor is a deposit, which is held rather than spent", async () => {
+    // It comes back when the card closes, and the return is already excluded
+    // from income — counting it out but not back was lopsided as well as wrong.
+    const before = Number((await monthlyMeans(user.id, 3)).monthly_expenses);
+    await q(
+      `INSERT INTO transactions (user_id, kind, amount, note, occurred_on)
+       VALUES ($1, 'expense', 45000, $2, CURRENT_DATE)`,
+      [user.id, `${DEPOSIT_NOTE} — Everyday card`]
+    );
+    assert.equal(
+      Number((await monthlyMeans(user.id, 3)).monthly_expenses), before,
+      "money still owned is not money spent"
     );
   });
 
