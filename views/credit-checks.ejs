@@ -9,6 +9,52 @@
   </p>
 </section>
 
+<% if (pending.length) { %>
+  <section class="card alert-warning">
+    <h2 style="margin-top:0;">
+      <%= pending.length %> lender<%= pending.length === 1 ? "" : "s" %> asking to see your history
+    </h2>
+    <p class="muted">
+      They see nothing unless you approve. Turning one down shows them nothing
+      and tells them only that you did.
+    </p>
+    <% pending.forEach((r) => { %>
+      <div class="card" style="margin:0.5rem 0;">
+        <p style="margin:0 0 0.5rem;">
+          <strong><%= r.lender %></strong> — <%= purposes[r.purpose].label.toLowerCase() %><%
+            %><% if (r.amount_sought) { %> of <%= money(r.amount_sought) %><% } %><%
+            %><% if (r.reference) { %>, their reference <%= r.reference %><% } %>.
+          Asked <%= formatDate(r.requested_at) %>.
+        </p>
+        <form action="/credit/checks/requests/<%= r.id %>/approve" method="POST" class="inline-form">
+          <label style="margin:0;">
+            For
+            <input type="number" name="days" min="1" max="<%= maxDays %>"
+                   value="<%= defaultDays %>" style="width:5rem;" /> days
+          </label>
+          <button type="submit" class="btn btn-primary">Approve</button>
+        </form>
+        <form action="/credit/checks/requests/<%= r.id %>/deny" method="POST" class="inline-form">
+          <button type="submit" class="btn">Turn down</button>
+        </form>
+      </div>
+    <% }) %>
+  </section>
+<% } %>
+
+<section class="card">
+  <h2>Your credit code</h2>
+  <p>
+    <strong style="font-size:1.4rem; letter-spacing:0.05em;"><%= code %></strong>
+  </p>
+  <p class="muted" style="margin-bottom:0;">
+    Give this to a lender and they can ask to see your history at
+    <a href="<%= requestUrl %>" class="link"><%= requestUrl %></a>. The code only
+    lets them ask — you decide every time, and nothing is shown unless you
+    approve it.
+  </p>
+</section>
+
 <section class="card">
   <h2>What a lender sees</h2>
   <p class="muted" style="margin-bottom:0.5rem;">
@@ -64,6 +110,34 @@
     <% } %>
   </section>
 </div>
+
+<% const answered = requests.filter((r) => r.status !== "pending"); %>
+<% if (answered.length) { %>
+  <section class="card">
+    <h2>Who has asked</h2>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>Lender</th><th>For</th><th>Asked</th><th>You said</th></tr>
+        </thead>
+        <tbody>
+          <% answered.forEach((r) => { %>
+            <tr>
+              <td><%= r.lender %></td>
+              <td><%= purposes[r.purpose].label %></td>
+              <td><%= formatDate(r.requested_at) %></td>
+              <td>
+                <span class="badge <%= r.status === "approved" ? "badge-done" : "badge-danger" %>">
+                  <%= r.status === "approved" ? "yes" : "no" %>
+                </span>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>
 
 <% checks.forEach((check) => { %>
   <section class="card">

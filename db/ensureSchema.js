@@ -785,6 +785,41 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_credit_checks_user
     ON credit_checks (user_id, id DESC);
 
+  -- A lender's request to be shown a history, addressed by share code.
+  --
+  -- A request is an ask and nothing more: it shows the lender nothing until the
+  -- person approves it, and approving is what creates the check above. Denied
+  -- ones are kept, because "three lenders asked and I said yes to one" is part
+  -- of somebody's record of their own affairs.
+  --
+  -- The token is what the lender keeps. One link, which says "waiting" until it
+  -- is answered and becomes the history if the answer was yes — so the lender
+  -- never needs to be sent anything afterwards.
+  CREATE TABLE IF NOT EXISTS credit_check_requests (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    lender TEXT NOT NULL,
+    purpose TEXT NOT NULL
+      CHECK (purpose IN ('mortgage', 'car_loan', 'business_loan', 'other')),
+    amount_sought NUMERIC(14, 2),
+    reference TEXT,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending', 'approved', 'denied')),
+    check_id INTEGER REFERENCES credit_checks(id) ON DELETE SET NULL,
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    decided_at TIMESTAMPTZ
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_credit_check_requests_user
+    ON credit_check_requests (user_id, status, id DESC);
+
+  -- The code a lender addresses a request to. Random rather than derived from
+  -- the row: a code worked out from an id could be worked out for everybody,
+  -- and while guessing one only buys the right to ask, nobody should be able to
+  -- enumerate who banks here.
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS credit_code TEXT UNIQUE;
+
   -- Every time a check was opened. The person is shown this, so that handing a
   -- link to a bank does not mean losing track of what the bank did with it.
   CREATE TABLE IF NOT EXISTS credit_check_views (

@@ -1,0 +1,80 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1>Ask to see a credit history</h1>
+  <p class="muted">
+    For lenders. Ask the person for their Cashflow credit code, then send the
+    request here. They decide whether you see anything — nothing is shown until
+    they say yes.
+  </p>
+</section>
+
+<% if (sent) { %>
+  <section class="card">
+    <h2>Request sent</h2>
+    <p>
+      If that code belongs to somebody, they have been asked and will see it the
+      next time they open Cashflow.
+    </p>
+    <% if (sent.url) { %>
+      <label>
+        Keep this link
+        <input type="text" value="<%= sent.url %>" readonly onclick="this.select()"
+               style="width:100%;" />
+        <small class="muted">
+          It says whether they have answered, and becomes their credit history if
+          the answer is yes. Nothing else will be sent to you.
+        </small>
+      </label>
+    <% } else { %>
+      <p class="muted">
+        Check the code with them if you do not hear back — a mistyped code cannot
+        reach anybody, and this page cannot tell you which it was.
+      </p>
+    <% } %>
+    <p><a href="/credit-check/request" class="link">Ask about somebody else →</a></p>
+  </section>
+<% } else { %>
+  <% if (problem) { %>
+    <section class="card alert-critical"><p style="margin:0;"><%= problem %></p></section>
+  <% } %>
+
+  <section class="card">
+    <form action="/credit-check/request" method="POST" class="stacked-form">
+      <label>
+        Their credit code
+        <input type="text" name="code" required maxlength="20" placeholder="CR-XXXXXXXX"
+               value="<%= form.code || "" %>" />
+        <small class="muted">They will find it on their credit page.</small>
+      </label>
+      <label>
+        Who is asking
+        <input type="text" name="lender" required maxlength="120"
+               placeholder="e.g. Equity Bank" value="<%= form.lender || "" %>" />
+      </label>
+      <label>
+        What they are borrowing for
+        <select name="purpose">
+          <% Object.entries(purposes).forEach(([key, p]) => { %>
+            <option value="<%= key %>" <%= form.purpose === key ? "selected" : "" %>>
+              <%= p.label %> — <%= p.blurb %>
+            </option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
+        How much they have asked you for (optional)
+        <input type="number" name="amountSought" step="0.01" min="0.01"
+               value="<%= form.amountSought || "" %>" />
+      </label>
+      <label>
+        Your own reference (optional)
+        <input type="text" name="reference" maxlength="80"
+               value="<%= form.reference || "" %>" />
+      </label>
+      <button type="submit" class="btn btn-primary">Send the request</button>
+    </form>
+  </section>
+<% } %>
+
+<%- include("partials/footer") %>

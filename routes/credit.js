@@ -11,6 +11,8 @@ import {
 } from "../controllers/credit.controller.js";
 import {
   addCheck,
+  approve,
+  deny,
   showChecksPage,
   stopCheck
 } from "../controllers/credit-check.controller.js";
@@ -25,6 +27,8 @@ router.get("/report", showCreditReport);
 router.get("/checks", showChecksPage);
 router.post("/checks", addCheck);
 router.post("/checks/:id/stop", stopCheck);
+router.post("/checks/requests/:id/approve", approve);
+router.post("/checks/requests/:id/deny", deny);
 router.post("/apply", apply);
 router.post("/installments/:id/pay", payInstallment);
 router.post("/:id/charges", chargeCard);

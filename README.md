@@ -111,10 +111,14 @@ just decides the front door.
     card off is not a category you spent money on, it is paying for spending
     already counted where it happened
   - **Showing a lender** — for borrowing this app does not do: a mortgage, a
-    car, a business loan. You make a check for a named lender, hand them the
-    link, and they see your standing without an account here. Consent is the
-    whole mechanism — nothing lets a bank go looking, and there is no way to ask
-    for somebody's history, only to be given it. A check runs out on a date you
+    car, a business loan. It works from either end. You can make a check for a
+    named lender and hand them the link; or you give them your credit code and
+    they send a request, which sits on your credit page until you approve or
+    turn it down. Either way consent is the whole mechanism — a code only lets
+    somebody ask, nothing is shown until you say yes, and a request that is
+    turned down shows them nothing but the no. A code that belongs to nobody is
+    answered exactly like one that does, so the request form cannot be used to
+    find out who banks here. A check runs out on a date you
     set (90 days at the outside), you can stop it at any moment, and every time
     it is opened is counted back to you. What it shows is the credit standing
     and nothing else: not what you spend or what on, not your balances, not

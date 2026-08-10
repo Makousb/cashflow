@@ -1,0 +1,29 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <h1><%= request.status === "denied" ? "Not approved" : "Waiting on a decision" %></h1>
+</section>
+
+<section class="card">
+  <p>
+    Asked on behalf of <strong><%= request.lender %></strong> for
+    <%= purpose.label.toLowerCase() %><% if (request.amount_sought) { %>
+      of <%= money(request.amount_sought) %><% } %><% if (request.reference) { %>,
+    reference <%= request.reference %><% } %>.
+  </p>
+
+  <% if (request.status === "denied") { %>
+    <p class="muted" style="margin-bottom:0;">
+      They have turned this down, and nothing has been shown to you. If you think
+      it was a mistake, ask them and send a fresh request.
+    </p>
+  <% } else { %>
+    <p class="muted" style="margin-bottom:0;">
+      They have not answered yet. Keep this link and open it again later — it
+      becomes their credit history if they approve, and says so if they do not.
+      Nothing about them is shown here in the meantime.
+    </p>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>
