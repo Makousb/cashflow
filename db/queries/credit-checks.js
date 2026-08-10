@@ -225,3 +225,43 @@ export async function denyRequest(requestId, userId) {
   );
   return rows.length === 1;
 }
+
+// Take the right to tell somebody one ask has arrived. Exactly one caller gets
+// it, and a send that fails hands it back so the next attempt tries again.
+export async function claimRequestNotice(requestId) {
+  const { rowCount } = await pool.query(
+    `UPDATE credit_check_requests
+     SET notified_at = NOW()
+     WHERE id = $1 AND notified_at IS NULL`,
+    [requestId]
+  );
+  return rowCount === 1;
+}
+
+export async function releaseRequestNotice(requestId) {
+  await pool.query(
+    "UPDATE credit_check_requests SET notified_at = NULL WHERE id = $1",
+    [requestId]
+  );
+}
+
+// Asks still waiting that nobody has been told about — what a retry sweeps up.
+export async function unnotifiedRequests(userId) {
+  const { rows } = await pool.query(
+    `SELECT id, user_id, token, lender, purpose, amount_sought, reference, requested_at
+     FROM credit_check_requests
+     WHERE user_id = $1 AND status = 'pending' AND notified_at IS NULL
+     ORDER BY id`,
+    [userId]
+  );
+  return rows;
+}
+
+export async function getRequest(id) {
+  const { rows } = await pool.query(
+    `SELECT id, user_id, token, lender, purpose, amount_sought, reference, requested_at
+     FROM credit_check_requests WHERE id = $1`,
+    [id]
+  );
+  return rows[0] || null;
+}

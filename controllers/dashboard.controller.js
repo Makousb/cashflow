@@ -12,6 +12,7 @@ import {
 import { materializeDueRecurring } from "../services/recurring.js";
 import { monthLabel, monthStart, today } from "../utils/dates.js";
 import { catchUpCardNotices } from "./credit.controller.js";
+import { catchUpRequestNotices } from "./credit-check.controller.js";
 
 export async function showDashboard(req, res, next) {
   try {
@@ -24,6 +25,8 @@ export async function showDashboard(req, res, next) {
     // A missed card minimum is worth an email, and the dashboard is where
     // somebody who has not opened the credit page will be found. Not awaited.
     catchUpCardNotices(user);
+    // And any lender's ask that could not be sent when it arrived.
+    catchUpRequestNotices(user);
 
     const [summary, recent, budgets, goals] = await Promise.all([
       getMonthlySummary(user.id, month),

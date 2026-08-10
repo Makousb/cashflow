@@ -6,13 +6,21 @@ import {
   ensureCreditCode,
   findByCreditCode,
   getCheckByToken,
+  claimRequestNotice,
+  getRequest,
   getRequestByToken,
   listCheckViews,
   listChecks,
   listRequests,
   recordCheckView,
-  revokeCheck
+  releaseRequestNotice,
+  revokeCheck,
+  unnotifiedRequests
 } from "../db/queries/credit-checks.js";
+import { getUserContact } from "../db/queries/users.js";
+import { formatCurrency } from "../utils/currency.js";
+import { requestReceivedEmail } from "../utils/credit-check-email.js";
+import { mailEnabled, sendMail } from "../services/mailer.js";
 import { config } from "../config/env.js";
 import { creditHistoryFor } from "./credit.controller.js";
 import {
@@ -26,6 +34,48 @@ import {
 import { today } from "../utils/dates.js";
 
 const baseUrl = () => config.appUrl || `http://localhost:${config.port}`;
+
+// Tell somebody an ask has arrived.
+//
+// The claim is taken before the mail goes and handed back if it does not, so a
+// mail server having a bad afternoon delays the telling rather than losing it —
+// the sweep below picks it up next time they open the app.
+async function notifyRequest(request) {
+  const claimed = await claimRequestNotice(request.id);
+  if (!claimed) return { sent: false, reason: "already told" };
+
+  const person = await getUserContact(request.user_id);
+  const to = (person?.email || "").trim();
+  if (!to || !mailEnabled()) {
+    await releaseRequestNotice(request.id);
+    return { sent: false, reason: "nowhere to send it" };
+  }
+
+  const currency = person.currency || person.base_currency;
+  const { subject, text, html } = requestReceivedEmail({
+    request,
+    purpose: PURPOSES[request.purpose],
+    fmt: (amount) => formatCurrency(amount, currency),
+    url: `${baseUrl()}/credit/checks`
+  });
+
+  const result = await sendMail({ to, subject, text, html });
+  if (!result.sent) await releaseRequestNotice(request.id);
+  return result;
+}
+
+// Asks nobody has been told about yet. Called from pages the person opens, so a
+// send that failed at the time is tried again rather than lost. Never awaited by
+// a request: the promise comes back so a test can wait for what a page will not.
+export function catchUpRequestNotices(user) {
+  return unnotifiedRequests(user.id)
+    .then(async (requests) => {
+      for (const request of requests) await notifyRequest(request);
+    })
+    .catch((error) => {
+      console.warn(`Credit: request notices for user ${user.id} failed (${error.message})`);
+    });
+}
 
 export async function showChecksPage(req, res, next) {
   try {
@@ -207,6 +257,13 @@ export async function submitRequest(req, res, next) {
         reference: form.reference
       });
       token = made.token;
+      // Not awaited, and its outcome never reaches this response: whether an
+      // email sent must not be another way of learning that a code was real.
+      getRequest(made.id)
+        .then((row) => (row ? notifyRequest(row) : null))
+        .catch((error) => {
+          console.warn(`Credit: could not tell ${subject.id} about a request (${error.message})`);
+        });
     }
 
     return render({

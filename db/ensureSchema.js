@@ -814,6 +814,12 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_credit_check_requests_user
     ON credit_check_requests (user_id, status, id DESC);
 
+  -- When the person was told an ask had arrived. Null means they have not been,
+  -- which is what a retry looks for: claimed before the mail goes and handed
+  -- back if it does not, so a mail server having a bad afternoon costs a
+  -- delayed email rather than a silently lost one.
+  ALTER TABLE credit_check_requests ADD COLUMN IF NOT EXISTS notified_at TIMESTAMPTZ;
+
   -- The code a lender addresses a request to. Random rather than derived from
   -- the row: a code worked out from an id could be worked out for everybody,
   -- and while guessing one only buys the right to ask, nobody should be able to

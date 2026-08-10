@@ -118,7 +118,10 @@ just decides the front door.
     somebody ask, nothing is shown until you say yes, and a request that is
     turned down shows them nothing but the no. A code that belongs to nobody is
     answered exactly like one that does, so the request form cannot be used to
-    find out who banks here. A check runs out on a date you
+    find out who banks here. A request emails you when it arrives, reporting the
+    lender's name as the claim it is — anyone with your code can type anything
+    into that form, and nothing has checked it — so the mail tells you to
+    approve because you are already dealing with them, not because it arrived A check runs out on a date you
     set (90 days at the outside), you can stop it at any moment, and every time
     it is opened is counted back to you. What it shows is the credit standing
     and nothing else: not what you spend or what on, not your balances, not

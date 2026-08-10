@@ -42,3 +42,12 @@ export async function getUserName(id) {
   const { rows } = await pool.query("SELECT name FROM users WHERE id = $1", [id]);
   return rows[0]?.name || null;
 }
+
+// Name, address and currency, for writing to somebody about their own account.
+export async function getUserContact(id) {
+  const { rows } = await pool.query(
+    "SELECT name, email, currency, base_currency FROM users WHERE id = $1",
+    [id]
+  );
+  return rows[0] || null;
+}
