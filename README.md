@@ -104,8 +104,9 @@ just decides the front door.
     card alike), and the category that took the most. It carries a standing out
     of 100, deliberately not on the 300-850 scale a bureau uses, because it is
     not a bureau score: it is worked out from what you have done in this app and
-    nothing else, nobody outside is asked and nobody outside is told. Every
-    point is attributed, so it says which part is holding the number back.
+    nothing else, and no bureau is asked about you. Nobody outside sees it
+    unless you choose to show them — see below. Every point is attributed, so it
+    says which part is holding the number back.
     Settling credit is left out of the spending figures throughout — paying a
     card off is not a category you spent money on, it is paying for spending
     already counted where it happened
