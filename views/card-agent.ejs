@@ -1,0 +1,496 @@
+<%- include("partials/header") %>
+<%
+  const stamp = (v) => new Date(v).toLocaleString("en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+  });
+  const badgeFor = (s) => s === "high" ? "badge-danger" : s === "medium" ? "badge-warn" : "badge-done";
+  const healthBadge = review.health === "at risk"
+    ? "badge-danger" : review.health === "watch" ? "badge-warn" : "badge-done";
+  const autopay = settings ? settings.autopay : "off";
+  const actions = latest && latest.actions ? latest.actions : [];
+  const nextDue = review.cards
+    .filter((c) => c.card.dueOn)
+    .sort((a, b) => a.card.dueOn.localeCompare(b.card.dueOn))[0] || null;
+%>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1>Card agent</h1>
+      <p class="muted">
+        Watches your cards, pays them before the date, keeps you off the limit,
+        and puts your spending on the card that earns the most for it ·
+        <a href="/credit" class="link">← credit</a>
+      </p>
+    </div>
+    <span class="badge <%= healthBadge %>"><%= review.health %></span>
+  </div>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon <%= review.utilisation > review.settings.utilisationTarget ? "tint-red" : "" %>">💳</span>
+    <span class="stat-body">
+      <span class="stat-label">Owing on cards</span>
+      <span class="stat-value <%= review.balance > 0 ? "negative" : "" %>"><%= money(review.balance) %></span>
+      <small class="muted">
+        <%= review.utilisation %>% of <%= money(review.limit) %> ·
+        your line is <%= review.settings.utilisationTarget %>%
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📅</span>
+    <span class="stat-body">
+      <span class="stat-label">Next payment</span>
+      <span class="stat-value"><%= nextDue ? money(nextDue.card.minimumDue) : "—" %></span>
+      <small class="muted">
+        <%= nextDue
+          ? `${nextDue.label} by ${formatDate(nextDue.card.dueOn)}`
+          : "nothing is due" %>
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">⭐</span>
+    <span class="stat-body">
+      <span class="stat-label">Points banked</span>
+      <span class="stat-value positive"><%= review.points.balance %></span>
+      <small class="muted">
+        worth <%= money(review.points.worth) %><%
+          %><% if (review.points.missed.total > 0) { %>,
+          <%= review.points.missed.total %> left uncollected<% } %>
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📈</span>
+    <span class="stat-body">
+      <span class="stat-label">Credit score</span>
+      <span class="stat-value"><%= standing.score.score === null ? "—" : standing.score.score %></span>
+      <small class="muted">
+        <%= standing.score.band %><%= standing.historyMonths > 0
+          ? ` · ${standing.historyMonths} month${standing.historyMonths === 1 ? "" : "s"} of history`
+          : "" %>
+      </small>
+    </span>
+  </div>
+</section>
+
+<% if (latest) { %>
+  <section class="card" style="margin-bottom:1.5rem;">
+    <div class="budget-row" style="margin-top:0;">
+      <h2 style="margin:0;">The agent's note</h2>
+      <span class="muted" style="font-size:0.85rem;">
+        ran <%= stamp(latest.created_at) %> ·
+        <%= latest.mode === "ai" ? "written by the configured AI" : "written from the figures" %>
+      </span>
+    </div>
+    <p class="advisor-note"><%= latest.narrative %></p>
+
+    <% if (actions.length) { %>
+      <h3 style="margin:1rem 0 0.5rem;">What it did</h3>
+      <ul class="finding-list">
+        <% actions.forEach((a) => { %>
+          <li class="finding">
+            <div class="finding-head">
+              <strong><%= a.label %></strong>
+              <span class="badge <%= a.kind === "paid" ? "badge-done" : "badge-warn" %>"><%= a.kind %></span>
+            </div>
+            <p class="muted" style="margin:0;"><%= a.detail %></p>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+
+    <p class="muted" style="font-size:0.85rem;margin:1rem 0 0;">
+      Every figure here is worked out from your own statements and charges, not
+      written by a model. Nothing here is an offer of credit, and there is no
+      bureau behind the score — it is this app's own, out of 100.
+    </p>
+    <div class="action-row" style="margin-top:1rem;">
+      <form action="/credit/agent/run" method="POST" class="inline-form">
+        <button type="submit" class="btn btn-primary">Run it again</button>
+      </form>
+      <a class="btn btn-ghost" href="/credit/report">Full credit report</a>
+    </div>
+  </section>
+<% } else { %>
+  <section class="card" style="margin-bottom:1.5rem;">
+    <h2>The agent has not run yet</h2>
+    <p class="muted">
+      It reads every card you hold, every statement drawn on them and everything
+      you have put on them, then says what to pay, what it will cost to leave, and
+      where the points are going missing. Switch autopilot on below and it also
+      pays, on its own, before the date.
+    </p>
+    <form action="/credit/agent/run" method="POST" style="margin-top:1rem;">
+      <button type="submit" class="btn btn-primary">Run the first check</button>
+    </form>
+  </section>
+<% } %>
+
+<h2>What to do</h2>
+<% if (!review.moves.length) { %>
+  <section class="card">
+    <p class="empty-state">
+      Nothing needs doing — paid up, under your limits, and nothing owed late.
+    </p>
+  </section>
+<% } else { %>
+  <section class="card" style="margin-bottom:1.5rem;">
+    <ul class="finding-list">
+      <% review.moves.forEach((m) => { %>
+        <li class="finding">
+          <div class="finding-head">
+            <strong><%= m.title %></strong>
+            <span class="badge <%= badgeFor(m.severity) %>"><%= m.severity %></span>
+          </div>
+          <p class="muted"><%= m.detail %></p>
+
+          <% if (m.hint && m.hint.length) { %>
+            <ul class="plain-list" style="margin:0 0 0.6rem;">
+              <% m.hint.forEach((h) => { %>
+                <li class="muted" style="font-size:0.9rem;">
+                  Put <strong><%= h.category %></strong> on <strong><%= h.use %></strong>
+                  — <%= h.lost %> points went missing this way.
+                </li>
+              <% }) %>
+            </ul>
+          <% } %>
+
+          <% if (m.action && m.action.kind === "pay" && m.action.amount > 0) { %>
+            <form action="/credit/<%= m.facilityId %>/pay" method="POST" class="inline-form">
+              <input type="hidden" name="amount" value="<%= toDisplayNumber(m.action.amount) %>" />
+              <select name="accountId">
+                <% accounts.forEach((a) => { %>
+                  <option value="<%= a.id %>"<%= settings && settings.autopay_account_id === a.id ? " selected" : "" %>>
+                    From <%= a.name %> (<%= money(a.balance) %>)
+                  </option>
+                <% }) %>
+              </select>
+              <button type="submit" class="btn btn-primary btn-sm">
+                <%= m.action.label %> — <%= money(m.action.amount) %>
+              </button>
+            </form>
+            <% if (m.alternative) { %>
+              <form action="/credit/<%= m.facilityId %>/pay" method="POST" class="inline-form"
+                    style="margin-top:0.4rem;">
+                <input type="hidden" name="amount" value="<%= toDisplayNumber(m.alternative.amount) %>" />
+                <select name="accountId">
+                  <% accounts.forEach((a) => { %>
+                    <option value="<%= a.id %>">From <%= a.name %></option>
+                  <% }) %>
+                </select>
+                <button type="submit" class="btn btn-ghost btn-sm">
+                  <%= m.alternative.label %> — <%= money(m.alternative.amount) %>
+                </button>
+              </form>
+            <% } %>
+          <% } else if (m.action && m.action.kind === "redeem") { %>
+            <form action="/credit/agent/<%= m.facilityId %>/redeem" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-ghost btn-sm"><%= m.action.label %></button>
+            </form>
+          <% } else if (m.action && m.action.kind === "raise_limit") { %>
+            <form action="/credit/agent/<%= m.facilityId %>/limit" method="POST" class="inline-form">
+              <button type="submit" class="btn btn-primary btn-sm"><%= m.action.label %></button>
+            </form>
+          <% } else if (m.action && m.action.kind === "apply") { %>
+            <form action="/credit/apply" method="POST" class="inline-form">
+              <input type="hidden" name="product" value="<%= m.action.product %>" />
+              <input type="hidden" name="term" value="0" />
+              <button type="submit" class="btn btn-primary btn-sm"><%= m.action.label %></button>
+            </form>
+          <% } else if (m.action && m.action.kind === "open") { %>
+            <a class="btn btn-primary btn-sm" href="/credit"><%= m.action.label %></a>
+          <% } %>
+        </li>
+      <% }) %>
+    </ul>
+  </section>
+<% } %>
+
+<h2>Autopilot</h2>
+<section class="card" style="margin-bottom:1.5rem;">
+  <p class="muted" style="margin-top:0;">
+    <% if (autopay === "off") { %>
+      Off. The agent watches and tells you what to do, and pays nothing. Nothing
+      leaves any wallet without you.
+    <% } else { %>
+      On. The agent pays <strong><%= autopay === "minimum" ? "the minimum"
+        : autopay === "statement" ? "the whole statement" : "the full balance" %></strong>
+      out of
+      <strong><%= review.wallet ? review.wallet.name : "— no wallet chosen —" %></strong>,
+      <%= review.settings.leadDays %> day<%= review.settings.leadDays === 1 ? "" : "s" %>
+      before each date. It pays each statement once, and never more than is owed.
+    <% } %>
+  </p>
+
+  <form action="/credit/agent/settings" method="POST" class="stacked-form">
+    <label>
+      What it pays by itself
+      <select name="autopay">
+        <option value="off"<%= autopay === "off" ? " selected" : "" %>>
+          Nothing — watch and advise only
+        </option>
+        <option value="minimum"<%= autopay === "minimum" ? " selected" : "" %>>
+          The minimum — keeps the card straight and avoids the late fee
+        </option>
+        <option value="statement"<%= autopay === "statement" ? " selected" : "" %>>
+          The whole statement — stops the interest as well
+        </option>
+        <option value="full"<%= autopay === "full" ? " selected" : "" %>>
+          The full balance — clears the card outright
+        </option>
+      </select>
+    </label>
+
+    <label>
+      Paid from
+      <select name="autopayAccountId">
+        <option value="">— choose a wallet —</option>
+        <% accounts.forEach((a) => { %>
+          <option value="<%= a.id %>"<%= settings && settings.autopay_account_id === a.id ? " selected" : "" %>>
+            <%= a.name %> (<%= money(a.balance) %>)
+          </option>
+        <% }) %>
+      </select>
+      <small class="muted">
+        The agent never overdraws a wallet. If it will not cover the payment,
+        nothing is taken and you are told.
+      </small>
+    </label>
+
+    <div class="two-col">
+      <label>
+        Days before the date
+        <input type="number" name="leadDays" min="0" max="28"
+               value="<%= settings ? settings.lead_days : 3 %>" />
+        <small class="muted">Long enough to fix by hand if it fails.</small>
+      </label>
+      <label>
+        Keep me under
+        <input type="number" name="utilisationTarget" min="1" max="100"
+               value="<%= settings ? settings.utilisation_target : 30 %>" />
+        <small class="muted">% of each card's limit. 30% is where the score stops marking you down.</small>
+      </label>
+    </div>
+
+    <label class="inline-label">
+      <input type="checkbox" name="chargeGuard" value="on"
+             <%= settings && settings.charge_guard ? "checked" : "" %> />
+      Refuse a charge that would take a card over that line
+      <small class="muted">
+        Off by default — it is your card. On, the agent holds the charge back and
+        tells you how much still fits.
+      </small>
+    </label>
+
+    <label class="inline-label">
+      Email the briefing to
+      <input type="email" name="alertEmail" placeholder="you@example.com" maxlength="200"
+             value="<%= settings && settings.alert_email ? settings.alert_email : "" %>" />
+    </label>
+    <% if (settings && settings.alert_email && !mailReady) { %>
+      <span class="badge badge-warn">SMTP not configured — nothing will send</span>
+    <% } %>
+
+    <button type="submit" class="btn btn-primary">Save the instructions</button>
+  </form>
+
+  <p class="muted" style="font-size:0.85rem;margin:0.9rem 0 0;">
+    The agent makes its round once a day, the first time you open the app.
+    <% if (settings && settings.last_run_on) { %>
+      Last round: <%= formatDate(settings.last_run_on) %>.
+    <% } %>
+  </p>
+</section>
+
+<% if (review.cards.length) { %>
+  <h2>Your cards</h2>
+  <% review.cards.forEach((c) => { %>
+    <section class="card">
+      <div class="card-head">
+        <h3 style="margin:0;">
+          <%= c.label %>
+          <span class="badge badge-done"><%= Number(c.apr).toFixed(0) %>% APR</span>
+          <% if (c.card.utilisation > review.settings.utilisationTarget) { %>
+            <span class="badge badge-warn"><%= c.card.utilisation %>% used</span>
+          <% } %>
+        </h3>
+        <span class="muted">opened <%= formatDate(c.opened_on) %></span>
+      </div>
+
+      <p>
+        <strong><%= money(c.card.balance) %></strong> owing of
+        <%= money(c.card.limit) %> ·
+        <strong class="<%= c.card.available > 0 ? "positive" : "negative" %>"><%= money(c.card.available) %></strong>
+        left to spend
+      </p>
+      <div class="progress" title="<%= c.card.utilisation %>% used">
+        <span class="progress-fill" style="width: <%= c.card.utilisation %>%;"></span>
+      </div>
+
+      <p class="muted">
+        <strong><%= c.points.balance %></strong> points banked, worth
+        <%= money(c.points.worth) %> off this balance ·
+        <%= c.points.earned %> earned in all<% if (c.points.redeemed > 0) { %>,
+        <%= c.points.redeemed %> already redeemed<% } %>.
+        <% if (!c.points.redeemable) { %>
+          <%= minRedeem %> points are needed before they can be taken.
+        <% } %>
+      </p>
+
+      <% if (c.points.redeemable && c.card.balance > 0) { %>
+        <form action="/credit/agent/<%= c.id %>/redeem" method="POST" class="inline-form">
+          <button type="submit" class="btn btn-ghost btn-sm">
+            Redeem <%= c.points.balance %> points against this card
+          </button>
+        </form>
+      <% } %>
+    </section>
+  <% }) %>
+<% } %>
+
+<h2>Ask the agent</h2>
+<section class="card advisor-card">
+  <div class="advisor-head">
+    <span><strong>💬 Card agent</strong></span>
+    <span class="badge <%= live ? "badge-done" : "badge-warn" %>">
+      <%= live ? "live" : "instant answers" %>
+    </span>
+  </div>
+
+  <div class="chat-log" id="chat-log" aria-live="polite">
+    <div class="chat-msg bot">
+      Ask me anything about your cards — what is due and when, how close you are
+      to a limit, which card to use for what, why your score is where it is, or
+      where this month's money went.
+    </div>
+  </div>
+
+  <div class="chip-row" id="chip-row">
+    <% prompts.forEach((p) => { %>
+      <button type="button" class="chip" data-q="<%= p %>"><%= p %></button>
+    <% }) %>
+  </div>
+
+  <form id="chat-form" class="chat-input-row" autocomplete="off">
+    <input type="text" id="chat-input" placeholder="Ask the agent…" maxlength="300" required />
+    <button type="submit" class="btn btn-primary" id="chat-send">Ask</button>
+  </form>
+  <% if (!live) { %>
+    <p class="muted" style="margin-top:0.6rem;font-size:0.85rem;">
+      Answers are computed from your own statements. Set an AI provider
+      (AI_API_KEY) in the environment for open-ended conversation — everything
+      the agent does works either way.
+    </p>
+  <% } %>
+</section>
+
+<% if (paidByAgent.length || history.length > 1) { %>
+  <div class="two-col">
+    <section class="card">
+      <h2>Paid by the agent</h2>
+      <% if (!paidByAgent.length) { %>
+        <p class="empty-state">Nothing yet. Autopilot pays a statement once, before its date.</p>
+      <% } else { %>
+        <ul class="tx-list">
+          <% paidByAgent.forEach((p) => { %>
+            <li class="tx-row">
+              <span class="tx-icon">🤖</span>
+              <span class="tx-meta">
+                <strong><%= money(p.amount) %> on <%= p.label || "a card" %></strong>
+                <small class="muted">
+                  <%= p.cycle %> statement · <%= p.kind %> · <%= stamp(p.created_at) %>
+                </small>
+              </span>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+
+    <section class="card">
+      <h2>Past rounds</h2>
+      <% if (history.length <= 1) { %>
+        <p class="empty-state">This is the first one.</p>
+      <% } else { %>
+        <ul class="tx-list">
+          <% history.forEach((r) => { %>
+            <li class="tx-row">
+              <span class="tx-icon"><%= r.moves_high > 0 ? "⚠️" : "✅" %></span>
+              <span class="tx-meta">
+                <strong><%= r.moves_total %> thing<%= r.moves_total === 1 ? "" : "s" %> to do</strong>
+                <small class="muted">
+                  <%= stamp(r.created_at) %> · owing <%= money(r.balance) %> ·
+                  <%= r.utilisation %>% used · <%= r.points %> points
+                  <%= r.notified_to ? " · emailed " + r.notified_to : "" %>
+                </small>
+              </span>
+              <span class="badge <%= r.mode === "ai" ? "badge-done" : "badge-warn" %>"><%= r.mode %></span>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+  </div>
+<% } %>
+
+<script>
+  (function () {
+    var log = document.getElementById("chat-log");
+    var form = document.getElementById("chat-form");
+    var input = document.getElementById("chat-input");
+    var send = document.getElementById("chat-send");
+
+    function add(text, who) {
+      var el = document.createElement("div");
+      el.className = "chat-msg " + who;
+      el.textContent = text;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+      return el;
+    }
+
+    async function ask(question) {
+      add(question, "user");
+      var thinking = add("…", "bot thinking");
+      send.disabled = true;
+      input.disabled = true;
+      try {
+        var res = await fetch("/credit/agent/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: question })
+        });
+        var data = await res.json();
+        thinking.remove();
+        add(data.answer || data.error || "Sorry, I couldn't answer that.", "bot");
+      } catch (e) {
+        thinking.remove();
+        add("Sorry — something went wrong reaching the agent.", "bot");
+      } finally {
+        send.disabled = false;
+        input.disabled = false;
+        input.focus();
+      }
+    }
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var q = input.value.trim();
+      if (!q) return;
+      input.value = "";
+      ask(q);
+    });
+
+    document.getElementById("chip-row").addEventListener("click", function (e) {
+      if (e.target.classList.contains("chip")) {
+        ask(e.target.dataset.q);
+      }
+    });
+  })();
+</script>
+
+<%- include("partials/footer") %>

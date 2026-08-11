@@ -10,9 +10,13 @@
 // Pure. Everything takes plain figures and returns plain objects, so the rules
 // can be read and tested without a database anywhere near them.
 
+import { CARDS, eligibility, isCard, limitFor } from "./cards.js";
 import { addDays, addMonths, monthKey, monthsBetween, toISODate } from "./dates.js";
 import { LOAN_PAYMENT_NOTE } from "./loans.js";
 
+// The catalogue everything else asks for a label. The cards come from
+// utils/cards.js, which is where what a card is worth is decided; borrowing that
+// is not a card is described here, because there is nowhere else it belongs.
 export const PRODUCTS = {
   day_loan: {
     label: "Day loan",
@@ -26,13 +30,15 @@ export const PRODUCTS = {
     terms: [3, 4, 6],
     termNoun: "instalments"
   },
-  secured_card: {
-    label: "Secured card",
-    blurb: "A card with a limit equal to a deposit you put up yourself.",
-    terms: [],
-    termNoun: ""
-  }
+  ...Object.fromEntries(
+    Object.entries(CARDS).map(([product, card]) => [
+      product,
+      { label: card.label, blurb: card.blurb, terms: [], termNoun: "", card }
+    ])
+  )
 };
+
+export { isCard };
 
 // A day loan costs 1% of what is borrowed for every 7 days it is held.
 const DAY_LOAN_FEE_PER_WEEK = 0.01;
@@ -258,11 +264,58 @@ export function assessSecuredCard({ deposit, walletBalance = 0, hasActiveCard = 
   };
 }
 
+// A card above the secured one asks for no deposit, so what stands in for it is
+// a record: what has been paid on time here, for how long, and against what
+// income. Every gate is checked by utils/cards.js, which is also what the agent
+// reads when it says how close somebody is — so the answer on this page and the
+// answer the agent gave cannot disagree.
+export function assessCard({ product, means, score, historyMonths, cleanMonths, record, held }) {
+  const card = CARDS[product];
+  if (!card) return declined("Unknown card.");
+
+  const verdict = eligibility(product, {
+    score,
+    historyMonths,
+    cleanMonths,
+    record,
+    held,
+    monthlyIncome: means.income
+  });
+  if (!verdict.eligible) return declined(verdict.reason);
+
+  const creditLimit = limitFor({
+    product,
+    monthlyIncome: means.income,
+    cleanMonths
+  });
+  if (creditLimit <= 0) {
+    return declined("There is not enough income recorded here to set a limit against.");
+  }
+
+  return {
+    approved: true,
+    reason: `${verdict.reason} Your limit is ${creditLimit.toFixed(2)} at ${card.apr}% APR.`,
+    terms: {
+      principal: 0,
+      fee: 0,
+      apr: card.apr,
+      creditLimit,
+      // Nothing is held against an unsecured card, which is the whole of the
+      // difference between it and the one below it.
+      deposit: null,
+      total: 0,
+      dueOn: null,
+      schedule: []
+    }
+  };
+}
+
 // One way in, so the controller does not grow a branch per product.
 export function assess(product, input) {
   if (product === "day_loan") return assessDayLoan(input);
   if (product === "bnpl") return assessBnpl(input);
   if (product === "secured_card") return assessSecuredCard(input);
+  if (isCard(product)) return assessCard({ ...input, product });
   return declined("Unknown product.");
 }
 

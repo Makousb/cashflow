@@ -3,9 +3,10 @@
 <section class="page-head">
   <h1>Credit</h1>
   <p class="muted">
-    Short-term borrowing, purchase plans, and a card secured by your own deposit.
-    Every answer is worked out from this ledger — what you earn, what you spend,
-    and what you already owe here.
+    Short-term borrowing, purchase plans, and cards — from one secured by your
+    own deposit up to three that have to be earned. Every answer is worked out
+    from this ledger: what you earn, what you spend, and what you already owe here.
+    <a href="/credit/agent" class="link">Let the card agent manage them →</a>
     <a href="/credit/report" class="link">Run your credit report for the year →</a>
     <a href="/credit/checks" class="link">Share it with a lender →</a>
   </p>
@@ -36,12 +37,16 @@
     <span class="stat-body">
       <span class="stat-label">Card left to spend</span>
       <%
-        const card = active.find((f) => f.product === "secured_card");
+        // Across every card held, not whichever one comes back first: two cards
+        // half used still leave half of both to spend.
+        const held = active.filter((f) => cards[f.product]);
+        const cardLimit = held.reduce((sum, f) => sum + f.card.limit, 0);
+        const cardBalance = held.reduce((sum, f) => sum + f.card.balance, 0);
       %>
-      <span class="stat-value"><%= card ? money(card.card.available) : "—" %></span>
+      <span class="stat-value"><%= held.length ? money(cardLimit - cardBalance) : "—" %></span>
       <small class="muted">
-        <%= card
-          ? `${money(card.card.balance)} of ${money(card.card.limit)} used`
+        <%= held.length
+          ? `${money(cardBalance)} of ${money(cardLimit)} used across ${held.length} card${held.length === 1 ? "" : "s"}`
           : "no card open" %>
       </small>
     </span>
@@ -120,31 +125,91 @@
   </section>
 </div>
 
-<section class="card">
-  <h3><%= products.secured_card.label %></h3>
-  <p class="muted"><%= products.secured_card.blurb %></p>
-  <form action="/credit/apply" method="POST" class="stacked-form">
-    <input type="hidden" name="product" value="secured_card" />
-    <input type="hidden" name="term" value="0" />
-    <label>
-      Deposit
-      <input type="number" name="amount" step="0.01" min="0.01" required />
-      <small class="muted">
-        Your limit is the same as your deposit. It leaves the wallet you choose
-        and comes back when you close the card.
-      </small>
-    </label>
-    <label>
-      Take the deposit from
-      <select name="accountId">
-        <% accounts.forEach((a) => { %>
-          <option value="<%= a.id %>"><%= a.name %> (<%= money(a.balance) %>)</option>
-        <% }) %>
-      </select>
-    </label>
-    <button type="submit" class="btn btn-primary">Apply</button>
-  </form>
-</section>
+<h2>Cards</h2>
+<p class="muted" style="margin-top:-0.5rem;">
+  Four grades. The secured one anyone can have, because the limit is your own
+  deposit and there is nothing to judge. The three above it are earned here:
+  paying on time is what buys a lower rate, a bigger limit, and faster points.
+  <% if (standing.score.score !== null) { %>
+    Your score is <strong><%= standing.score.score %></strong> on
+    <strong><%= standing.historyMonths %></strong> month<%= standing.historyMonths === 1 ? "" : "s" %>
+    of history, with <strong><%= standing.cleanMonths %></strong> clean.
+  <% } %>
+</p>
+
+<% offers.forEach((offer) => { %>
+  <%
+    const mine = active.find((f) => f.product === offer.product);
+    const earn = Object.entries(offer.earn.bonus)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, rate]) => `${rate}× on ${name.toLowerCase()}`);
+  %>
+  <section class="card">
+    <div class="card-head">
+      <h3 style="margin:0;">
+        <%= offer.label %>
+        <% if (mine) { %><span class="badge badge-done">held</span>
+        <% } else if (offer.eligible) { %><span class="badge badge-warn">you qualify</span>
+        <% } %>
+      </h3>
+      <span class="muted">
+        <%= offer.apr %>% APR ·
+        <%= offer.secured ? "limit = your deposit" : `limit up to ${money(offer.limit)}` %>
+      </span>
+    </div>
+    <p class="muted"><%= offer.blurb %></p>
+    <p class="muted" style="font-size:0.9rem;">
+      Earns <%= offer.earn.base %> point<%= offer.earn.base === 1 ? "" : "s" %> per 100 spent<%
+        %><% if (earn.length) { %>, and <%= earn.join(", ") %><% } %>.
+      One point comes back as 1 off a balance.
+      <% if (!offer.secured) { %>
+        Needs a score of <%= offer.minScore %> and
+        <%= offer.minHistoryMonths %> months of history.
+      <% } %>
+    </p>
+
+    <% if (mine) { %>
+      <p class="muted" style="margin:0;">
+        You hold this one — see it below, or let the
+        <a href="/credit/agent" class="link">card agent</a> manage it.
+      </p>
+    <% } else if (offer.secured) { %>
+      <form action="/credit/apply" method="POST" class="stacked-form">
+        <input type="hidden" name="product" value="secured_card" />
+        <input type="hidden" name="term" value="0" />
+        <label>
+          Deposit
+          <input type="number" name="amount" step="0.01" min="0.01" required />
+          <small class="muted">
+            Your limit is the same as your deposit. It leaves the wallet you choose
+            and comes back when you close the card.
+          </small>
+        </label>
+        <label>
+          Take the deposit from
+          <select name="accountId">
+            <% accounts.forEach((a) => { %>
+              <option value="<%= a.id %>"><%= a.name %> (<%= money(a.balance) %>)</option>
+            <% }) %>
+          </select>
+        </label>
+        <button type="submit" class="btn btn-primary">Apply</button>
+      </form>
+    <% } else if (offer.eligible) { %>
+      <form action="/credit/apply" method="POST" class="inline-form">
+        <input type="hidden" name="product" value="<%= offer.product %>" />
+        <input type="hidden" name="term" value="0" />
+        <button type="submit" class="btn btn-primary">
+          Apply — no deposit, limit <%= money(offer.limit) %>
+        </button>
+      </form>
+    <% } else { %>
+      <p class="muted" style="margin:0;">
+        <strong>Not yet.</strong> <%= offer.reason %>
+      </p>
+    <% } %>
+  </section>
+<% }) %>
 
 <h2>What you hold</h2>
 <% if (!facilities.length) { %>
@@ -163,11 +228,12 @@
         <span class="muted"><%= products[f.product].label %> · opened <%= formatDate(f.opened_on) %></span>
       </div>
 
-      <% if (f.product === "secured_card") { %>
+      <% if (cards[f.product]) { %>
         <p class="muted">
-          Limit <strong><%= money(f.card.limit) %></strong>, secured by a
-          <%= money(f.deposit) %> deposit. <%= Number(f.apr).toFixed(0) %>% APR on
-          anything carried past the month.
+          Limit <strong><%= money(f.card.limit) %></strong><%
+            %><% if (Number(f.deposit) > 0) { %>, secured by a
+          <%= money(f.deposit) %> deposit<% } else { %>, unsecured<% } %>.
+          <%= Number(f.apr).toFixed(0) %>% APR on anything carried past the month.
         </p>
 
         <p>
@@ -249,6 +315,22 @@
                 <input type="text" name="merchant" maxlength="120" required
                        placeholder="e.g. Naivas" />
               </label>
+              <label>
+                Category
+                <select name="categoryId">
+                  <option value="">— none —</option>
+                  <% spendCategories.forEach((c) => { %>
+                    <option value="<%= c.id %>"><%= c.icon %> <%= c.name %></option>
+                  <% }) %>
+                </select>
+                <small class="muted">
+                  What earns the points: this card pays
+                  <%= cards[f.product].earn.base %>× as standard<%
+                    %><% const bonus = Object.entries(cards[f.product].earn.bonus); %><%
+                    %><% if (bonus.length) { %>, and more on
+                  <%= bonus.map(([n, r]) => `${n.toLowerCase()} (${r}×)`).join(", ") %><% } %>.
+                </small>
+              </label>
               <button type="submit" class="btn">Charge to the card</button>
             </form>
 
@@ -285,20 +367,27 @@
           <div class="table-scroll">
             <table class="data-table">
               <thead>
-                <tr><th>Date</th><th>What</th><th class="num">Amount</th></tr>
+                <tr><th>Date</th><th>What</th><th>Category</th><th class="num">Amount</th></tr>
               </thead>
               <tbody>
                 <% f.charges.forEach((c) => { %>
                   <tr>
                     <td><%= formatDate(c.charged_on) %></td>
                     <td><%= c.merchant %></td>
+                    <td class="muted">
+                      <%= c.category ? `${c.category_icon} ${c.category}` : "—" %>
+                    </td>
                     <td class="num"><%= money(c.amount) %></td>
                   </tr>
                 <% }) %>
                 <% f.cardPayments.forEach((p) => { %>
                   <tr>
                     <td><%= formatDate(p.paid_on) %></td>
-                    <td class="muted">Payment</td>
+                    <td class="muted">
+                      <%= p.source === "points" ? "Points redeemed"
+                        : p.source === "agent" ? "Payment by the card agent" : "Payment" %>
+                    </td>
+                    <td class="muted">—</td>
                     <td class="num positive">−<%= money(p.amount) %></td>
                   </tr>
                 <% }) %>

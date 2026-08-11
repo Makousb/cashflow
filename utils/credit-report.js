@@ -11,6 +11,7 @@
 //
 // Pure. Rows in, plain object out.
 
+import { isCard } from "./cards.js";
 import { monthsBetween, toISODate } from "./dates.js";
 
 const round = (n) => Math.round(Number(n) * 100) / 100;
@@ -152,7 +153,16 @@ export function creditReport({
   const owedOnCards = active.reduce((sum, f) => sum + (f.card?.balance || 0), 0);
   const owed = round(owedOnPlans + owedOnCards);
 
-  const card = active.find((f) => f.product === "secured_card") || null;
+  // Across every card rather than whichever one comes back first. Somebody with
+  // two cards each half used is half used; scoring only one of them would say
+  // otherwise, and which one it picked would depend on the sort order.
+  const cards = active.filter((f) => isCard(f.product) && f.card);
+  const cardLimit = cards.reduce((sum, f) => sum + f.card.limit, 0);
+  const cardBalance = cards.reduce((sum, f) => sum + f.card.balance, 0);
+  const utilisation = cardLimit > 0
+    ? Math.min(Math.round((cardBalance / cardLimit) * 100), 100)
+    : null;
+
   const record = paymentRecord(facilities, year, todayIso);
 
   // How long there has been anything to go on, counted from the first thing
@@ -165,7 +175,7 @@ export function creditReport({
 
   const score = creditScore({
     record,
-    utilisation: card ? card.card.utilisation : null,
+    utilisation,
     owed,
     monthlyIncome,
     historyMonths

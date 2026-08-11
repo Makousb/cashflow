@@ -43,9 +43,14 @@ import {
   DEPOSIT_RETURNED_NOTE,
   DRAWDOWN_NOTE,
   facilityStanding,
+  isCard,
   noticeDue,
   PRODUCTS
 } from "../utils/credit.js";
+import { CARD_ORDER, CARDS, eligibility, limitFor } from "../utils/cards.js";
+import { standingFrom } from "../utils/card-agent.js";
+import { getAgentSettings } from "../db/queries/card-agent.js";
+import { listCategories } from "../db/queries/categories.js";
 import { today } from "../utils/dates.js";
 
 // Everything a decision is made from, gathered once.
@@ -77,7 +82,11 @@ const groupBy = (rows, key) => {
 
 // todayIso is a parameter rather than a call to today() so a test can put the
 // clock where it needs it. Requests never pass one.
-async function creditPageModel(userId, todayIso = today()) {
+//
+// Exported because the card agent reads exactly this picture. Assembling it
+// twice would be two chances for the agent's figure and the page's figure to
+// disagree about the same card, which is the one thing neither may do.
+export async function creditPageModel(userId, todayIso = today()) {
   const [facilities, installments, charges, cardPayments, applications, accounts, gathered] =
     await Promise.all([
       listFacilities(userId),
@@ -98,7 +107,7 @@ async function creditPageModel(userId, todayIso = today()) {
     installments: byFacility.get(facility.id) || [],
     charges: chargesBy.get(facility.id) || [],
     cardPayments: paymentsBy.get(facility.id) || [],
-    card: facility.product === "secured_card"
+    card: isCard(facility.product)
       ? cardStanding(
           facility,
           chargesBy.get(facility.id) || [],
@@ -206,10 +215,43 @@ export function catchUpCardNotices(user, todayIso = today()) {
 export async function showCreditPage(req, res, next) {
   try {
     catchUpCardNotices(req.session.user);
-    const model = await creditPageModel(req.session.user.id);
+    const [model, categories] = await Promise.all([
+      creditPageModel(req.session.user.id),
+      listCategories(req.session.user.id)
+    ]);
+
+    const standing = standingFrom({
+      facilities: model.facilities,
+      monthlyIncome: model.means.income,
+      todayIso: model.todayIso
+    });
+
     res.render("credit", {
       title: "Credit",
       products: PRODUCTS,
+      cards: CARDS,
+      cardOrder: CARD_ORDER,
+      // What each card above the one held would take, so the page can say
+      // "not yet, and here is why" in the same words the agent uses.
+      offers: CARD_ORDER.map((product) => ({
+        product,
+        ...CARDS[product],
+        ...eligibility(product, {
+          score: standing.score.score,
+          historyMonths: standing.historyMonths,
+          cleanMonths: standing.cleanMonths,
+          record: standing.record,
+          held: model.facilities,
+          monthlyIncome: model.means.income
+        }),
+        limit: limitFor({
+          product,
+          monthlyIncome: model.means.income,
+          cleanMonths: standing.cleanMonths
+        })
+      })),
+      standing,
+      spendCategories: categories.filter((c) => c.kind === "expense"),
       ...model,
       today: model.todayIso
     });
@@ -273,14 +315,18 @@ export async function apply(req, res, next) {
   const userId = user.id;
   const amountInput = Number.parseFloat(req.body.amount);
 
-  if (!Number.isFinite(amountInput) || amountInput <= 0) {
+  // An unsecured card asks for no amount: its limit is worked out from what the
+  // applicant earns and how they have paid, not from what they ask for. A
+  // secured card does, because there the amount is the deposit.
+  const needsAmount = !isCard(product) || product === "secured_card";
+  if (needsAmount && (!Number.isFinite(amountInput) || amountInput <= 0)) {
     req.flash("error", "Enter an amount greater than zero.");
     return res.redirect("/credit");
   }
 
   try {
     // Typed in the display currency; every figure below is base.
-    const amount = toBase(user, amountInput);
+    const amount = needsAmount ? toBase(user, amountInput) : 0;
     const term = Number.parseInt(req.body.term, 10) || 0;
     const purpose = (req.body.purpose || "").trim().slice(0, 200) || null;
     const accountId = req.body.accountId ? Number(req.body.accountId) : null;
@@ -289,6 +335,19 @@ export async function apply(req, res, next) {
     const { means, exposure } = await meansFor(userId);
     const accounts = await listAccounts(userId);
     const wallet = accounts.find((a) => a.id === accountId) || null;
+
+    // Only a card above the secured one is judged on a record, so the model it
+    // is judged from is only assembled for one.
+    const held = isCard(product) && product !== "secured_card"
+      ? await creditPageModel(userId, decidedOn)
+      : null;
+    const standing = held
+      ? standingFrom({
+          facilities: held.facilities,
+          monthlyIncome: means.income,
+          todayIso: decidedOn
+        })
+      : null;
 
     const decision = assess(product, {
       amount,
@@ -299,8 +358,15 @@ export async function apply(req, res, next) {
       from: decidedOn,
       walletBalance: wallet ? Number(wallet.balance) : 0,
       hasActiveDayLoan: exposure.active_day_loans > 0,
-      hasActiveCard: exposure.active_cards > 0,
-      outstandingPlans: Number(exposure.outstanding_plans)
+      // Per grade of card, not per card: a secured card and a gold card at once
+      // is the ordinary way to earn on both, not a thing to be refused.
+      hasActiveCard: (exposure.active_card_products || []).includes("secured_card"),
+      outstandingPlans: Number(exposure.outstanding_plans),
+      score: standing?.score.score ?? null,
+      historyMonths: standing?.historyMonths ?? 0,
+      cleanMonths: standing?.cleanMonths ?? 0,
+      record: standing?.record ?? null,
+      held: held?.facilities ?? []
     });
 
     const application = await recordApplication({
@@ -453,7 +519,7 @@ export async function payInstallment(req, res, next) {
 // standing first and refuse against it.
 async function cardWithStanding(id, userId) {
   const facility = await getFacility(id, userId);
-  if (!facility || facility.product !== "secured_card") return null;
+  if (!facility || !isCard(facility.product)) return null;
 
   const [charges, payments] = await Promise.all([listCharges(userId), listCardPayments(userId)]);
   return {
@@ -470,6 +536,9 @@ async function cardWithStanding(id, userId) {
 // Spending on the card. Nothing is posted to the ledger here — the books are
 // cash basis and the spending lands when the card is paid, so recording it in
 // both places would count the same purchase twice.
+//
+// The category is not decoration. It is what a card's points are earned by, and
+// what the agent reads to say which card should have been reached for.
 export async function chargeCard(req, res, next) {
   try {
     const user = req.session.user;
@@ -497,15 +566,41 @@ export async function chargeCard(req, res, next) {
       return res.redirect("/credit");
     }
 
+    // The agent's line on how much of a limit should be in use. A charge that
+    // crosses it is remarked upon; it is only refused if the holder asked for
+    // the guard, because it is their card and their decision.
+    const settings = await getAgentSettings(user.id);
+    const target = Number(settings?.utilisation_target ?? 30);
+    const after = held.standing.limit > 0
+      ? Math.min(Math.round(((held.standing.balance + decision.terms.amount) / held.standing.limit) * 100), 100)
+      : 0;
+
+    if (after > target && settings?.charge_guard) {
+      const room = Math.max(held.standing.limit * (target / 100) - held.standing.balance, 0);
+      req.flash(
+        "error",
+        `Held back by your card agent: this would take the card to ${after}%, over the ` +
+        `${target}% you asked to stay under. ${room.toFixed(2)} still fits under the line. ` +
+        `Turn the guard off on the agent page if you want it through anyway.`
+      );
+      return res.redirect("/credit");
+    }
+
     await addCharge({
       facilityId: held.facility.id,
       userId: user.id,
       merchant,
       amount: decision.terms.amount,
-      chargedOn: req.body.chargedOn || today()
+      chargedOn: req.body.chargedOn || today(),
+      categoryId: req.body.categoryId ? Number(req.body.categoryId) : null
     });
 
-    req.flash("success", `Charged to the card. ${decision.reason}`);
+    req.flash(
+      "success",
+      after > target
+        ? `Charged to the card. That puts it at ${after}% of the limit, over your ${target}% line.`
+        : `Charged to the card. ${decision.reason}`
+    );
     return res.redirect("/credit");
   } catch (error) {
     return next(error);
@@ -599,18 +694,29 @@ export async function closeCard(req, res, next) {
       return res.redirect("/credit");
     }
 
-    const categoryId = await getDefaultCategoryId("Other Income");
-    await createTransaction({
-      userId,
-      accountId: req.body.accountId || null,
-      categoryId,
-      kind: "income",
-      amount: Number(facility.deposit || 0),
-      note: `${DEPOSIT_RETURNED_NOTE} — ${facility.label}`,
-      occurredOn: today()
-    });
+    // Only a secured card is holding anything of the holder's. Posting a zero
+    // for a card that never took a deposit would fail the ledger's own check
+    // that an amount is worth recording, and would say nothing if it did not.
+    const deposit = Number(facility.deposit || 0);
+    if (deposit > 0) {
+      const categoryId = await getDefaultCategoryId("Other Income");
+      await createTransaction({
+        userId,
+        accountId: req.body.accountId || null,
+        categoryId,
+        kind: "income",
+        amount: deposit,
+        note: `${DEPOSIT_RETURNED_NOTE} — ${facility.label}`,
+        occurredOn: today()
+      });
+    }
 
-    req.flash("success", "Card closed and the deposit returned to your wallet.");
+    req.flash(
+      "success",
+      deposit > 0
+        ? "Card closed and the deposit returned to your wallet."
+        : "Card closed. Nothing was held against it, so nothing comes back."
+    );
     return res.redirect("/credit");
   } catch (error) {
     return next(error);

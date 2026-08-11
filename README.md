@@ -69,13 +69,13 @@ just decides the front door.
   spending, flags over-budget and discretionary categories to trim, and builds
   an avalanche repayment schedule showing your debt-free date and the interest
   you'd save versus paying only the minimums
-- **Credit — day loans, purchase plans, and a secured card** — apply for credit
-  from the personal side. Every answer is worked out from your own ledger: what
-  comes in, what goes out, and what you have already promised elsewhere in the
-  app. There is no bureau behind it and no lender — the point is that a decline
-  names the figure that caused it rather than just saying no, and every
-  application is kept, refused ones included, because the reason is the useful
-  part
+- **Credit — day loans, purchase plans, and four grades of card** — apply for
+  credit from the personal side. Every answer is worked out from your own
+  ledger: what comes in, what goes out, and what you have already promised
+  elsewhere in the app. There is no bureau behind it and no lender — the point
+  is that a decline names the figure that caused it rather than just saying no,
+  and every application is kept, refused ones included, because the reason is
+  the useful part
   - **Day loan** — a small amount for 7, 14 or 30 days, repaid in one go. It
     costs 1% of the amount for each week it is held, is capped at half a month's
     income, and is refused if repaying it would not fit in what you have spare.
@@ -94,6 +94,21 @@ just decides the front door.
     it was. It falls due 21 days later, and missing it adds a fee of a tenth of
     whatever was short. Closing the card returns the deposit, once the balance
     is clear — the deposit secures the card rather than settling it
+  - **Cards you earn** — three grades above the secured one, each with a lower
+    rate, a bigger limit and faster points: the rewards card (24% APR, half a
+    month's income of limit, double points on eating out), the gold card (18%,
+    a month's income, triple on food and double on transport and utilities),
+    and the platinum card (12%, two months' income, double on everything and
+    four times on food). None takes a deposit. What stands in for one is your
+    record here — a score, months of history, and how many payments you have
+    missed — so every "not yet" names the number you are short of and every
+    limit is worked out from what you actually earn. A clean run of payments
+    raises a limit you already hold by a fifth every six months, up to twice
+    the starting figure
+  - **Points** — every charge earns at the card's rate for its category, a
+    point per 100 spent before multipliers, and a point comes back as 1 off the
+    balance. They are per card, redeemed against that card, and redeeming moves
+    the balance without moving money out of any wallet
   - **Reminders** — an email three days before the minimum falls due, and
     another if the date goes by unpaid, each sent once per statement. They go
     from the dashboard as well as the credit page, since somebody who has
@@ -110,6 +125,28 @@ just decides the front door.
     Settling credit is left out of the spending figures throughout — paying a
     card off is not a category you spent money on, it is paying for spending
     already counted where it happened
+  - **Card agent** — an agent that manages the cards rather than only reporting
+    on them. Once a day it reads every card, statement and charge you have and
+    says what to do in the order it is worth doing: what is due and by when,
+    what a balance carried past the month will cost, how much to pay to get a
+    card back under the share of its limit you asked to stay under, whether
+    this month's card spending has run past what you have spare, which card you
+    should have reached for and how many points that cost, whether you have
+    earned a higher limit or a better card, and which part of your score has
+    the most left on the table. Each move carries the figure that makes it
+    worth doing and, where one exists, a button that does it.
+
+    Switched on, it also acts. Autopilot pays the minimum, the statement, or
+    the full balance out of a wallet you name, a set number of days before each
+    date — once per statement, never more than is owed, and never overdrawing
+    the wallet: if the money is not there it takes nothing and tells you. A
+    charge guard can hold back a purchase that would take a card over your line
+    and say how much still fits, and is off by default because it is your card.
+    A briefing goes to an address you choose when something happened or
+    something needs doing, and never merely to say hello. You can also just ask
+    it — the answers are computed from your own statements, and an AI provider,
+    if you configure one, writes the prose over figures it is given rather than
+    any it worked out
   - **Showing a lender** — for borrowing this app does not do: a mortgage, a
     car, a business loan. It works from either end. You can make a check for a
     named lender and hand them the link; or you give them your credit code and
@@ -320,7 +357,9 @@ sold is derived, what a delivery estimate does with a supplier's history, how a
 month-end recurring date clamps into February, payslip rounding, loan interest
 and payoff projection, which credit application the figures allow and why a
 refused one was refused, what a card owes after a month of interest and a missed
-minimum, and currency formatting.
+minimum, what a purchase earns in points and which card should have been
+reached for, which grade of card a record has earned and what it is short of,
+what the card agent has to say and in what order, and currency formatting.
 
 One of the integration tests starts the app on an ephemeral port and requests
 every page. `npm run check` parses files but cannot see a missing import — the
@@ -330,7 +369,9 @@ dashboard once while every other test stayed green.
 The rest of the **integration tests** run against a real PostgreSQL and exercise
 the query layer directly — selling stock, refusing to oversell, voiding a sale back out
 again, an order moving from placed to received across two businesses, the ledger
-feeding the statements, and a card charged, paid down and reminded about. Each
+feeding the statements, a card charged, paid down and reminded about, and the
+card agent paying a statement out of a wallet — including that it pays a cycle
+once and not twice, and that a wallet too small to cover it is left alone. Each
 builds its own throwaway user and deletes it afterwards, so they leave nothing
 behind. Without a database configured they
 skip rather than fail, so `npm test` works on a fresh clone.

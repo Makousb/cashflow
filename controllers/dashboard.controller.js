@@ -13,6 +13,7 @@ import { materializeDueRecurring } from "../services/recurring.js";
 import { monthLabel, monthStart, today } from "../utils/dates.js";
 import { catchUpCardNotices } from "./credit.controller.js";
 import { catchUpRequestNotices } from "./credit-check.controller.js";
+import { catchUpWatch } from "./card-agent.controller.js";
 
 export async function showDashboard(req, res, next) {
   try {
@@ -27,6 +28,10 @@ export async function showDashboard(req, res, next) {
     catchUpCardNotices(user);
     // And any lender's ask that could not be sent when it arrived.
     catchUpRequestNotices(user);
+    // The card agent's daily round: this is where it pays a statement that is
+    // about to fall due, which is the whole reason for it running whether or not
+    // anybody opens its own page. Once a day, and not awaited.
+    catchUpWatch(user);
 
     const [summary, recent, budgets, goals] = await Promise.all([
       getMonthlySummary(user.id, month),

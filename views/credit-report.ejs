@@ -134,7 +134,7 @@
                   <td><%= products[row.product].label %></td>
                   <td class="num"><%= row.count %></td>
                   <td class="num">
-                    <% if (row.product === "secured_card") { %>
+                    <% if (row.product.endsWith("_card")) { %>
                       <span class="muted"><%= money(row.credit_limit) %> limit</span>
                     <% } else { %>
                       <%= money(row.principal) %>

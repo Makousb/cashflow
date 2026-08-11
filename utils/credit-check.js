@@ -14,6 +14,7 @@
 //
 // Pure. Rows in, plain object out.
 
+import { isCard } from "./cards.js";
 import { monthsBetween, toISODate } from "./dates.js";
 import { creditScore, paymentRecord } from "./credit-report.js";
 
@@ -54,7 +55,13 @@ export function sharedHistory({ facilities = [], monthlyIncome = 0, todayIso = t
   const owedOnCards = active.reduce((sum, f) => sum + (f.card?.balance || 0), 0);
   const owed = round(owedOnPlans + owedOnCards);
 
-  const card = active.find((f) => f.product === "secured_card") || null;
+  // Across every card the person holds, not whichever one comes back first: two
+  // cards half used is half used, and a lender shown one of them would be shown
+  // a figure that depended on a sort order.
+  const cards = active.filter((f) => isCard(f.product) && f.card);
+  const cardLimit = cards.reduce((sum, f) => sum + f.card.limit, 0);
+  const cardBalance = cards.reduce((sum, f) => sum + f.card.balance, 0);
+
   // Every year of it, not one — a lender is asking about a person's record, and
   // a single year can flatter or damn one.
   const record = paymentRecord(facilities, null, todayIso);
@@ -64,7 +71,9 @@ export function sharedHistory({ facilities = [], monthlyIncome = 0, todayIso = t
 
   const score = creditScore({
     record,
-    utilisation: card ? card.card.utilisation : null,
+    utilisation: cardLimit > 0
+      ? Math.min(Math.round((cardBalance / cardLimit) * 100), 100)
+      : null,
     owed,
     monthlyIncome,
     historyMonths

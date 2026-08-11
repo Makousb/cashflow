@@ -858,6 +858,137 @@ const SCHEMA_SQL = `
   CREATE UNIQUE INDEX IF NOT EXISTS idx_credit_notices_once
     ON credit_notices (facility_id, cycle, kind);
 
+  -- Cards above the secured one: an unsecured card is a different product, not
+  -- a secured card with a flag, so the two product columns have to accept the
+  -- new names. A CHECK cannot be widened in place, so the original is dropped
+  -- and rewritten. Named explicitly because that is the name PostgreSQL gave
+  -- the inline constraint above, and IF EXISTS covers a database that was
+  -- created after this migration and so never had the narrow one.
+  ALTER TABLE credit_applications DROP CONSTRAINT IF EXISTS credit_applications_product_check;
+  ALTER TABLE credit_applications ADD CONSTRAINT credit_applications_product_check
+    CHECK (product IN ('day_loan', 'bnpl', 'secured_card',
+                       'rewards_card', 'gold_card', 'platinum_card'));
+
+  ALTER TABLE credit_facilities DROP CONSTRAINT IF EXISTS credit_facilities_product_check;
+  ALTER TABLE credit_facilities ADD CONSTRAINT credit_facilities_product_check
+    CHECK (product IN ('day_loan', 'bnpl', 'secured_card',
+                       'rewards_card', 'gold_card', 'platinum_card'));
+
+  -- An application for an unsecured card asks for no amount at all: its limit
+  -- comes out of what the applicant earns and how they have paid, so there is
+  -- nothing for them to name. The granted limit is kept in credit_limit, where
+  -- it always was; this only stops a zero in the column beside it from being
+  -- rejected as if it were a nonsense request for nothing.
+  ALTER TABLE credit_applications DROP CONSTRAINT IF EXISTS credit_applications_amount_check;
+  ALTER TABLE credit_applications ADD CONSTRAINT credit_applications_amount_check
+    CHECK (amount >= 0);
+
+  -- What a charge was for. Points are earned per category, so a charge filed
+  -- under nothing earns the card's base rate and no multiplier — which is also
+  -- what every charge recorded before this column existed will now earn.
+  ALTER TABLE credit_charges ADD COLUMN IF NOT EXISTS category_id INTEGER
+    REFERENCES categories(id) ON DELETE SET NULL;
+
+  -- Where a card payment came from. Money out of a wallet is the ordinary case;
+  -- points redeemed move the balance without moving money, and the agent's own
+  -- payments are worth telling apart from the holder's on the statement.
+  ALTER TABLE credit_payments ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'wallet';
+  ALTER TABLE credit_payments DROP CONSTRAINT IF EXISTS credit_payments_source_check;
+  ALTER TABLE credit_payments ADD CONSTRAINT credit_payments_source_check
+    CHECK (source IN ('wallet', 'points', 'agent'));
+
+  -- Points turned back into money off a card. The payment is what moves the
+  -- balance; this row is what says the points were spent doing it, so a points
+  -- balance is always earned minus redeemed rather than a stored figure that
+  -- could drift from the payments beside it.
+  CREATE TABLE IF NOT EXISTS credit_redemptions (
+    id SERIAL PRIMARY KEY,
+    facility_id INTEGER NOT NULL REFERENCES credit_facilities(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    points INTEGER NOT NULL CHECK (points > 0),
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+    payment_id INTEGER REFERENCES credit_payments(id) ON DELETE SET NULL,
+    redeemed_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_credit_redemptions_facility
+    ON credit_redemptions (user_id, facility_id, redeemed_on);
+
+  -- The card agent's standing instructions. One row per person, and its absence
+  -- means the agent watches and advises but never acts: everything that spends
+  -- money is off until it is switched on, which is why autopay defaults to 'off'
+  -- rather than to the amount most people would want.
+  CREATE TABLE IF NOT EXISTS card_agent_settings (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    -- What the agent pays by itself, and out of which wallet. Without a wallet
+    -- it cannot pay at all, whatever this says.
+    autopay TEXT NOT NULL DEFAULT 'off'
+      CHECK (autopay IN ('off', 'minimum', 'statement', 'full')),
+    autopay_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+    -- How many days before the date it pays. Long enough that a failure can be
+    -- noticed and fixed by hand, short enough that the money is not gone early.
+    lead_days INTEGER NOT NULL DEFAULT 3,
+    -- The share of a limit the holder wants to stay under. 30 is where the score
+    -- above stops marking utilisation down hard, so it is the default here too.
+    utilisation_target INTEGER NOT NULL DEFAULT 30 CHECK (utilisation_target BETWEEN 1 AND 100),
+    -- Whether a charge that would breach that target is refused rather than
+    -- merely remarked upon. Off by default: it is the holder's card.
+    charge_guard BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Where the briefing goes. Null means nowhere, so mail is opt-in.
+    alert_email TEXT,
+    -- The day the daily watch last ran, which is what stops two page loads
+    -- racing into running it twice.
+    last_run_on DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  -- Every run the agent has made, kept as it was written. The headline figures
+  -- are recomputed whenever the page is opened; these are what the agent said at
+  -- the time, which is the only thing worth keeping about a past run.
+  CREATE TABLE IF NOT EXISTS card_agent_runs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    score INTEGER,
+    utilisation INTEGER NOT NULL DEFAULT 0,
+    balance NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    points INTEGER NOT NULL DEFAULT 0,
+    moves_total INTEGER NOT NULL DEFAULT 0,
+    moves_high INTEGER NOT NULL DEFAULT 0,
+    narrative TEXT,
+    -- Whether the covering note was written by the configured AI provider or
+    -- assembled here. Every figure in it is the same either way.
+    mode TEXT NOT NULL DEFAULT 'offline' CHECK (mode IN ('ai', 'offline')),
+    moves JSONB NOT NULL DEFAULT '[]'::jsonb,
+    -- What the agent did rather than advised, on this run.
+    actions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    notified_to TEXT,
+    notified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_card_agent_runs_user
+    ON card_agent_runs (user_id, created_at DESC);
+
+  -- One row per statement the agent has paid by itself. The uniqueness is the
+  -- whole point: a statement is somebody's money, and two runs arriving together
+  -- must not both pay it. The row is taken before the payment is made and
+  -- deleted if the payment does not happen.
+  CREATE TABLE IF NOT EXISTS card_agent_payments (
+    id SERIAL PRIMARY KEY,
+    facility_id INTEGER NOT NULL REFERENCES credit_facilities(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cycle TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'minimum'
+      CHECK (kind IN ('minimum', 'statement', 'full')),
+    amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    payment_id INTEGER REFERENCES credit_payments(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_card_agent_payments_once
+    ON card_agent_payments (facility_id, cycle);
+
   -- The supplier migration comes last, once every table it touches has been
   -- created above. This is one statement batch run against a database that may
   -- be brand new, so an ALTER sitting next to the suppliers tables would reach
