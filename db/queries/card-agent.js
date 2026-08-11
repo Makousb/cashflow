@@ -162,13 +162,20 @@ export async function listAgentPayments(userId, limit = 50) {
 
 // --- Points ---
 
+// The card's label comes along because this is read twice over: once as the
+// arithmetic behind a points balance, where it is ignored, and once as the
+// history shown to the holder, where "600 points off Everyday card" is the
+// whole of what makes the row mean anything. A closed card keeps its name here
+// rather than dropping out — what was redeemed still happened.
 export async function listRedemptions(userId) {
   const { rows } = await pool.query(
-    `SELECT id, facility_id, points, amount, payment_id,
-            to_char(redeemed_on, 'YYYY-MM-DD') AS redeemed_on
-     FROM credit_redemptions
-     WHERE user_id = $1
-     ORDER BY id DESC`,
+    `SELECT r.id, r.facility_id, r.points, r.amount, r.payment_id,
+            f.label, f.product, f.status AS card_status,
+            to_char(r.redeemed_on, 'YYYY-MM-DD') AS redeemed_on
+     FROM credit_redemptions r
+     LEFT JOIN credit_facilities f ON f.id = r.facility_id
+     WHERE r.user_id = $1
+     ORDER BY r.redeemed_on DESC, r.id DESC`,
     [userId]
   );
   return rows;

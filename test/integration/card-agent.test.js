@@ -305,6 +305,24 @@ describe("points off a balance", { skip: skipWithoutDb }, () => {
     assert.equal(points.redeemed, 600);
     assert.equal(points.balance, 0);
   });
+
+  test("the history says which card the points came off", async () => {
+    const [row] = await listRedemptions(user.id);
+    assert.equal(row.label, "Everyday card");
+    assert.equal(row.card_status, "active");
+    assert.equal(row.redeemed_on, "2026-08-05");
+  });
+
+  test("and keeps saying so after the card is closed", async () => {
+    await q("UPDATE credit_facilities SET status = 'closed' WHERE id = $1", [card.id]);
+    try {
+      const [row] = await listRedemptions(user.id);
+      assert.equal(row.label, "Everyday card", "a redemption still happened");
+      assert.equal(row.card_status, "closed");
+    } finally {
+      await q("UPDATE credit_facilities SET status = 'active' WHERE id = $1", [card.id]);
+    }
+  });
 });
 
 describe("raising a limit", { skip: skipWithoutDb }, () => {

@@ -352,6 +352,57 @@
   <% }) %>
 <% } %>
 
+<% if (redemptions.length) { %>
+  <%
+    const redeemedPoints = redemptions.reduce((sum, r) => sum + Number(r.points), 0);
+    const redeemedValue = redemptions.reduce((sum, r) => sum + Number(r.amount), 0);
+  %>
+  <h2>Points redeemed</h2>
+  <section class="card">
+    <p class="muted" style="margin-top:0;">
+      Every redemption, oldest at the bottom. None of these moved money: points
+      come off the balance directly, so nothing left a wallet and nothing was
+      posted as spending.
+    </p>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Card</th>
+            <th class="num">Points</th>
+            <th class="num">Off the balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% redemptions.forEach((r) => { %>
+            <tr>
+              <td><%= formatDate(r.redeemed_on) %></td>
+              <td>
+                <%= r.label || "a closed card" %>
+                <% if (r.card_status && r.card_status !== "active") { %>
+                  <span class="badge badge-done"><%= r.card_status %></span>
+                <% } %>
+              </td>
+              <td class="num"><%= r.points %></td>
+              <td class="num positive">−<%= money(r.amount) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="2">
+              <%= redemptions.length %> redemption<%= redemptions.length === 1 ? "" : "s" %>
+            </th>
+            <th class="num"><%= redeemedPoints %></th>
+            <th class="num positive">−<%= money(redeemedValue) %></th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+<% } %>
+
 <h2>Ask the agent</h2>
 <section class="card advisor-card">
   <div class="advisor-head">

@@ -83,7 +83,10 @@ export async function gather(user, todayIso = today()) {
     todayIso
   });
 
-  return { model, review, standing, settings, accounts, charges, redemptionsByFacility, todayIso };
+  return {
+    model, review, standing, settings, accounts, charges,
+    redemptions, redemptionsByFacility, todayIso
+  };
 }
 
 // --- Acting ---
@@ -310,7 +313,7 @@ export async function showAgent(req, res, next) {
     // what the agent did, so showing it before it has done it would be odd.
     await runDailyWatchIfDue(user);
 
-    const { review, standing, settings, accounts } = await gather(user);
+    const { review, standing, settings, accounts, redemptions } = await gather(user);
     const [history, paidByAgent] = await Promise.all([
       listRuns(user.id),
       listAgentPayments(user.id, 10)
@@ -329,6 +332,7 @@ export async function showAgent(req, res, next) {
       accounts,
       history,
       paidByAgent,
+      redemptions,
       latest,
       live: aiEnabled(),
       mailReady: mailEnabled(),
