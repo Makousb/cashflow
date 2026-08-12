@@ -1,4 +1,5 @@
 import { pool } from "../index.js";
+import { placeAt } from "./warehouse.js";
 
 // Supply chain data access. Unlike the rest of the business suite these rows
 // are shared between two businesses that may belong to different users, so
@@ -393,6 +394,15 @@ export async function receiveSupplyOrder(id) {
            WHERE id = $3`,
           [item.quantity, item.unit_price, productId]
         );
+        // Goods off a supplier's van land in the buyer's main store unless
+        // somebody moves them; the total and the placement move together.
+        await placeAt(client, {
+          businessId: order.buyer_business_id,
+          userId: order.buyer_user_id,
+          productId,
+          locationId: null,
+          delta: Number(item.quantity)
+        });
       } else {
         const { rows: created } = await client.query(
           `INSERT INTO products

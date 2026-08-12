@@ -1,0 +1,273 @@
+<%- include("partials/header") %>
+<%
+  const typeLabel = (t) => accountTypes[t] ? accountTypes[t].label : t;
+  const sourceLabel = {
+    bookkeeping: "Bookkeeping", sale: "Sale", invoice_raised: "Invoice raised",
+    bill_raised: "Bill received", manual: "Manual", adjustment: "Adjustment"
+  };
+  const groups = ["asset", "liability", "equity", "income", "expense"];
+%>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1><%= business.name %> · General ledger</h1>
+      <p class="muted">
+        Every movement as two halves that must agree ·
+        <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+        <a href="/business/<%= business.id %>/statements" class="link">financial statements →</a>
+      </p>
+    </div>
+    <span class="badge <%= trial.balanced ? "badge-done" : "badge-danger" %>">
+      <%= trial.balanced ? "in balance" : "OUT OF BALANCE" %>
+    </span>
+  </div>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">⚖️</span>
+    <span class="stat-body">
+      <span class="stat-label">Total debits</span>
+      <span class="stat-value"><%= money(trial.debits) %></span>
+      <small class="muted">across <%= trial.active.length %> account(s) in use</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">⚖️</span>
+    <span class="stat-body">
+      <span class="stat-label">Total credits</span>
+      <span class="stat-value"><%= money(trial.credits) %></span>
+      <small class="muted">
+        <%= trial.balanced ? "matching to the shilling" : `out by ${money(Math.abs(trial.difference))}` %>
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📓</span>
+    <span class="stat-body">
+      <span class="stat-label">Journal entries</span>
+      <span class="stat-value"><%= entries.length %></span>
+      <small class="muted">most recent <%= entries.length %> shown below</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon <%= unposted > 0 ? "tint-red" : "" %>">🗂️</span>
+    <span class="stat-body">
+      <span class="stat-label">Not yet posted</span>
+      <span class="stat-value <%= unposted > 0 ? "negative" : "positive" %>"><%= unposted %></span>
+      <small class="muted">
+        <%= unposted > 0 ? "entries in the books with no journal" : "the books and the ledger agree" %>
+      </small>
+    </span>
+  </div>
+</section>
+
+<% if (!trial.balanced) { %>
+  <section class="alert-card alert-critical" style="margin-bottom:1.5rem;">
+    <span class="alert-icon">⚠️</span>
+    <div class="alert-body">
+      <strong>The ledger does not balance</strong>
+      <div class="alert-detail">
+        Debits come to <%= money(trial.debits) %> and credits to <%= money(trial.credits) %>,
+        a difference of <%= money(Math.abs(trial.difference)) %>. This should be
+        impossible — an entry that does not balance is refused before it is
+        written, and the database enforces it too. Something has written to
+        journal_lines directly.
+      </div>
+    </div>
+  </section>
+<% } %>
+
+<% if (unposted > 0) { %>
+  <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
+    <span class="alert-icon">🗂️</span>
+    <div class="alert-body" style="flex:1;">
+      <strong><%= unposted %> entr<%= unposted === 1 ? "y" : "ies" %> in the books have no journal</strong>
+      <div class="alert-detail">
+        These were recorded before this ledger existed. Posting them replays each
+        one from its own category, exactly as a new entry would be — so the
+        ledger covers all your history rather than starting from today. Only the
+        cash movements are replayed: when an invoice was <em>earned</em>, as
+        opposed to paid, is not recorded anywhere, so those accrual halves are
+        not invented.
+      </div>
+      <form action="/business/<%= business.id %>/ledger/backfill" method="POST" style="margin-top:0.6rem;">
+        <button type="submit" class="btn btn-primary btn-sm">Post them to the ledger</button>
+      </form>
+    </div>
+  </section>
+<% } %>
+
+<h2>Trial balance</h2>
+<section class="card" style="margin-bottom:1.5rem;">
+  <% if (!trial.active.length) { %>
+    <p class="empty-state">
+      Nothing posted yet. Record a sale, settle an invoice, or make an entry by
+      hand and it will appear here.
+    </p>
+  <% } else { %>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th><th>Account</th><th>Type</th>
+            <th class="num">Debits</th><th class="num">Credits</th><th class="num">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% groups.forEach((g) => { %>
+            <% const rows = trial.active.filter((r) => r.type === g); %>
+            <% if (rows.length) { %>
+              <tr><td colspan="6" class="muted"><strong><%= typeLabel(g) %></strong></td></tr>
+              <% rows.forEach((r) => { %>
+                <tr>
+                  <td class="muted"><%= r.code %></td>
+                  <td><%= r.name %></td>
+                  <td class="muted"><%= r.type %></td>
+                  <td class="num"><%= r.debits > 0 ? money(r.debits) : "—" %></td>
+                  <td class="num"><%= r.credits > 0 ? money(r.credits) : "—" %></td>
+                  <td class="num <%= r.balance < 0 ? "negative" : "" %>"><%= money(r.balance) %></td>
+                </tr>
+              <% }) %>
+            <% } %>
+          <% }) %>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="3">Total</th>
+            <th class="num"><%= money(trial.debits) %></th>
+            <th class="num"><%= money(trial.credits) %></th>
+            <th class="num <%= trial.balanced ? "positive" : "negative" %>">
+              <%= trial.balanced ? "balanced" : money(trial.difference) %>
+            </th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0;">
+      A balance is shown the way its account naturally runs, so a positive figure
+      is the ordinary one: assets and expenses run as debits, liabilities, equity
+      and income as credits.
+    </p>
+  <% } %>
+</section>
+
+<h2>Journal</h2>
+<section class="card" style="margin-bottom:1.5rem;">
+  <% if (!entries.length) { %>
+    <p class="empty-state">No entries yet.</p>
+  <% } else { %>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>#</th><th>Date</th><th>Memo</th><th>Source</th><th class="num">Amount</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% entries.forEach((e) => { %>
+            <tr>
+              <td class="muted"><%= e.entry_no %></td>
+              <td><%= formatDate(e.entry_date) %></td>
+              <td><%= e.memo || "—" %></td>
+              <td><span class="badge badge-done"><%= sourceLabel[e.source] || e.source %></span></td>
+              <td class="num"><%= money(e.total) %></td>
+              <td>
+                <a class="link" href="/business/<%= business.id %>/ledger/entries/<%= e.id %>">
+                  <%= e.line_count %> lines →
+                </a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Make an entry</h2>
+    <p class="muted">
+      For an opening balance, a correction, or a period-end stock adjustment.
+      Debits and credits must come to the same total or it will not post.
+    </p>
+    <form action="/business/<%= business.id %>/ledger/entries" method="POST" class="stacked-form">
+      <label>
+        Date
+        <input type="date" name="entryDate" value="<%= today %>" required />
+      </label>
+      <label>
+        What it is for
+        <input type="text" name="memo" maxlength="200" placeholder="e.g. Opening stock" required />
+      </label>
+
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th></tr>
+          </thead>
+          <tbody>
+            <% for (let i = 0; i < 4; i++) { %>
+              <tr>
+                <td>
+                  <select name="accountId">
+                    <option value="">—</option>
+                    <% accounts.forEach((a) => { %>
+                      <option value="<%= a.id %>"><%= a.code %> <%= a.name %></option>
+                    <% }) %>
+                  </select>
+                </td>
+                <td class="num"><input type="number" name="debit" step="0.01" min="0" placeholder="0.00" /></td>
+                <td class="num"><input type="number" name="credit" step="0.01" min="0" placeholder="0.00" /></td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      <button type="submit" class="btn btn-primary">Post the entry</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Chart of accounts</h2>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Code</th><th>Account</th><th>Type</th></tr></thead>
+        <tbody>
+          <% accounts.forEach((a) => { %>
+            <tr>
+              <td class="muted"><%= a.code %></td>
+              <td><%= a.name %><% if (!a.key) { %> <span class="badge badge-warn">yours</span><% } %></td>
+              <td class="muted"><%= a.type %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top:1.2rem;">Add an account</h3>
+    <form action="/business/<%= business.id %>/ledger/accounts" method="POST" class="stacked-form">
+      <div class="two-col">
+        <label>
+          Code
+          <input type="text" name="code" maxlength="20" placeholder="e.g. 5950" required />
+        </label>
+        <label>
+          Type
+          <select name="type">
+            <% Object.keys(accountTypes).forEach((t) => { %>
+              <option value="<%= t %>"><%= t %></option>
+            <% }) %>
+          </select>
+        </label>
+      </div>
+      <label>
+        Name
+        <input type="text" name="name" maxlength="120" placeholder="e.g. Bank charges" required />
+      </label>
+      <button type="submit" class="btn">Add it</button>
+    </form>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

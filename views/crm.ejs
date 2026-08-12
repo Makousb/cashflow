@@ -1,0 +1,292 @@
+<%- include("partials/header") %>
+<%
+  const stamp = (v) => new Date(v).toLocaleString("en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+  });
+  const priorityBadge = (p) =>
+    p === "urgent" ? "badge-danger" : p === "high" ? "badge-warn" : "badge-done";
+%>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1><%= business.name %> · Sales &amp; support</h1>
+      <p class="muted">
+        The deals you are chasing and the problems you owe somebody an answer to ·
+        <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+        <a href="/business/<%= business.id %>/marketing" class="link">contacts &amp; marketing →</a>
+      </p>
+    </div>
+    <% if (board.counts.late > 0) { %>
+      <span class="badge badge-danger"><%= board.counts.late %> case(s) late</span>
+    <% } %>
+  </div>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">🎯</span>
+    <span class="stat-body">
+      <span class="stat-label">Open pipeline</span>
+      <span class="stat-value"><%= money(funnel.open.value) %></span>
+      <small class="muted"><%= funnel.open.count %> deal(s) still live</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📈</span>
+    <span class="stat-body">
+      <span class="stat-label">Weighted forecast</span>
+      <span class="stat-value positive"><%= money(funnel.open.weighted) %></span>
+      <small class="muted">the same deals against their odds</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">🏆</span>
+    <span class="stat-body">
+      <span class="stat-label">Win rate</span>
+      <span class="stat-value"><%= funnel.winRate === null ? "—" : funnel.winRate + "%" %></span>
+      <small class="muted">
+        <%= funnel.decided > 0
+          ? `${funnel.won.count} won, ${funnel.lost.count} lost`
+          : "nothing decided yet" %>
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon <%= board.counts.late > 0 ? "tint-red" : "" %>">🎧</span>
+    <span class="stat-body">
+      <span class="stat-label">Cases open</span>
+      <span class="stat-value <%= board.counts.late > 0 ? "negative" : "" %>">
+        <%= board.counts.open + board.counts.pending %>
+      </span>
+      <small class="muted">
+        <%= board.counts.late > 0 ? `${board.counts.late} past their target` : "all within target" %>
+      </small>
+    </span>
+  </div>
+</section>
+
+<% if (funnel.open.value > 0) { %>
+  <p class="muted" style="margin-top:-0.5rem;">
+    <%= money(funnel.open.value) %> is what the open deals add up to;
+    <strong><%= money(funnel.open.weighted) %></strong> is what they are worth once
+    each one's odds are taken seriously. The second number is the one to plan on.
+  </p>
+<% } %>
+
+<% if (attention.length) { %>
+  <h2>Deals going quiet</h2>
+  <section class="card" style="margin-bottom:1.5rem;">
+    <ul class="finding-list">
+      <% attention.forEach((d) => { %>
+        <li class="finding">
+          <div class="finding-head">
+            <strong><%= d.name %> — <%= money(d.value) %></strong>
+            <span class="badge <%= d.severity === "high" ? "badge-danger" : "badge-warn" %>">
+              <%= stages[d.stage].label %>
+            </span>
+          </div>
+          <p class="muted"><%= d.reason %><%= d.contact_name ? ` · ${d.contact_name}` : "" %></p>
+        </li>
+      <% }) %>
+    </ul>
+  </section>
+<% } %>
+
+<h2>Pipeline</h2>
+<% funnel.byStage.forEach((s) => { %>
+  <% if (s.count > 0) { %>
+    <section class="card">
+      <div class="card-head">
+        <h3 style="margin:0;">
+          <%= s.label %>
+          <span class="badge <%= s.open ? "badge-warn" : "badge-done" %>"><%= s.count %></span>
+        </h3>
+        <span class="muted">
+          <%= money(s.value) %><%= s.open ? ` · ${money(s.weighted)} weighted at ${s.probability}%` : "" %>
+        </span>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Deal</th><th>Contact</th><th class="num">Value</th><th>Close by</th><th>Move to</th><th></th></tr>
+          </thead>
+          <tbody>
+            <% s.rows.forEach((d) => { %>
+              <tr>
+                <td>
+                  <%= d.name %>
+                  <% if (d.probability !== null) { %>
+                    <small class="muted">(<%= d.probability %>%)</small>
+                  <% } %>
+                </td>
+                <td class="muted"><%= d.contact_name || d.contact_email || "—" %></td>
+                <td class="num"><%= money(d.value) %></td>
+                <td class="muted"><%= d.expected_close ? formatDate(d.expected_close) : "—" %></td>
+                <td>
+                  <form action="/business/<%= business.id %>/crm/deals/<%= d.id %>/move"
+                        method="POST" class="inline-form">
+                    <select name="stage">
+                      <% stageKeys.forEach((k) => { %>
+                        <option value="<%= k %>"<%= k === d.stage ? " selected" : "" %>>
+                          <%= stages[k].label %>
+                        </option>
+                      <% }) %>
+                    </select>
+                    <button type="submit" class="btn btn-sm">Move</button>
+                  </form>
+                </td>
+                <td>
+                  <form action="/business/<%= business.id %>/crm/deals/<%= d.id %>/delete"
+                        method="POST" class="inline-form">
+                    <button type="submit" class="btn btn-ghost btn-sm">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+<% }) %>
+
+<% if (funnel.open.count === 0 && funnel.decided === 0) { %>
+  <section class="card">
+    <p class="empty-state">No deals yet. Add the first one below.</p>
+  </section>
+<% } %>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Add a deal</h2>
+    <form action="/business/<%= business.id %>/crm/deals" method="POST" class="stacked-form">
+      <label>
+        What it is
+        <input type="text" name="name" maxlength="160" required placeholder="e.g. Monthly supply to Kicheko" />
+      </label>
+      <div class="two-col">
+        <label>
+          Worth
+          <input type="number" name="value" step="0.01" min="0" required placeholder="0.00" />
+        </label>
+        <label>
+          Stage
+          <select name="stage">
+            <% stageKeys.filter((k) => stages[k].open).forEach((k) => { %>
+              <option value="<%= k %>"><%= stages[k].label %> (<%= stages[k].probability %>%)</option>
+            <% }) %>
+          </select>
+        </label>
+      </div>
+      <div class="two-col">
+        <label>
+          Close by
+          <input type="date" name="expectedClose" />
+        </label>
+        <label>
+          Odds, if you know better
+          <input type="number" name="probability" min="0" max="100" placeholder="stage default" />
+        </label>
+      </div>
+      <label>
+        Who it is with
+        <select name="contactId">
+          <option value="">— nobody on file —</option>
+          <% contacts.forEach((c) => { %>
+            <option value="<%= c.id %>"><%= c.name || c.email %></option>
+          <% }) %>
+        </select>
+      </label>
+      <button type="submit" class="btn btn-primary">Add it</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Raise a case</h2>
+    <form action="/business/<%= business.id %>/crm/cases" method="POST" class="stacked-form">
+      <label>
+        What is wrong
+        <input type="text" name="subject" maxlength="200" required placeholder="e.g. Delivery arrived short" />
+      </label>
+      <div class="two-col">
+        <label>
+          Priority
+          <select name="priority">
+            <% Object.keys(priorities).forEach((p) => { %>
+              <option value="<%= p %>"<%= p === "normal" ? " selected" : "" %>>
+                <%= priorities[p].label %> — answer within <%= priorities[p].hours %>h
+              </option>
+            <% }) %>
+          </select>
+        </label>
+        <label>
+          Who reported it
+          <select name="contactId">
+            <option value="">— not on file —</option>
+            <% contacts.forEach((c) => { %>
+              <option value="<%= c.id %>"><%= c.name || c.email %></option>
+            <% }) %>
+          </select>
+        </label>
+      </div>
+      <label>
+        Their name, if they are not on file
+        <input type="text" name="reporter" maxlength="120" placeholder="e.g. Walk-in customer" />
+      </label>
+      <label>
+        What they said
+        <textarea name="body" rows="3" maxlength="4000" placeholder="In their words"></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary">Raise it</button>
+    </form>
+  </section>
+</div>
+
+<h2>Support desk</h2>
+<section class="card">
+  <% if (!board.rows.length) { %>
+    <p class="empty-state">No cases. Long may it last.</p>
+  <% } else { %>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>Case</th><th>Who</th><th>Priority</th><th>Status</th><th>Age</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% board.rows.forEach((c) => { %>
+            <tr>
+              <td>
+                <%= c.subject %>
+                <% if (c.reply_count > 0) { %>
+                  <small class="muted">(<%= c.reply_count %>)</small>
+                <% } %>
+              </td>
+              <td class="muted"><%= c.contact_name || c.contact_email || c.reporter || "—" %></td>
+              <td><span class="badge <%= priorityBadge(c.priority) %>"><%= priorities[c.priority].label %></span></td>
+              <td>
+                <% if (c.standing.settled) { %>
+                  <span class="badge badge-done"><%= statuses[c.status].label %></span>
+                <% } else if (c.standing.late) { %>
+                  <span class="badge badge-danger">late by <%= c.standing.overBy %>h</span>
+                <% } else { %>
+                  <span class="badge badge-warn"><%= statuses[c.status].label %></span>
+                <% } %>
+              </td>
+              <td class="muted"><%= c.standing.ageLabel %></td>
+              <td>
+                <a class="link" href="/business/<%= business.id %>/crm/cases/<%= c.id %>">open →</a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0;">
+      A case waiting on the customer is not counted late — the clock is not yours
+      while it is with them.
+    </p>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>

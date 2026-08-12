@@ -18,6 +18,15 @@ import {
 } from "../db/queries/business.js";
 import { inventorySummary } from "../db/queries/inventory.js";
 import { toBase } from "../services/fx.js";
+import { ledgerLines, listAccounts, unpostedCount } from "../db/queries/ledger.js";
+import {
+  billPaidEntry,
+  invoicePaidEntry,
+  ledgerBalanceSheet,
+  ledgerIncomeStatement,
+  reconcile,
+  trialBalance
+} from "../utils/ledger.js";
 import { today } from "../utils/dates.js";
 import { balanceSheet, cashFlow, incomeStatement } from "../utils/statements.js";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/categories.js";
@@ -99,7 +108,10 @@ export async function payInvoice(req, res, next) {
       return res.redirect(`/business/${business.id}/invoices`);
     }
 
-    // Payment received — post the income to the ledger.
+    // Payment received. The cash book records money in, as it always has; the
+    // journal settles the receivable rather than booking revenue, because the
+    // revenue was earned when the invoice was raised. Booking it here as well
+    // is the classic way to report one year's takings as two.
     const transaction = await addBusinessTransaction({
       businessId: business.id,
       userId: req.session.user.id,
@@ -107,7 +119,11 @@ export async function payInvoice(req, res, next) {
       amount: Number(invoice.amount),
       category: invoice.category,
       note: `Invoice paid: ${invoice.customer}`,
-      occurredOn: today()
+      occurredOn: today(),
+      entry: invoicePaidEntry({
+        amount: Number(invoice.amount),
+        memo: `Invoice settled: ${invoice.customer}`
+      })
     });
     await markInvoicePaid(invoice.id, req.session.user.id, today(), transaction.id);
 
@@ -192,6 +208,8 @@ export async function payBill(req, res, next) {
       return res.redirect(`/business/${business.id}/bills`);
     }
 
+    // As with an invoice: the cost landed when the bill arrived, so paying it
+    // clears the payable and spends cash without incurring anything new.
     const transaction = await addBusinessTransaction({
       businessId: business.id,
       userId: req.session.user.id,
@@ -199,7 +217,11 @@ export async function payBill(req, res, next) {
       amount: Number(bill.amount),
       category: bill.category,
       note: `Bill paid: ${bill.vendor}`,
-      occurredOn: today()
+      occurredOn: today(),
+      entry: billPaidEntry({
+        amount: Number(bill.amount),
+        memo: `Bill settled: ${bill.vendor}`
+      })
     });
     await markBillPaid(bill.id, req.session.user.id, today(), transaction.id);
 
@@ -231,17 +253,37 @@ export async function showStatements(req, res, next) {
     if (!business) return undefined;
 
     const userId = req.session.user.id;
-    const [pnl, outstanding, inventory] = await Promise.all([
+    const [pnl, outstanding, inventory, accounts, lines, unposted] = await Promise.all([
       businessPnL(business.id, userId),
       outstandingTotals(business.id, userId),
-      inventorySummary(business.id, userId)
+      inventorySummary(business.id, userId),
+      listAccounts(business.id, userId),
+      ledgerLines(business.id, userId),
+      unpostedCount(business.id, userId)
     ]);
 
     const cash = pnl.net; // income received − expenses paid
     const stockValue = Number(inventory.stock_value);
+
+    // The same books read two ways. The derived statements group categorised
+    // cash movements and estimate cost of sales from closing stock; the ledger
+    // posts both halves of everything as it happens. Showing them side by side
+    // is the honest thing to do while both exist — where they disagree, the
+    // reason is usually worth knowing rather than worth hiding.
+    const trial = trialBalance(accounts, lines);
+    const fromLedger = ledgerIncomeStatement(trial);
+    const derived = incomeStatement(pnl.revenue, pnl.byCategory, {
+      closingInventory: stockValue
+    });
+
     return res.render("statements", {
       title: `${business.name} · Financial statements`,
       business,
+      trial,
+      fromLedger,
+      ledgerBalance: ledgerBalanceSheet(trial),
+      reconciliation: reconcile(fromLedger, derived),
+      unposted,
       // Stock on hand is held back out of cost of sales: it is an asset on the
       // balance sheet below, not a cost of trading yet.
       income: incomeStatement(pnl.revenue, pnl.byCategory, {

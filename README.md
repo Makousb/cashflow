@@ -170,6 +170,67 @@ just decides the front door.
   - **Bookkeeping** — record income and expenses by category and track live
     profit & loss (revenue, expenses, net profit, margin, and an expense
     breakdown)
+  - **Stock locations** — where the units actually are. A product still carries
+    one number for how many there are, and that number stays the one the rest of
+    the app trusts: a sale asks it whether it can sell, and must never have to
+    add up rows across a warehouse to find out. Locations answer the second
+    question — of those forty bags, how many are in the back store and how many
+    on the stall. Every path that moves stock moves the placement with it in the
+    same transaction, so the two cannot drift through ordinary use, and the page
+    reports the difference rather than assuming it is zero. Stock that predates
+    locations is placed in one go. Moving stock between places changes where,
+    never how much, so it touches neither the total nor the ledger; a move of
+    more than is there is refused outright rather than quietly clamped, since
+    moving "as much as we can" would report a success for something that did not
+    happen. A shop with a full back store and an empty shelf is told it has a
+    moving problem rather than a buying one
+  - **Group & jurisdictions** — a business can open branches, each keeping its
+    own books, filing its own tax where it trades, and rolling up into a group
+    total. Naming a jurisdiction is what decides what is owed and what it is
+    called: VAT in Nairobi, GST in Mumbai, sales tax in the United States — and
+    the difference is not cosmetic, since VAT and GST are reclaimable on
+    purchases and US sales tax is not, so one business hands over the difference
+    and the other hands over all of it. Rates default to the country's headline
+    ones and every one can be overridden, because the exception is the normal
+    case in tax; zero is treated as a real rate rather than a missing one. The
+    group's figures come off each branch's own ledger and are converted into the
+    parent's currency **before** they are added up — adding first and converting
+    the total is a confident number that means nothing. A business cannot be put
+    underneath one of its own branches, which would otherwise make a cycle the
+    group page would hang on. Two honest limits, both stated on the page:
+    nothing is eliminated between entities yet, so two branches trading with each
+    other are counted twice; and amounts are still stored in your own base
+    currency throughout the app, so a mixed-currency group total is indicative
+    until each branch's books are genuinely kept in its own money
+  - **Sales & support** — the two things a business works on daily. A pipeline
+    of deals with stages from lead through to won or lost, each carrying a value
+    and odds, and a forecast that weights one by the other — because a pipeline
+    with 5m "in it" and 400k weighted does not have 5m coming, and the gap
+    between those two figures is the number worth planning on. Deals that have
+    blown their close date or gone quiet for weeks are surfaced, since the real
+    problem with a pipeline is rarely the deals being worked. Alongside it a
+    support desk: cases with a priority that sets how long they may sit (four
+    hours for urgent, a week for low), a thread carrying both sides of the
+    conversation, and a board ordered by what actually needs answering first. A
+    case waiting on the customer is not counted late — the clock is not yours
+    while it is with them. Deals and cases attach to the contacts marketing
+    already collected, and land on their timeline, but neither requires one: a
+    walk-in with no email address is still a deal and still a complaint
+  - **General ledger** — double-entry underneath everything else. Each business
+    opens with a chart of accounts on the usual numbering (1000s assets, 2000s
+    liabilities, 4000s income, 5000s expenses), and every movement is posted as
+    two halves that must agree: a sale books revenue and relieves the stock that
+    left at what it cost; an invoice earns its revenue when it is raised and only
+    turns into cash when it is settled; a pay run costs the gross, pays out the
+    net, and leaves the deductions sitting as a liability until they are
+    remitted. Buying stock debits an asset rather than an expense, so nothing has
+    to be estimated back out at the year end. An entry that does not balance is
+    refused before a row is written — by the engine, and by the database
+    independently — which is what makes the trial balance worth reading. Books
+    kept before the ledger existed can be posted to it in one go, replaying each
+    entry from its own category. There is a journal browser, a trial balance, and
+    a form for posting an entry by hand (an opening balance, a correction, a
+    period-end stock adjustment)
   - **Financial statements** — a structured income statement (revenue, COGS,
     gross profit, operating expenses, net profit), a balance sheet (assets,
     liabilities, owner's equity), and a cash flow statement. The income
@@ -178,7 +239,13 @@ just decides the front door.
     is derived as stock purchased less stock still on hand, and the statement
     shows both lines so the figure can be checked rather than taken on trust.
     Cash flow stays cash basis, so a stock purchase appears there in full — the
-    page explains the gap between the two
+    page explains the gap between the two. The page now shows the same books
+    read both ways — off the ledger and off the categories — side by side with
+    the difference on each line, because two ways of reading one set of books
+    should be made to answer to each other rather than one quietly replacing the
+    other. Where they part company the reason is usually worth knowing: revenue
+    recorded straight into the books with no sale behind it carries no cost of
+    sales, so the ledger reports the fatter margin, honestly
   - **Invoices (accounts receivable)** — track money customers owe you; marking
     an invoice paid records the income
   - **Bills (accounts payable)** — track vendor bills you owe; marking a bill

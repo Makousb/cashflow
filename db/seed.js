@@ -13,6 +13,8 @@ import bcrypt from "bcrypt";
 
 import { pool } from "./index.js";
 import { ensureSchema } from "./ensureSchema.js";
+import { ensureChart, postEntryAlone } from "./queries/ledger.js";
+import { simpleEntry } from "../utils/ledger.js";
 import { toISODate } from "../utils/dates.js";
 
 const args = new Set(process.argv.slice(2));
@@ -175,6 +177,26 @@ async function seedShop(userId) {
      RETURNING id`,
     [userId]
   );
+
+  // The chart of accounts, before anything is posted against it. The rows below
+  // are written as raw SQL rather than through the query modules, so nothing
+  // else here would open one — and the sales seeded further down post journals.
+  await ensureChart(shop.id, userId);
+
+  // The money the owner started with. Without it the ledger reads a large
+  // negative cash balance — correct, and exactly what a real set of books says
+  // when nobody recorded where the opening money came from, but a demo that
+  // opens on impossible-looking cash reads as a broken app rather than as an
+  // honest one. This is also the only thing that puts anything in the equity
+  // account, so the balance sheet has both halves to show.
+  await postEntryAlone({
+    businessId: shop.id,
+    userId,
+    lines: simpleEntry("cash", "owners_equity", 400000, "Opening capital"),
+    memo: "Opening capital introduced by the owner",
+    entryDate: monthStartOf(3),
+    source: "manual"
+  });
 
   // Trading history. Stock buying is a cash cost here; the income statement
   // holds back whatever is still on the shelves (see utils/statements.js).

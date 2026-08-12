@@ -37,6 +37,55 @@
 </section>
 
 <section class="card" style="margin-bottom:1.5rem;">
+  <div class="budget-row" style="margin-top:0;">
+    <h2 style="margin:0;"><%= sales.rates.salesTax.label %> position</h2>
+    <span class="badge badge-done">
+      <%= sales.rates.name %> · <%= sales.rates.authority %>
+    </span>
+  </div>
+  <% if (sales.rates.salesTax.varies) { %>
+    <p class="muted">
+      <%= sales.rates.name %> sets <%= sales.rates.salesTax.label.toLowerCase() %>
+      locally rather than nationally, so there is no rate to apply here. Enter the
+      one you charge on the <a href="/business/<%= business.id %>/group" class="link">group page</a>
+      and this will work it out.
+    </p>
+  <% } %>
+  <div class="stmt-line">
+    <span><%= sales.rates.salesTax.label %> charged on sales (<%= sales.rates.salesTax.rate %>%)</span>
+    <span><%= money(sales.output.tax) %></span>
+  </div>
+  <% if (sales.rates.salesTax.reclaimable) { %>
+    <div class="stmt-line">
+      <span>Less <%= sales.rates.salesTax.label %> you were charged</span>
+      <span class="positive">(<%= money(sales.input.tax) %>)</span>
+    </div>
+  <% } %>
+  <div class="stmt-line stmt-total">
+    <span><%= sales.position.refundDue ? "Refund due to you" : `Owed to ${sales.rates.authority}` %></span>
+    <span class="<%= sales.position.refundDue ? "positive" : "negative" %>">
+      <%= money(sales.position.net) %>
+    </span>
+  </div>
+  <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0;">
+    <% if (sales.rates.salesTax.reclaimable) { %>
+      You are a collector here, not a payer: you hand over what you charged less
+      what you were charged.
+      <%= sales.position.refundDue
+        ? "You were charged more than you collected, so this is money owed back to you — worth claiming."
+        : "" %>
+    <% } else { %>
+      <%= sales.rates.salesTax.label %> is charged to the final buyer and is not
+      reclaimable, so all of what you collected is owed on.
+    <% } %>
+    Amounts here are recorded tax-inclusive, so the tax is taken back out of your
+    totals rather than added up per line — an approximation, and a close one for
+    a business on a single rate.
+    <a href="/business/<%= business.id %>/group" class="link">Change where you trade →</a>
+  </p>
+</section>
+
+<section class="card" style="margin-bottom:1.5rem;">
   <h2>How it's estimated</h2>
   <p class="muted">A rough estimate from your books — confirm with a tax professional before filing.</p>
   <div class="progress" style="height:12px;margin:0.75rem 0 1.25rem;">

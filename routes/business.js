@@ -93,6 +93,38 @@ import {
   updateContact
 } from "../controllers/marketing.controller.js";
 import { askAdvisor, showAdvisor } from "../controllers/advisor.controller.js";
+import {
+  addAccount,
+  // Aliased: the bookkeeping page already exports an addEntry, and a journal
+  // entry is a different animal from a line in the cash book.
+  addEntry as addJournalEntry,
+  runBackfill,
+  showEntry,
+  showLedger
+} from "../controllers/ledger.controller.js";
+import {
+  addLocation,
+  moveStock,
+  placeEverything,
+  setDefault,
+  showLocations
+} from "../controllers/warehouse.controller.js";
+import {
+  addSubsidiary,
+  reparent,
+  savePlace,
+  showGroup
+} from "../controllers/group.controller.js";
+import {
+  addCase,
+  addOpportunity,
+  changeCaseStatus,
+  moveDeal,
+  removeDeal,
+  replyToCase,
+  showCase,
+  showCrm
+} from "../controllers/crm.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -140,6 +172,37 @@ router.post("/:id/planning/budgets/:budgetId/delete", removeBudget);
 
 // Financial statements
 router.get("/:id/statements", showStatements);
+
+// General ledger. Declared before the module pages that follow so nothing
+// reads "ledger" as one of their ids.
+router.get("/:id/ledger", showLedger);
+router.get("/:id/ledger/entries/:entryId", showEntry);
+router.post("/:id/ledger/entries", addJournalEntry);
+router.post("/:id/ledger/accounts", addAccount);
+router.post("/:id/ledger/backfill", runBackfill);
+
+// Sales pipeline and support desk
+router.get("/:id/crm", showCrm);
+router.post("/:id/crm/deals", addOpportunity);
+router.post("/:id/crm/deals/:dealId/move", moveDeal);
+router.post("/:id/crm/deals/:dealId/delete", removeDeal);
+router.get("/:id/crm/cases/:caseId", showCase);
+router.post("/:id/crm/cases", addCase);
+router.post("/:id/crm/cases/:caseId/reply", replyToCase);
+router.post("/:id/crm/cases/:caseId/status", changeCaseStatus);
+
+// Stock locations: where the units actually are
+router.get("/:id/locations", showLocations);
+router.post("/:id/locations", addLocation);
+router.post("/:id/locations/:locationId/default", setDefault);
+router.post("/:id/locations/transfers", moveStock);
+router.post("/:id/locations/place", placeEverything);
+
+// Group: branches, where each trades, and consolidated figures
+router.get("/:id/group", showGroup);
+router.post("/:id/group/subsidiaries", addSubsidiary);
+router.post("/:id/group/place", savePlace);
+router.post("/:id/group/members/:memberId/parent", reparent);
 
 // Accounts receivable (invoices)
 router.get("/:id/invoices", showInvoices);

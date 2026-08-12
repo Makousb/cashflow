@@ -1,4 +1,7 @@
 import { pool } from "../index.js";
+import { postEntry } from "./ledger.js";
+import { placeAt } from "./warehouse.js";
+import { saleEntry } from "../../utils/ledger.js";
 
 // Sales are the other half of inventory: buying stock puts units on the shelf,
 // selling takes them off. Recording a sale therefore has to move stock and
@@ -61,7 +64,10 @@ export async function createSale({
   note,
   occurredOn,
   dueOn,
-  lines
+  lines,
+  // Where the units came off. Null means the main store, which is what a
+  // business with one location always means.
+  locationId = null
 }) {
   const client = await pool.connect();
   try {
@@ -78,10 +84,11 @@ export async function createSale({
 
     const { rows: saleRows } = await client.query(
       `INSERT INTO sales
-         (business_id, user_id, customer, payment, total, cost_total, note, occurred_on)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         (business_id, user_id, customer, payment, total, cost_total, note, occurred_on,
+          location_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [businessId, userId, customer, payment, total, costTotal, note, occurredOn]
+      [businessId, userId, customer, payment, total, costTotal, note, occurredOn, locationId]
     );
     const sale = saleRows[0];
 
@@ -99,6 +106,10 @@ export async function createSale({
           "UPDATE products SET quantity = quantity - $1 WHERE id = $2",
           [line.quantity, line.productId]
         );
+        await placeAt(client, {
+          businessId, userId, productId: line.productId,
+          locationId, delta: -Number(line.quantity)
+        });
       }
     }
 
@@ -127,6 +138,29 @@ export async function createSale({
       await client.query("UPDATE sales SET transaction_id = $1 WHERE id = $2",
         [rows[0].id, sale.id]);
       sale.transaction_id = rows[0].id;
+    }
+
+    // The journal for the sale, posted here rather than through the modules
+    // above because both branches write their rows by hand — see the comment on
+    // this function. One entry covers both halves of what a sale is: revenue
+    // earned (as cash or as a receivable), and the cost of the goods leaving the
+    // shelves. cost_total is what those units actually cost when they sold, so
+    // the margin in the ledger is real rather than estimated.
+    if (total > 0) {
+      await postEntry(client, {
+        businessId,
+        userId,
+        lines: saleEntry({
+          total,
+          cost: Number(sale.cost_total || 0),
+          payment,
+          memo: `Sale #${sale.id}`
+        }),
+        memo: `Sale #${sale.id}${customer ? ` — ${customer}` : ""}`,
+        entryDate: occurredOn,
+        source: "sale",
+        sourceId: sale.id
+      });
     }
 
     await client.query("COMMIT");
@@ -178,6 +212,14 @@ export async function voidSale(id, userId) {
           "UPDATE products SET quantity = quantity + $1 WHERE id = $2",
           [item.quantity, item.product_id]
         );
+        // Voiding puts the units back where the sale is recorded as having
+        // taken them from — the sale's own location, or the main store.
+        await placeAt(client, {
+          businessId: sale.business_id, userId,
+          productId: item.product_id,
+          locationId: sale.location_id || null,
+          delta: Number(item.quantity)
+        });
       }
     }
 

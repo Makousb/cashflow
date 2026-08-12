@@ -12,6 +12,7 @@ import {
   listPayslips
 } from "../db/queries/payroll.js";
 import { toBase } from "../services/fx.js";
+import { payrollEntry } from "../utils/ledger.js";
 import { monthLabel, today } from "../utils/dates.js";
 import { computePayslip } from "../utils/payroll.js";
 
@@ -147,6 +148,13 @@ export async function runPayroll(req, res, next) {
     }
 
     // The employer's cost is the gross; post it to the business ledger.
+    //
+    // The journal says more than the cash book can. The whole gross is the cost,
+    // but only the net actually leaves — what was withheld is owed to somebody
+    // else and has not been remitted yet, so it sits as a liability. Booking the
+    // gross straight against cash would claim the deductions were already paid
+    // over, which is exactly the money a business gets caught short on.
+    const deductionTotal = payslips.reduce((sum, p) => sum + p.deductions, 0);
     const transaction = await addBusinessTransaction({
       businessId: business.id,
       userId,
@@ -154,7 +162,12 @@ export async function runPayroll(req, res, next) {
       amount: grossTotal,
       category: "Payroll",
       note: `Payroll: ${period}`,
-      occurredOn: today()
+      occurredOn: today(),
+      entry: payrollEntry({
+        gross: grossTotal,
+        deductions: deductionTotal,
+        memo: `Payroll: ${period}`
+      })
     });
 
     await createPayRun({

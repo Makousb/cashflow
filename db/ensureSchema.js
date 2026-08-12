@@ -1,4 +1,5 @@
 import { pool } from "./index.js";
+import { ensureAllCharts } from "./queries/ledger.js";
 
 const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS users (
@@ -989,6 +990,261 @@ const SCHEMA_SQL = `
   CREATE UNIQUE INDEX IF NOT EXISTS idx_card_agent_payments_once
     ON card_agent_payments (facility_id, cycle);
 
+  -- The general ledger. Everything above records what happened; this records
+  -- what it MEANT, in the one form that can be checked — two halves that agree.
+  --
+  -- A business's chart of accounts. "key" is how the code addresses an account
+  -- without knowing its id and without caring whether the owner has renamed it;
+  -- accounts the owner adds themselves have no key, which is what tells the two
+  -- apart. Codes follow the usual convention (1000s assets, 2000s liabilities,
+  -- 4000s income, 5000s expenses) so they mean here what they mean anywhere.
+  CREATE TABLE IF NOT EXISTS ledger_accounts (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key TEXT,
+    code TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('asset', 'liability', 'equity', 'income', 'expense')),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (business_id, code)
+  );
+
+  -- One built-in account per key per business. Partial, because the owner's own
+  -- accounts all have a NULL key and must not collide with each other.
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_accounts_key
+    ON ledger_accounts (business_id, key) WHERE key IS NOT NULL;
+
+  -- A journal entry: one event, whatever it took to describe it. "source" and
+  -- "source_id" point back at the thing that caused it, so a line in the ledger
+  -- can always be traced to the sale or bill it came from — and so a posting is
+  -- never made twice for the same event.
+  CREATE TABLE IF NOT EXISTS journal_entries (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- Sequential per business, the way a ledger is numbered.
+    entry_no INTEGER NOT NULL,
+    entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    memo TEXT,
+    source TEXT NOT NULL DEFAULT 'manual',
+    source_id INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (business_id, entry_no)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_journal_entries_business
+    ON journal_entries (business_id, entry_date DESC, id DESC);
+
+  -- At most one posting per source event. A partial index rather than a plain
+  -- unique: manual entries have no source_id and there may be any number of
+  -- them, but a sale must never be posted twice however many times the code
+  -- that posts it is called.
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_entries_source
+    ON journal_entries (business_id, source, source_id) WHERE source_id IS NOT NULL;
+
+  -- The halves. The CHECK is the rule the whole ledger rests on: a line is a
+  -- debit or a credit, never both and never neither. Enforced here as well as
+  -- in utils/ledger.js because a constraint cannot be forgotten by a caller.
+  CREATE TABLE IF NOT EXISTS journal_lines (
+    id SERIAL PRIMARY KEY,
+    entry_id INTEGER NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
+    account_id INTEGER NOT NULL REFERENCES ledger_accounts(id) ON DELETE CASCADE,
+    debit NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (debit >= 0),
+    credit NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (credit >= 0),
+    memo TEXT,
+    CHECK ((debit > 0) <> (credit > 0))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_journal_lines_entry ON journal_lines (entry_id);
+  CREATE INDEX IF NOT EXISTS idx_journal_lines_account ON journal_lines (account_id);
+
+  -- The sales pipeline. A deal may belong to a contact the marketing side
+  -- already knows, or to nobody — a walk-in with no email is still a deal, and
+  -- refusing to record one until an address is handed over would lose it.
+  CREATE TABLE IF NOT EXISTS opportunities (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    -- Base currency, like every other amount stored here.
+    value NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (value >= 0),
+    stage TEXT NOT NULL DEFAULT 'lead'
+      CHECK (stage IN ('lead', 'qualified', 'proposal', 'negotiation', 'won', 'lost')),
+    -- Null means "use whatever the stage says". An explicit figure is the
+    -- person working the deal knowing something the stage does not.
+    probability INTEGER CHECK (probability IS NULL OR (probability BETWEEN 0 AND 100)),
+    expected_close DATE,
+    note TEXT,
+    -- When the deal last actually moved, which is what makes a stale one
+    -- findable. Touched on every change, unlike created_at.
+    updated_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    closed_on DATE,
+    created_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_opportunities_business
+    ON opportunities (business_id, stage, updated_on DESC);
+
+  -- The support desk. Same rule about contacts: a case can stand alone.
+  CREATE TABLE IF NOT EXISTS support_cases (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
+    subject TEXT NOT NULL,
+    -- Who raised it, when there is no contact row to name them by.
+    reporter TEXT,
+    status TEXT NOT NULL DEFAULT 'open'
+      CHECK (status IN ('open', 'pending', 'resolved', 'closed')),
+    priority TEXT NOT NULL DEFAULT 'normal'
+      CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+    resolved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_support_cases_business
+    ON support_cases (business_id, status, created_at DESC);
+
+  -- The conversation on a case, both sides of it in one thread so it reads in
+  -- the order it happened.
+  CREATE TABLE IF NOT EXISTS case_messages (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER NOT NULL REFERENCES support_cases(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    author TEXT NOT NULL DEFAULT 'us' CHECK (author IN ('us', 'customer')),
+    body TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_case_messages_case ON case_messages (case_id, id);
+
+  -- Where stock physically is. Until now a product had one number — how many
+  -- there are — which is enough for one shop and nothing else. A business with
+  -- a back store and a market stall needs to know which of them the sugar is in.
+  CREATE TABLE IF NOT EXISTS stock_locations (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    code TEXT,
+    -- Where stock lands when nothing says otherwise. Exactly one per business,
+    -- enforced below: two defaults means the answer to "where did it go"
+    -- depends on which row a query happened to read first.
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    notes TEXT,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_locations_default
+    ON stock_locations (business_id) WHERE is_default;
+
+  -- How many of a product sit at a location. products.quantity stays the total
+  -- on hand — every existing path reads it and a sale must never have to add up
+  -- rows to know whether it can sell — and these say where that total IS. The
+  -- two are kept in step in the same transaction, and utils/warehouse.js can
+  -- always report the difference rather than let it go quiet.
+  CREATE TABLE IF NOT EXISTS product_stock (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    location_id INTEGER NOT NULL REFERENCES stock_locations(id) ON DELETE CASCADE,
+    quantity NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    UNIQUE (product_id, location_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_product_stock_location
+    ON product_stock (location_id);
+
+  -- Stock moving between locations. Nothing is bought or sold by a transfer, so
+  -- it never touches the total or the ledger — it only changes where things are.
+  CREATE TABLE IF NOT EXISTS stock_transfers (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    from_location_id INTEGER REFERENCES stock_locations(id) ON DELETE SET NULL,
+    to_location_id INTEGER REFERENCES stock_locations(id) ON DELETE SET NULL,
+    quantity NUMERIC(12, 2) NOT NULL CHECK (quantity > 0),
+    note TEXT,
+    moved_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_stock_transfers_business
+    ON stock_transfers (business_id, moved_on DESC, id DESC);
+
+  -- Which location a sale took its units off. Null is the ordinary case and
+  -- reads as the main store; it matters only for a business that has more than
+  -- one place to sell from, and for putting the units back if the sale is
+  -- voided.
+  ALTER TABLE sales ADD COLUMN IF NOT EXISTS location_id INTEGER
+    REFERENCES stock_locations(id) ON DELETE SET NULL;
+
+  -- A group of businesses: a parent with branches under it, each possibly in
+  -- another country keeping books in another currency. Self-referencing rather
+  -- than a separate groups table, because a subsidiary IS a business — it keeps
+  -- its own ledger, files its own tax, and can have branches of its own.
+  --
+  -- ON DELETE SET NULL, not CASCADE: deleting a parent must not silently delete
+  -- the books of every branch under it. They are orphaned into standalone
+  -- businesses, which is recoverable; deleted is not.
+  ALTER TABLE businesses ADD COLUMN IF NOT EXISTS parent_id INTEGER
+    REFERENCES businesses(id) ON DELETE SET NULL;
+
+  -- Where it trades, which decides what it owes. Null reads as the default in
+  -- utils/jurisdictions.js rather than as "nowhere".
+  ALTER TABLE businesses ADD COLUMN IF NOT EXISTS jurisdiction TEXT;
+
+  -- The currency this entity keeps its books in. Consolidation converts each
+  -- branch into the parent's before adding anything up.
+  ALTER TABLE businesses ADD COLUMN IF NOT EXISTS base_currency TEXT;
+
+  -- A consumption-tax rate of its own, when the headline one does not apply
+  -- (zero-rated goods, a state rate in the US). Null means use the
+  -- jurisdiction's; zero is a real rate and means zero.
+  ALTER TABLE businesses ADD COLUMN IF NOT EXISTS sales_tax_rate NUMERIC(5, 2);
+
+  CREATE INDEX IF NOT EXISTS idx_businesses_parent ON businesses (parent_id);
+
+  -- income_tax_rate shipped NOT NULL DEFAULT 30, from when 30% was the only
+  -- rate there was. With jurisdictions it needs a way to say "whatever this
+  -- country charges", and that is null — so the column has to be able to hold
+  -- one. Existing rows keep their 30; nothing is rewritten.
+  ALTER TABLE businesses ALTER COLUMN income_tax_rate DROP NOT NULL;
+  ALTER TABLE businesses ALTER COLUMN income_tax_rate DROP DEFAULT;
+
+  -- The contact timeline gains the two new things that can happen to somebody.
+  -- The CHECK has to be rewritten rather than added to, as ever.
+  ALTER TABLE contact_events DROP CONSTRAINT IF EXISTS contact_events_kind_check;
+  ALTER TABLE contact_events ADD CONSTRAINT contact_events_kind_check
+    CHECK (kind IN ('captured', 'emailed', 'unsubscribed', 'purchased', 'note',
+                    'stage', 'deal', 'case'));
+
+  -- account_id first shipped as ON DELETE RESTRICT, meaning to stop an account
+  -- being deleted out from under its postings. It did that — and also made a
+  -- business undeletable, because deleting one cascades to its accounts and the
+  -- RESTRICT refused before the lines had gone. Protecting an account from
+  -- deletion is a rule about deleting accounts, which this app does not offer;
+  -- it has no business standing in the way of deleting the whole business.
+  DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'journal_lines_account_id_fkey'
+        AND conrelid = 'journal_lines'::regclass
+        AND confdeltype <> 'c'
+    ) THEN
+      ALTER TABLE journal_lines DROP CONSTRAINT journal_lines_account_id_fkey;
+      ALTER TABLE journal_lines
+        ADD CONSTRAINT journal_lines_account_id_fkey
+        FOREIGN KEY (account_id) REFERENCES ledger_accounts(id) ON DELETE CASCADE;
+    END IF;
+  END $$;
+
   -- The supplier migration comes last, once every table it touches has been
   -- created above. This is one statement batch run against a database that may
   -- be brand new, so an ALTER sitting next to the suppliers tables would reach
@@ -1159,6 +1415,14 @@ export async function ensureSchemaState() {
   try {
     await pool.query(SCHEMA_SQL);
     await seedDefaultCategories();
+    // Books that existed before the ledger did get their chart here, so a
+    // business is never in the state of being able to trade but not to post.
+    // The chart is data in utils/ledger.js rather than SQL, hence a step of its
+    // own rather than another statement in the batch above.
+    const charted = await ensureAllCharts();
+    if (charted > 0) {
+      console.info(`Opened a chart of accounts for ${charted} business(es)`);
+    }
     console.info("Database schema is ready");
     return { ok: true, reason: "ready", detail: "" };
   } catch (error) {

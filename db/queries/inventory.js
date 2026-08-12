@@ -1,4 +1,5 @@
 import { pool } from "../index.js";
+import { placeAt } from "./warehouse.js";
 
 export async function listProducts(businessId, userId) {
   const { rows } = await pool.query(
@@ -145,7 +146,7 @@ export async function listPurchaseOrders(businessId, userId) {
 
 // Receive an order: add each item's quantity to its product's stock, mark the
 // order received, and return it (the caller posts the cost to the ledger).
-export async function receivePurchaseOrder(id, userId, receivedOn) {
+export async function receivePurchaseOrder(id, userId, receivedOn, locationId = null) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -173,6 +174,15 @@ export async function receivePurchaseOrder(id, userId, receivedOn) {
           "UPDATE products SET quantity = quantity + $1 WHERE id = $2",
           [item.quantity, item.product_id]
         );
+        // The total moved, so where it is has to move with it. Goods arriving
+        // land at the location the receiver named, or the main store.
+        await placeAt(client, {
+          businessId: order.business_id,
+          userId: order.user_id,
+          productId: item.product_id,
+          locationId,
+          delta: Number(item.quantity)
+        });
       }
     }
 

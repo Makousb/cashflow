@@ -1,4 +1,6 @@
 import { pool } from "../index.js";
+import { ensureChart, postEntry } from "./ledger.js";
+import { cashMovementEntry } from "../../utils/ledger.js";
 
 export async function listBusinesses(userId) {
   const { rows } = await pool.query(
@@ -50,6 +52,11 @@ export async function createBusiness({ userId, name, industry }) {
       [created[0].id]
     );
 
+    // A business opens its books with a chart of accounts, in the same
+    // transaction that creates it. Anything else leaves a window in which it can
+    // trade but cannot post, and the first sale would fail on a missing account.
+    await ensureChart(created[0].id, userId, client);
+
     await client.query("COMMIT");
     return rows[0];
   } catch (error) {
@@ -68,6 +75,14 @@ export async function deleteBusiness(id, userId) {
   return rowCount > 0;
 }
 
+// Every module that moves a business's money comes through here — an invoice
+// being settled, a bill paid, stock received, a pay run, a plain bookkeeping
+// entry. So this is where the journal is written too, in the same transaction:
+// one place instead of a posting bolted onto five controllers, none of which
+// could be relied on to remember.
+//
+// A caller already inside a transaction passes its client, so the row and its
+// journal live or die together with whatever else that caller is doing.
 export async function addBusinessTransaction({
   businessId,
   userId,
@@ -75,16 +90,47 @@ export async function addBusinessTransaction({
   amount,
   category,
   note,
-  occurredOn
+  occurredOn,
+  client = null,
+  // The far side of the entry, when it is not cash. Settling an invoice takes
+  // money in but earns nothing — the earning happened when the invoice was
+  // raised — so those callers say so rather than letting revenue be booked
+  // twice. Null means the ordinary case: the category decides.
+  entry = null
 }) {
-  const { rows } = await pool.query(
-    `INSERT INTO business_transactions
-       (business_id, user_id, kind, amount, category, note, occurred_on)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING *`,
-    [businessId, userId, kind, amount, category, note, occurredOn]
-  );
-  return rows[0];
+  const own = client === null;
+  const db = client || await pool.connect();
+
+  try {
+    if (own) await db.query("BEGIN");
+
+    const { rows } = await db.query(
+      `INSERT INTO business_transactions
+         (business_id, user_id, kind, amount, category, note, occurred_on)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [businessId, userId, kind, amount, category, note, occurredOn]
+    );
+    const transaction = rows[0];
+
+    await postEntry(db, {
+      businessId,
+      userId,
+      lines: entry || cashMovementEntry({ kind, category, amount, memo: note }),
+      memo: note,
+      entryDate: occurredOn,
+      source: "bookkeeping",
+      sourceId: transaction.id
+    });
+
+    if (own) await db.query("COMMIT");
+    return transaction;
+  } catch (error) {
+    if (own) await db.query("ROLLBACK");
+    throw error;
+  } finally {
+    if (own) db.release();
+  }
 }
 
 export async function listBusinessTransactions(businessId, userId, limit = 100) {

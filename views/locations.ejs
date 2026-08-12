@@ -1,0 +1,261 @@
+<%- include("partials/header") %>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1><%= business.name %> · Stock locations</h1>
+      <p class="muted">
+        Where each product actually is, and moving it between them ·
+        <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+        <a href="/business/<%= business.id %>/inventory" class="link">inventory →</a>
+      </p>
+    </div>
+    <span class="badge <%= report.reconciled ? "badge-done" : "badge-warn" %>">
+      <%= report.reconciled ? "all placed" : `${report.unplacedCount} to place` %>
+    </span>
+  </div>
+</section>
+
+<section class="stat-grid">
+  <% report.perLocation.forEach((l) => { %>
+    <div class="card stat-card">
+      <span class="stat-icon"><%= l.is_default ? "🏬" : "🏪" %></span>
+      <span class="stat-body">
+        <span class="stat-label">
+          <%= l.name %><%= l.is_default ? " (default)" : "" %>
+        </span>
+        <span class="stat-value"><%= l.units %></span>
+        <small class="muted">
+          units across <%= l.lines %> product(s) · <%= money(l.value) %> at cost
+        </small>
+      </span>
+    </div>
+  <% }) %>
+</section>
+
+<% if (report.overPlacedCount > 0) { %>
+  <section class="alert-card alert-critical" style="margin-bottom:1.5rem;">
+    <span class="alert-icon">⚠️</span>
+    <div class="alert-body">
+      <strong><%= report.overPlacedCount %> product(s) show more at locations than you own</strong>
+      <div class="alert-detail">
+        The placements add up to more than the total on hand. Every path that
+        moves stock moves the placement with it, so this should be impossible —
+        something has written to product_stock directly.
+      </div>
+    </div>
+  </section>
+<% } %>
+
+<% if (report.unplacedCount > 0) { %>
+  <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
+    <span class="alert-icon">📦</span>
+    <div class="alert-body" style="flex:1;">
+      <strong><%= report.unplacedCount %> product(s) have stock nobody has placed</strong>
+      <div class="alert-detail">
+        These units are on hand but no location claims them — ordinary the day
+        you start using locations, since everything you already had predates
+        them. Placing them changes nothing about how much you own, only where
+        the app thinks it is.
+      </div>
+      <form action="/business/<%= business.id %>/locations/place" method="POST"
+            class="inline-form" style="margin-top:0.6rem;">
+        <select name="locationId">
+          <% locations.forEach((l) => { %>
+            <option value="<%= l.id %>"<%= l.is_default ? " selected" : "" %>><%= l.name %></option>
+          <% }) %>
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm">Place it all here</button>
+      </form>
+    </div>
+  </section>
+<% } %>
+
+<h2>Where the stock is</h2>
+<section class="card" style="margin-bottom:1.5rem;">
+  <% if (!report.rows.length) { %>
+    <p class="empty-state">
+      No products yet. Add them on the
+      <a href="/business/<%= business.id %>/inventory" class="link">inventory page</a>.
+    </p>
+  <% } else { %>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product</th><th class="num">On hand</th>
+            <% locations.forEach((l) => { %><th class="num"><%= l.name %></th><% }) %>
+            <th class="num">Unplaced</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% report.rows.forEach((r) => { %>
+            <tr>
+              <td><%= r.product.name %></td>
+              <td class="num"><strong><%= r.total %></strong></td>
+              <% locations.forEach((l) => { %>
+                <% const at = r.byLocation.find((b) => b.locationId === l.id); %>
+                <td class="num <%= at ? "" : "muted" %>"><%= at ? at.quantity : "—" %></td>
+              <% }) %>
+              <td class="num <%= r.unplaced > 0 ? "negative" : "muted" %>">
+                <%= r.unplaced === 0 ? "—" : r.unplaced %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0;">
+      "On hand" is the total the rest of the app trusts — a sale asks it whether
+      it can sell. The columns beside it say where that total is.
+    </p>
+  <% } %>
+</section>
+
+<% if (suggestions.length) { %>
+  <h2>Worth moving</h2>
+  <section class="card" style="margin-bottom:1.5rem;">
+    <ul class="finding-list">
+      <% suggestions.forEach((s) => { %>
+        <li class="finding">
+          <div class="finding-head">
+            <strong><%= s.product.name %></strong>
+            <span class="badge badge-warn"><%= s.total %> in stock</span>
+          </div>
+          <p class="muted" style="margin:0;">
+            None at <%= s.empty.join(", ") %>, but <%= s.from.quantity %> sitting at
+            <%= s.from.name %>. You have the stock — it is in the wrong place, which
+            is a moving problem rather than a buying one.
+          </p>
+        </li>
+      <% }) %>
+    </ul>
+  </section>
+<% } %>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Move stock</h2>
+    <p class="muted">
+      Nothing is bought or sold by a move, so the total on hand never changes —
+      only where it is.
+    </p>
+    <form action="/business/<%= business.id %>/locations/transfers" method="POST" class="stacked-form">
+      <label>
+        Product
+        <select name="productId" required>
+          <% products.forEach((p) => { %>
+            <option value="<%= p.id %>"><%= p.name %> (<%= Number(p.quantity) %> on hand)</option>
+          <% }) %>
+        </select>
+      </label>
+      <div class="two-col">
+        <label>
+          From
+          <select name="fromId" required>
+            <% locations.forEach((l) => { %>
+              <option value="<%= l.id %>"<%= l.is_default ? " selected" : "" %>><%= l.name %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label>
+          To
+          <select name="toId" required>
+            <% locations.forEach((l) => { %>
+              <option value="<%= l.id %>"<%= !l.is_default ? " selected" : "" %>><%= l.name %></option>
+            <% }) %>
+          </select>
+        </label>
+      </div>
+      <div class="two-col">
+        <label>
+          How many
+          <input type="number" name="quantity" step="0.01" min="0.01" required />
+        </label>
+        <label>
+          When
+          <input type="date" name="movedOn" value="<%= today %>" />
+        </label>
+      </div>
+      <label>
+        Note
+        <input type="text" name="note" maxlength="200" placeholder="e.g. restocking the stall" />
+      </label>
+      <button type="submit" class="btn btn-primary">Move it</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Locations</h2>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Code</th><th></th></tr></thead>
+        <tbody>
+          <% locations.forEach((l) => { %>
+            <tr>
+              <td>
+                <%= l.name %>
+                <% if (l.is_default) { %><span class="badge badge-done">default</span><% } %>
+              </td>
+              <td class="muted"><%= l.code || "—" %></td>
+              <td>
+                <% if (!l.is_default) { %>
+                  <form action="/business/<%= business.id %>/locations/<%= l.id %>/default"
+                        method="POST" class="inline-form">
+                    <button type="submit" class="btn btn-ghost btn-sm">Make default</button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:0.85rem;">
+      Stock arriving with no location named lands at the default — a purchase
+      order received, or goods off a supplier's van.
+    </p>
+
+    <h3 style="margin-top:1.2rem;">Add a location</h3>
+    <form action="/business/<%= business.id %>/locations" method="POST" class="stacked-form">
+      <div class="two-col">
+        <label>
+          Name
+          <input type="text" name="name" maxlength="120" required placeholder="e.g. Market stall" />
+        </label>
+        <label>
+          Code
+          <input type="text" name="code" maxlength="20" placeholder="e.g. STALL" />
+        </label>
+      </div>
+      <button type="submit" class="btn">Add it</button>
+    </form>
+  </section>
+</div>
+
+<% if (transfers.length) { %>
+  <h2>Moves</h2>
+  <section class="card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>Date</th><th>Product</th><th class="num">How many</th><th>From</th><th>To</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          <% transfers.forEach((t) => { %>
+            <tr>
+              <td><%= formatDate(t.moved_on) %></td>
+              <td><%= t.product_name %></td>
+              <td class="num"><%= t.quantity %></td>
+              <td class="muted"><%= t.from_name || "—" %></td>
+              <td class="muted"><%= t.to_name || "—" %></td>
+              <td class="muted"><%= t.note || "—" %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>
+
+<%- include("partials/footer") %>

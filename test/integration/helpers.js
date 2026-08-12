@@ -10,6 +10,7 @@ import path from "node:path";
 
 import { pool } from "../../db/index.js";
 import { ensureSchemaState } from "../../db/ensureSchema.js";
+import { ensureChart } from "../../db/queries/ledger.js";
 
 // Anything here means someone has pointed this checkout at a database, so these
 // tests are expected to run and failing to reach it is a failure. DB_SSL is not
@@ -135,14 +136,20 @@ export async function makeUser(label) {
   return user;
 }
 
+// Raw SQL rather than createBusiness, so the fixture stays independent of what
+// that function happens to do — but the chart of accounts is opened all the
+// same, because a business the app made always has one and a fixture that
+// differs is testing something the app never sees.
 export async function makeBusiness(userId, name, extra = {}) {
-  return one(
+  const business = await one(
     `INSERT INTO businesses (user_id, name, industry, is_supplier, lead_time_days, supply_code)
      VALUES ($1, $2, 'Retail', $3, $4,
              'TEST-' || substr(md5(random()::text), 1, 8))
      RETURNING *`,
     [userId, name, extra.isSupplier || false, extra.leadTimeDays || 3]
   );
+  await ensureChart(business.id, userId);
+  return business;
 }
 
 export async function makeProduct(businessId, userId, product) {

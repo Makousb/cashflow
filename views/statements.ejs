@@ -5,8 +5,105 @@
   <p class="muted">
     Income statement, balance sheet, and cash flow ·
     <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+    <a href="/business/<%= business.id %>/ledger" class="link">general ledger →</a>
   </p>
 </section>
+
+<!-- Straight off the ledger -->
+<section class="card statement" style="margin-bottom:1.5rem;">
+  <div class="budget-row" style="margin-top:0;">
+    <h2 style="margin:0;">⚖️ From the general ledger</h2>
+    <span class="badge <%= trial.balanced ? "badge-done" : "badge-danger" %>">
+      <%= trial.balanced ? "in balance" : "out of balance" %>
+    </span>
+  </div>
+  <p class="muted">
+    Double-entry: every figure here is the sum of postings made when things
+    happened. Cost of sales is what the goods actually cost as they left the
+    shelves, not an estimate from closing stock.
+  </p>
+  <div class="stmt-line"><span>Revenue</span><span class="positive"><%= money(fromLedger.revenue) %></span></div>
+  <div class="stmt-line"><span>Cost of sales</span><span class="negative">(<%= money(fromLedger.cogs) %>)</span></div>
+  <div class="stmt-line stmt-subtotal"><span>Gross profit</span><span><%= money(fromLedger.grossProfit) %></span></div>
+  <% fromLedger.operating.forEach((row) => { %>
+    <div class="stmt-line stmt-indent muted">
+      <span><%= row.category %></span><span>(<%= money(row.total) %>)</span>
+    </div>
+  <% }) %>
+  <div class="stmt-line"><span>Total operating expenses</span><span class="negative">(<%= money(fromLedger.operatingTotal) %>)</span></div>
+  <div class="stmt-line stmt-total">
+    <span>Net profit</span>
+    <span class="<%= fromLedger.netProfit >= 0 ? "positive" : "negative" %>"><%= money(fromLedger.netProfit) %></span>
+  </div>
+
+  <h3 style="margin-top:1.4rem;">Balance sheet</h3>
+  <% ledgerBalance.assets.rows.forEach((r) => { %>
+    <div class="stmt-line stmt-indent muted"><span><%= r.name %></span><span><%= money(r.total) %></span></div>
+  <% }) %>
+  <div class="stmt-line stmt-subtotal"><span>Total assets</span><span><%= money(ledgerBalance.assets.total) %></span></div>
+  <% ledgerBalance.liabilities.rows.forEach((r) => { %>
+    <div class="stmt-line stmt-indent muted"><span><%= r.name %></span><span>(<%= money(r.total) %>)</span></div>
+  <% }) %>
+  <div class="stmt-line"><span>Total liabilities</span><span class="negative">(<%= money(ledgerBalance.liabilities.total) %>)</span></div>
+  <div class="stmt-line stmt-total">
+    <span>Equity</span><span><%= money(ledgerBalance.equity.total) %></span>
+  </div>
+  <p class="muted" style="font-size:0.85rem;">
+    Equity is <%= money(ledgerBalance.equity.posted) %> put in plus
+    <%= money(ledgerBalance.equity.earned) %> earned.
+    <%= ledgerBalance.balanced
+      ? "Assets equal liabilities plus equity, as they must."
+      : `These are out by ${money(Math.abs(ledgerBalance.difference))} — something is wrong.` %>
+  </p>
+</section>
+
+<!-- The two readings, side by side -->
+<section class="card" style="margin-bottom:1.5rem;">
+  <div class="budget-row" style="margin-top:0;">
+    <h2 style="margin:0;">The two readings compared</h2>
+    <span class="badge <%= reconciliation.agrees ? "badge-done" : "badge-warn" %>">
+      <%= reconciliation.agrees ? "they agree" : "they differ" %>
+    </span>
+  </div>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr><th></th><th class="num">From the ledger</th><th class="num">From categories</th><th class="num">Difference</th></tr>
+      </thead>
+      <tbody>
+        <% reconciliation.lines.forEach((l) => { %>
+          <tr>
+            <td><%= l.label %></td>
+            <td class="num"><%= money(l.ledger) %></td>
+            <td class="num"><%= money(l.derived) %></td>
+            <td class="num <%= l.agrees ? "muted" : "negative" %>">
+              <%= l.agrees ? "—" : money(l.difference) %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0;">
+    <% if (unposted > 0) { %>
+      <strong><%= unposted %> entr<%= unposted === 1 ? "y" : "ies" %> in the books have no journal yet</strong>,
+      so the ledger is reading less than the categories are.
+      <a href="/business/<%= business.id %>/ledger" class="link">Post them →</a>
+    <% } else if (!reconciliation.agrees) { %>
+      Revenue recorded straight into the books, with no sale behind it, carries no
+      cost of sales — so the ledger reports the fatter margin, honestly. A
+      period-end stock adjustment posted by hand in the ledger is how that gets
+      squared.
+    <% } else { %>
+      Both ways of reading these books arrive at the same figures.
+    <% } %>
+  </p>
+</section>
+
+<h2 style="margin-bottom:0.4rem;">Derived from categories</h2>
+<p class="muted" style="margin-top:0;">
+  How these statements were built before the ledger existed, kept as a check on it.
+</p>
 
 <!-- Income statement -->
 <section class="card statement">

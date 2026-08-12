@@ -9,6 +9,7 @@ import {
 import { inventorySummary } from "../db/queries/inventory.js";
 import { toBase } from "../services/fx.js";
 import { taxPosition } from "../utils/accounting.js";
+import { taxSummaryFor } from "./group.controller.js";
 import { incomeStatement } from "../utils/statements.js";
 import { today } from "../utils/dates.js";
 
@@ -42,9 +43,15 @@ export async function showTax(req, res, next) {
     const statements = incomeStatement(pnl.revenue, pnl.byCategory, {
       closingInventory: Number(stock.stock_value)
     });
+    // The rate comes from where the business trades, unless it has set its own.
+    // A flat 30% was fine when there was one shop in one country; a group with a
+    // branch in Kampala and another in Lagos owes two different taxes, and the
+    // jurisdiction is what knows that.
+    const sales = await taxSummaryFor(business, req.session.user.id);
+
     const position = taxPosition({
       accrualProfit: statements.netProfit,
-      rate: Number(business.income_tax_rate),
+      rate: sales.rates.incomeTax.rate,
       payrollDeductions,
       setAside: provisions.reduce((sum, p) => sum + Number(p.amount), 0)
     });
@@ -56,6 +63,7 @@ export async function showTax(req, res, next) {
       title: `${business.name} · Tax`,
       business,
       rate,
+      sales,
       pnl,
       taxableProfit,
       incomeTax,

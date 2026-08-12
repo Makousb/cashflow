@@ -1,0 +1,259 @@
+<%- include("partials/header") %>
+<%
+  const fmt = (amount, code) => formatCurrency(amount, code);
+  const isRoot = !business.parent_id;
+%>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1><%= business.name %> · Group</h1>
+      <p class="muted">
+        Branches, where each one trades, and the group's figures brought into one
+        currency ·
+        <a href="/business/<%= business.id %>" class="link">← business dashboard</a>
+        <a href="/business/<%= business.id %>/tax" class="link">tax →</a>
+      </p>
+    </div>
+    <span class="badge <%= group.entityCount > 1 ? "badge-done" : "badge-warn" %>">
+      <%= group.entityCount %> <%= group.entityCount === 1 ? "entity" : "entities" %>
+    </span>
+  </div>
+</section>
+
+<section class="stat-grid">
+  <div class="card stat-card">
+    <span class="stat-icon">🌍</span>
+    <span class="stat-body">
+      <span class="stat-label">Group revenue</span>
+      <span class="stat-value"><%= fmt(group.totals.revenue, reportingCurrency) %></span>
+      <small class="muted">reported in <%= reportingCurrency %></small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">📈</span>
+    <span class="stat-body">
+      <span class="stat-label">Group net profit</span>
+      <span class="stat-value <%= group.totals.netProfit >= 0 ? "positive" : "negative" %>">
+        <%= fmt(group.totals.netProfit, reportingCurrency) %>
+      </span>
+      <small class="muted">every branch's ledger, converted then added</small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">🏛️</span>
+    <span class="stat-body">
+      <span class="stat-label">Group equity</span>
+      <span class="stat-value"><%= fmt(group.totals.equity, reportingCurrency) %></span>
+      <small class="muted">
+        <%= fmt(group.totals.assets, reportingCurrency) %> assets less
+        <%= fmt(group.totals.liabilities, reportingCurrency) %> owed
+      </small>
+    </span>
+  </div>
+  <div class="card stat-card">
+    <span class="stat-icon">🧾</span>
+    <span class="stat-body">
+      <span class="stat-label">This entity pays</span>
+      <span class="stat-value"><%= rates.incomeTax.rate %>%</span>
+      <small class="muted">
+        <%= rates.incomeTax.label %> in <%= rates.name %><%= rates.incomeTax.overridden ? " (yours)" : "" %>
+      </small>
+    </span>
+  </div>
+</section>
+
+<% if (group.multiCurrency) { %>
+  <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
+    <span class="alert-icon">💱</span>
+    <div class="alert-body">
+      <strong>This group keeps books in more than one currency</strong>
+      <div class="alert-detail">
+        Each branch is converted into <%= reportingCurrency %> at today's rate
+        <em>before</em> anything is added up — adding the figures first and
+        converting the total would produce a confident number that means nothing.
+        Rates move, so a group total is a reading taken today, not a fixed fact.
+        <br /><br />
+        <strong>One honest caveat.</strong> Amounts are still stored in your own
+        base currency throughout the app, so a branch's currency here is a label
+        on figures that were entered in <%= baseCurrency %> — the same "display
+        only" rule the rest of Cashflow follows. That makes the conversion above
+        arithmetic on a label rather than on money that was genuinely earned in
+        shillings or naira. Treat a mixed-currency group total as indicative
+        until each branch's books are actually kept in its own currency.
+      </div>
+    </div>
+  </section>
+<% } %>
+
+<h2>The group</h2>
+<section class="card" style="margin-bottom:1.5rem;">
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Entity</th><th>Trades in</th><th>Books in</th><th class="num">Rate</th>
+          <th class="num">Revenue</th><th class="num">Net profit</th>
+          <th class="num">In <%= reportingCurrency %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% group.rows.forEach((r) => { %>
+          <tr>
+            <td>
+              <%= r.business.parent_id ? "↳ " : "" %><%= r.business.name %>
+              <% if (r.business.id === business.id) { %>
+                <span class="badge badge-warn">you are here</span>
+              <% } %>
+            </td>
+            <td class="muted">
+              <%= r.business.jurisdiction
+                ? jurisdictions[r.business.jurisdiction].name
+                : "not set" %>
+            </td>
+            <td class="muted"><%= r.currency %></td>
+            <td class="num muted"><%= r.rate === 1 ? "—" : r.rate.toFixed(4) %></td>
+            <td class="num"><%= fmt(r.own.revenue, r.currency) %></td>
+            <td class="num <%= r.own.netProfit < 0 ? "negative" : "" %>">
+              <%= fmt(r.own.netProfit, r.currency) %>
+            </td>
+            <td class="num"><%= fmt(r.converted.netProfit, reportingCurrency) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="4">Group total</th>
+          <th class="num"><%= fmt(group.totals.revenue, reportingCurrency) %></th>
+          <th class="num"></th>
+          <th class="num"><%= fmt(group.totals.netProfit, reportingCurrency) %></th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0;">
+    Each branch's own column is in the money its books are actually kept in.
+    Nothing is eliminated between entities yet — if two branches trade with each
+    other, that trade is counted in both, which overstates a group's revenue.
+  </p>
+</section>
+
+<div class="two-col">
+  <section class="card">
+    <h2>Where this business trades</h2>
+    <p class="muted">
+      Decides what it owes and what the tax is called. Leave a rate blank to use
+      whatever that country charges; enter one to override it.
+    </p>
+    <form action="/business/<%= business.id %>/group/place" method="POST" class="stacked-form">
+      <label>
+        Jurisdiction
+        <select name="jurisdiction">
+          <% jurisdictionCodes.forEach((code) => { %>
+            <option value="<%= code %>"<%= rates.code === code ? " selected" : "" %>>
+              <%= jurisdictions[code].name %> —
+              <%= jurisdictions[code].incomeTax.rate %>% <%= jurisdictions[code].incomeTax.label.toLowerCase() %>,
+              <%= jurisdictions[code].salesTax.label %><%
+                %><%= jurisdictions[code].salesTax.varies ? " set locally" : ` ${jurisdictions[code].salesTax.rate}%` %>
+            </option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
+        Keeps its books in
+        <select name="currency">
+          <% currencies.forEach((c) => { %>
+            <option value="<%= c.code %>"<%= (business.base_currency || "") === c.code ? " selected" : "" %>>
+              <%= c.code %> — <%= c.name %>
+            </option>
+          <% }) %>
+        </select>
+      </label>
+      <div class="two-col">
+        <label>
+          Income tax rate
+          <input type="number" name="incomeTaxRate" step="0.01" min="0" max="100"
+                 placeholder="<%= jurisdictions[rates.code].incomeTax.rate %> (default)"
+                 value="<%= business.income_tax_rate == null ? "" : business.income_tax_rate %>" />
+        </label>
+        <label>
+          <%= rates.salesTax.label %> rate
+          <input type="number" name="salesTaxRate" step="0.01" min="0" max="100"
+                 placeholder="<%= jurisdictions[rates.code].salesTax.rate %> (default)"
+                 value="<%= business.sales_tax_rate == null ? "" : business.sales_tax_rate %>" />
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+    <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0;">
+      These are the ordinary headline rates and a starting point, not tax advice.
+      Rates change and exemptions exist — check with
+      <%= jurisdictions[rates.code].authority %> or your accountant before filing.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Open a branch</h2>
+    <p class="muted">
+      A branch keeps its own books, files its own tax where it trades, and rolls
+      up into this group.
+    </p>
+    <form action="/business/<%= business.id %>/group/subsidiaries" method="POST" class="stacked-form">
+      <label>
+        Name
+        <input type="text" name="name" maxlength="120" required
+               placeholder="e.g. <%= business.name %> (Kampala)" />
+      </label>
+      <label>
+        Industry
+        <input type="text" name="industry" maxlength="80"
+               placeholder="<%= business.industry || "same as the parent" %>" />
+      </label>
+      <div class="two-col">
+        <label>
+          Trades in
+          <select name="jurisdiction">
+            <% jurisdictionCodes.forEach((code) => { %>
+              <option value="<%= code %>"<%= rates.code === code ? " selected" : "" %>>
+                <%= jurisdictions[code].name %>
+              </option>
+            <% }) %>
+          </select>
+        </label>
+        <label>
+          Books in
+          <select name="currency">
+            <option value="">— the country's currency —</option>
+            <% currencies.forEach((c) => { %>
+              <option value="<%= c.code %>"><%= c.code %></option>
+            <% }) %>
+          </select>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary">Open it</button>
+    </form>
+
+    <% if (group.rows.length > 1) { %>
+      <h3 style="margin-top:1.4rem;">Move a branch</h3>
+      <% group.rows.filter((r) => r.business.id !== business.id).forEach((r) => { %>
+        <form action="/business/<%= business.id %>/group/members/<%= r.business.id %>/parent"
+              method="POST" class="inline-form" style="margin-bottom:0.4rem;">
+          <span style="min-width:9rem;"><%= r.business.name %></span>
+          <select name="parentId">
+            <option value="">— stand alone —</option>
+            <% group.rows.forEach((p) => { %>
+              <% if (p.business.id !== r.business.id) { %>
+                <option value="<%= p.business.id %>"<%= r.business.parent_id === p.business.id ? " selected" : "" %>>
+                  under <%= p.business.name %>
+                </option>
+              <% } %>
+            <% }) %>
+          </select>
+          <button type="submit" class="btn btn-ghost btn-sm">Move</button>
+        </form>
+      <% }) %>
+    <% } %>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

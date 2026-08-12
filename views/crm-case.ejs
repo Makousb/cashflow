@@ -1,0 +1,94 @@
+<%- include("partials/header") %>
+<%
+  const stamp = (v) => new Date(v).toLocaleString("en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+  });
+  const standing = board.rows[0].standing;
+  const priorityBadge = (p) =>
+    p === "urgent" ? "badge-danger" : p === "high" ? "badge-warn" : "badge-done";
+%>
+
+<section class="page-head">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <h1>Case #<%= supportCase.id %></h1>
+      <p class="muted">
+        Raised <%= stamp(supportCase.created_at) %> by
+        <%= supportCase.contact_name || supportCase.contact_email || supportCase.reporter || "somebody not on file" %> ·
+        <a href="/business/<%= business.id %>/crm" class="link">← sales &amp; support</a>
+      </p>
+    </div>
+    <span class="badge <%= standing.settled ? "badge-done" : standing.late ? "badge-danger" : "badge-warn" %>">
+      <%= standing.settled ? statuses[supportCase.status].label
+        : standing.late ? `late by ${standing.overBy}h` : statuses[supportCase.status].label %>
+    </span>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2 style="margin:0;"><%= supportCase.subject %></h2>
+    <span class="badge <%= priorityBadge(supportCase.priority) %>">
+      <%= priorities[supportCase.priority].label %> · answer within
+      <%= priorities[supportCase.priority].hours %>h
+    </span>
+  </div>
+  <p class="muted">
+    Open <%= standing.ageLabel %>.
+    <% if (standing.settled) { %>
+      Settled<%= supportCase.resolved_at ? ` ${stamp(supportCase.resolved_at)}` : "" %>.
+    <% } else if (standing.waiting) { %>
+      Waiting on the customer, so the clock is not running.
+    <% } else if (standing.late) { %>
+      That is <%= standing.overBy %>h past the <%= standing.target %>h target for this priority.
+    <% } else { %>
+      Within the <%= standing.target %>h target for this priority.
+    <% } %>
+  </p>
+
+  <h3>The thread</h3>
+  <% if (!supportCase.messages.length) { %>
+    <p class="empty-state">Nothing said yet.</p>
+  <% } else { %>
+    <div class="chat-log" style="max-height:none;">
+      <% supportCase.messages.forEach((m) => { %>
+        <div class="chat-msg <%= m.author === "us" ? "bot" : "user" %>">
+          <strong><%= m.author === "us" ? business.name : "Customer" %></strong>
+          <small class="muted"> · <%= stamp(m.created_at) %></small>
+          <div><%= m.body %></div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <form action="/business/<%= business.id %>/crm/cases/<%= supportCase.id %>/reply"
+        method="POST" class="stacked-form" style="margin-top:1rem;">
+    <label>
+      Add to the thread
+      <textarea name="body" rows="3" maxlength="4000" required
+                placeholder="What you told them, or what they said back"></textarea>
+    </label>
+    <label>
+      Who is speaking
+      <select name="author">
+        <option value="us"><%= business.name %></option>
+        <option value="customer">The customer</option>
+      </select>
+    </label>
+    <button type="submit" class="btn btn-primary">Add it</button>
+  </form>
+
+  <div class="action-row" style="margin-top:1rem;">
+    <% Object.keys(statuses).filter((s) => s !== supportCase.status).forEach((s) => { %>
+      <form action="/business/<%= business.id %>/crm/cases/<%= supportCase.id %>/status"
+            method="POST" class="inline-form">
+        <input type="hidden" name="status" value="<%= s %>" />
+        <button type="submit" class="btn <%= s === "resolved" ? "btn-primary" : "btn-ghost" %>">
+          Mark <%= statuses[s].label.toLowerCase() %>
+        </button>
+      </form>
+    <% }) %>
+  </div>
+</section>
+
+<%- include("partials/footer") %>
