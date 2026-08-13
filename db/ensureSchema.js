@@ -1122,6 +1122,37 @@ const SCHEMA_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_case_messages_case ON case_messages (case_id, id);
 
+  -- Which month a business's financial year ends in. December is the ordinary
+  -- case; plenty of places and plenty of businesses use another, and it decides
+  -- which year a December sale is taxed in.
+  ALTER TABLE businesses ADD COLUMN IF NOT EXISTS fiscal_year_end_month INTEGER
+    NOT NULL DEFAULT 12 CHECK (fiscal_year_end_month BETWEEN 1 AND 12);
+
+  -- The books are sealed up to and including this date. Nothing may be posted
+  -- into a period that has been closed, or the retained earnings it produced
+  -- would stop being true the moment somebody backdated an invoice.
+  ALTER TABLE businesses ADD COLUMN IF NOT EXISTS books_closed_through DATE;
+
+  -- One row per closed period, with the figures as they stood when it closed.
+  -- Kept rather than recomputed: that IS the year's result, and a later
+  -- correction somewhere should not silently rewrite what was declared.
+  CREATE TABLE IF NOT EXISTS ledger_closes (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    label TEXT,
+    revenue NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    expenses NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    net NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- A period is closed once. The second attempt is told so rather than
+    -- posting a second set of closing entries over the first.
+    UNIQUE (business_id, period_end)
+  );
+
   -- Where stock physically is. Until now a product had one number — how many
   -- there are — which is enough for one shop and nothing else. A business with
   -- a back store and a market stall needs to know which of them the sugar is in.

@@ -98,6 +98,8 @@ import {
   // Aliased: the bookkeeping page already exports an addEntry, and a journal
   // entry is a different animal from a line in the cash book.
   addEntry as addJournalEntry,
+  closeYear,
+  reopenYear,
   runBackfill,
   showEntry,
   showLedger
@@ -180,6 +182,8 @@ router.get("/:id/ledger/entries/:entryId", showEntry);
 router.post("/:id/ledger/entries", addJournalEntry);
 router.post("/:id/ledger/accounts", addAccount);
 router.post("/:id/ledger/backfill", runBackfill);
+router.post("/:id/ledger/close", closeYear);
+router.post("/:id/ledger/closes/:closeId/reopen", reopenYear);
 
 // Sales pipeline and support desk
 router.get("/:id/crm", showCrm);

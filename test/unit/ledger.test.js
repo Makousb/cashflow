@@ -10,6 +10,8 @@ import {
   checkLine,
   invoicePaidEntry,
   invoiceRaisedEntry,
+  closingEntry,
+  fiscalYear,
   ledgerBalanceSheet,
   ledgerIncomeStatement,
   provisionEntry,
@@ -26,6 +28,11 @@ const debitOn = (lines, account) =>
 const creditOn = (lines, account) =>
   lines.filter((l) => l.account === account).reduce((s, l) => s + (l.credit || 0), 0);
 const balances = (lines) => checkEntry(lines).ok;
+// Closing addresses accounts by id, so the assertions below need to as well.
+const debitOnId = (lines, id) =>
+  lines.filter((l) => l.accountId === id).reduce((s, l) => s + (l.debit || 0), 0);
+const creditOnId = (lines, id) =>
+  lines.filter((l) => l.accountId === id).reduce((s, l) => s + (l.credit || 0), 0);
 
 describe("which way an account runs", () => {
   test("assets and expenses are debit accounts", () => {
@@ -218,7 +225,9 @@ const ACCOUNTS = [
 const WITH_TAX_ACCOUNTS = [
   ...ACCOUNTS,
   { id: 8, key: "tax_expense", code: "5800", name: "Taxes", type: "expense" },
-  { id: 9, key: "tax_payable", code: "2200", name: "Tax payable", type: "liability" }
+  { id: 9, key: "tax_payable", code: "2200", name: "Tax payable", type: "liability" },
+  // Where closing puts the result. Without it there is nowhere for a year to go.
+  { id: 10, key: "retained_earnings", code: "3900", name: "Retained earnings", type: "equity" }
 ];
 
 const LINES = [
@@ -366,5 +375,112 @@ describe("comparing the two ways of reading the books", () => {
     assert.equal(cogs.difference, 300);
     assert.equal(cogs.agrees, false);
     assert.equal(out.lines.find((l) => l.label === "Revenue").agrees, true);
+  });
+});
+
+describe("which financial year a date falls in", () => {
+  test("a December year end is just the calendar year", () => {
+    const out = fiscalYear(12, "2026-08-11");
+    assert.equal(out.start, "2026-01-01");
+    assert.equal(out.end, "2026-12-31");
+    assert.equal(out.label, "2026");
+  });
+
+  test("a June year end straddles two, and says so", () => {
+    const out = fiscalYear(6, "2026-08-11");
+    assert.equal(out.start, "2026-07-01", "August is in the year ending next June");
+    assert.equal(out.end, "2027-06-30");
+    assert.equal(out.label, "2026/27");
+  });
+
+  test("a date before the year end belongs to the year now ending", () => {
+    const out = fiscalYear(6, "2026-03-15");
+    assert.equal(out.start, "2025-07-01");
+    assert.equal(out.end, "2026-06-30");
+  });
+
+  test("the last day of the year is still inside it", () => {
+    assert.equal(fiscalYear(6, "2026-06-30").end, "2026-06-30");
+    assert.equal(fiscalYear(6, "2026-07-01").end, "2027-06-30", "the next day starts the next one");
+  });
+
+  test("a nonsense month falls back to December rather than breaking", () => {
+    assert.equal(fiscalYear(0, "2026-08-11").end, "2026-12-31");
+    assert.equal(fiscalYear(99, "2026-08-11").end, "2026-12-31");
+  });
+});
+
+describe("closing a year", () => {
+  const trial = trialBalance(WITH_TAX_ACCOUNTS, [
+    ...LINES,
+    { account_id: 8, debit: 100, credit: 0 },
+    { account_id: 9, debit: 0, credit: 100 }
+  ]);
+  const closing = closingEntry(trial);
+
+  test("empties every income and expense account", () => {
+    // Revenue 500 credit → cleared with a debit; rent 200 and tax 100 debit →
+    // cleared with credits.
+    assert.equal(debitOnId(closing.lines, 5), 500, "sales revenue");
+    assert.equal(creditOnId(closing.lines, 7), 200, "rent");
+    assert.equal(creditOnId(closing.lines, 8), 100, "tax");
+    assert.equal(creditOnId(closing.lines, 6), 300, "cost of sales");
+  });
+
+  test("and the result lands in retained earnings", () => {
+    const retained = closing.lines.find((l) => l.account === "retained_earnings");
+    assert.equal(closing.income, 500);
+    assert.equal(closing.expense, 600, "300 cost of sales + 200 rent + 100 tax");
+    assert.equal(closing.net, -100);
+    assert.equal(retained.debit, 100, "a loss reduces what the business is worth");
+  });
+
+  test("the entry balances, which is the whole trick", () => {
+    assert.equal(checkEntry(closing.lines).ok, true);
+  });
+
+  test("a profit credits retained earnings instead", () => {
+    const profitable = trialBalance(WITH_TAX_ACCOUNTS, [
+      { account_id: 5, debit: 0, credit: 1000 },
+      { account_id: 7, debit: 400, credit: 0 }
+    ]);
+    const out = closingEntry(profitable);
+    assert.equal(out.net, 600);
+    assert.equal(out.lines.find((l) => l.account === "retained_earnings").credit, 600);
+    assert.equal(checkEntry(out.lines).ok, true);
+  });
+
+  test("balance-sheet accounts are left completely alone", () => {
+    const touched = closing.lines.filter((l) => l.accountId).map((l) => l.accountId);
+    assert.ok(!touched.includes(1), "cash is not closed");
+    assert.ok(!touched.includes(3), "inventory is not closed");
+    assert.ok(!touched.includes(4), "payables are not closed");
+  });
+
+  test("a period with nothing in it closes nothing", () => {
+    const empty = trialBalance(WITH_TAX_ACCOUNTS, [
+      { account_id: 1, debit: 50, credit: 0 },
+      { account_id: 3, debit: 0, credit: 50 }
+    ]);
+    const out = closingEntry(empty);
+    assert.equal(out.empty, true);
+    assert.deepEqual(out.lines, []);
+  });
+
+  test("and closing twice over would zero it again — the second is a no-op", () => {
+    // After closing, the income/expense balances are nil, so a repeat close has
+    // nothing to write. The database stops it too, but the arithmetic agrees.
+    const afterClose = trialBalance(WITH_TAX_ACCOUNTS, [
+      ...LINES,
+      { account_id: 8, debit: 100, credit: 0 },
+      { account_id: 9, debit: 0, credit: 100 },
+      ...closing.lines.map((l) => ({
+        account_id: l.accountId
+          || WITH_TAX_ACCOUNTS.find((a) => a.key === l.account).id,
+        debit: l.debit,
+        credit: l.credit
+      }))
+    ]);
+    assert.equal(closingEntry(afterClose).empty, true);
   });
 });

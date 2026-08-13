@@ -21,6 +21,12 @@
     Double-entry: every figure here is the sum of postings made when things
     happened. Cost of sales is what the goods actually cost as they left the
     shelves, not an estimate from closing stock.
+    <br />
+    Covering <strong><%= period.label %></strong>
+    (<%= formatDate(period.start) %> – <%= formatDate(period.end) %>) — an income
+    statement measures a stretch of time, so a year that has been closed is not
+    counted into this one. The balance sheet below it is a standing position and
+    carries everything.
   </p>
   <div class="stmt-line"><span>Revenue</span><span class="positive"><%= money(fromLedger.revenue) %></span></div>
   <div class="stmt-line"><span>Cost of sales</span><span class="negative">(<%= money(fromLedger.cogs) %>)</span></div>

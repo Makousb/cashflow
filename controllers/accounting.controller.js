@@ -23,6 +23,7 @@ import {
   billPaidEntry,
   invoicePaidEntry,
   ledgerBalanceSheet,
+  fiscalYear,
   ledgerIncomeStatement,
   reconcile,
   trialBalance
@@ -258,9 +259,20 @@ export async function showStatements(req, res, next) {
       outstandingTotals(business.id, userId),
       inventorySummary(business.id, userId),
       listAccounts(business.id, userId),
+      // Cumulative and closing entries included — a balance sheet is a standing
+      // position, and a close is part of how equity got where it is.
       ledgerLines(business.id, userId),
       unpostedCount(business.id, userId)
     ]);
+
+    // ★ The income statement is a PERIOD, and once a year has been closed its
+    // income and expense accounts are empty. Reading it cumulatively would show
+    // a business that had closed a year as having earned nothing ever since. So
+    // it is scoped to the open financial year, with closing entries left out.
+    const period = fiscalYear(business.fiscal_year_end_month, today());
+    const periodLines = await ledgerLines(business.id, userId, {
+      from: period.start, to: period.end, withClosing: false
+    });
 
     const cash = pnl.net; // income received − expenses paid
     const stockValue = Number(inventory.stock_value);
@@ -271,7 +283,7 @@ export async function showStatements(req, res, next) {
     // is the honest thing to do while both exist — where they disagree, the
     // reason is usually worth knowing rather than worth hiding.
     const trial = trialBalance(accounts, lines);
-    const fromLedger = ledgerIncomeStatement(trial);
+    const fromLedger = ledgerIncomeStatement(trialBalance(accounts, periodLines));
     const derived = incomeStatement(pnl.revenue, pnl.byCategory, {
       closingInventory: stockValue
     });
@@ -283,6 +295,7 @@ export async function showStatements(req, res, next) {
       fromLedger,
       ledgerBalance: ledgerBalanceSheet(trial),
       reconciliation: reconcile(fromLedger, derived),
+      period,
       unposted,
       // Stock on hand is held back out of cost of sales: it is an asset on the
       // balance sheet below, not a cost of trading yet.

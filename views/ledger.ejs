@@ -99,6 +99,81 @@
   </section>
 <% } %>
 
+<h2>The financial year</h2>
+<section class="card" style="margin-bottom:1.5rem;">
+  <div class="budget-row" style="margin-top:0;">
+    <div>
+      <p class="muted" style="margin:0;">
+        <% if (closedThrough) { %>
+          The books are sealed to <strong><%= formatDate(closedThrough) %></strong>.
+          Nothing can be posted on or before that date — a backdated entry would
+          make the retained earnings already declared untrue.
+        <% } else { %>
+          Nothing has been closed yet, so every year's income and expenses are
+          still standing open in the accounts.
+        <% } %>
+      </p>
+    </div>
+    <span class="badge <%= closedThrough ? "badge-done" : "badge-warn" %>">
+      <%= closes.length %> year<%= closes.length === 1 ? "" : "s" %> closed
+    </span>
+  </div>
+
+  <p class="muted">
+    Closing empties every income and expense account into retained earnings.
+    They measure a stretch of time rather than a standing quantity, so a year
+    that never ends never starts either — and profit only becomes part of what
+    the business is worth once the year it was earned in is shut.
+  </p>
+
+  <form action="/business/<%= business.id %>/ledger/close" method="POST" class="inline-form">
+    <input type="hidden" name="periodEnd" value="<%= nextYear.end %>" />
+    <button type="submit" class="btn btn-primary">
+      Close <%= nextYear.label %> (<%= formatDate(nextYear.start) %> – <%= formatDate(nextYear.end) %>)
+    </button>
+  </form>
+
+  <% if (closes.length) { %>
+    <div class="table-scroll" style="margin-top:1rem;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Year</th><th>Period</th><th class="num">Revenue</th>
+            <th class="num">Expenses</th><th class="num">Result</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% closes.forEach((c, i) => { %>
+            <tr>
+              <td><%= c.label %></td>
+              <td class="muted"><%= formatDate(c.period_start) %> – <%= formatDate(c.period_end) %></td>
+              <td class="num"><%= money(c.revenue) %></td>
+              <td class="num"><%= money(c.expenses) %></td>
+              <td class="num <%= c.net >= 0 ? "positive" : "negative" %>"><%= money(c.net) %></td>
+              <td>
+                <% if (c.entry_id) { %>
+                  <a class="link" href="/business/<%= business.id %>/ledger/entries/<%= c.entry_id %>">entry →</a>
+                <% } %>
+                <% if (i === 0) { %>
+                  <form action="/business/<%= business.id %>/ledger/closes/<%= c.id %>/reopen"
+                        method="POST" class="inline-form">
+                    <button type="submit" class="btn btn-ghost btn-sm">Reopen</button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0;">
+      Only the most recent year can be reopened, and reopening reverses the
+      closing entry rather than deleting it — a year closed and reopened is
+      something that happened, and the journal keeps both halves.
+    </p>
+  <% } %>
+</section>
+
 <h2>Trial balance</h2>
 <section class="card" style="margin-bottom:1.5rem;">
   <% if (!trial.active.length) { %>

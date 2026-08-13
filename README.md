@@ -216,6 +216,19 @@ just decides the front door.
     while it is with them. Deals and cases attach to the contacts marketing
     already collected, and land on their timeline, but neither requires one: a
     walk-in with no email address is still a deal and still a complaint
+  - **Year-end closing** — income and expense accounts measure a stretch of time
+    rather than a standing quantity, so a year that never ends never starts
+    either. Closing empties every one of them into retained earnings, where the
+    result stops being "how we did" and becomes part of what the business is
+    worth, and seals the books to that date: nothing can afterwards be posted
+    into a closed period, because a backdated invoice would make the retained
+    earnings already declared untrue. The financial year need not end in
+    December. Because closing zeroes those accounts, the income statement is
+    scoped to the open year and leaves closing entries out — a report that swept
+    one up would show the year zeroing itself and call it a bad year — while the
+    balance sheet stays cumulative and carries everything. A year closed too
+    early can be reopened, which reverses the closing entry rather than deleting
+    it, so both halves stay in the journal
   - **Tax that accrues** — providing for tax now posts to the ledger: the charge
     lands in the period that earned the profit and the obligation sits as a
     liability until it is remitted. No cash moves, because setting money aside

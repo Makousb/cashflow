@@ -6,8 +6,10 @@ import {
   ensureChart,
   ledgerLines,
   listAccounts,
+  closePeriod,
   listEntries,
   postEntry,
+  reopenPeriod,
   postEntryAlone,
   unpostedCount
 } from "../../db/queries/ledger.js";
@@ -15,7 +17,9 @@ import { addBusinessTransaction } from "../../db/queries/business.js";
 import { addProvision, backfillProvisions, deleteProvision } from "../../db/queries/tax.js";
 import { createBill, createInvoice, markInvoicePaid } from "../../db/queries/accounting.js";
 import { createSale } from "../../db/queries/sales.js";
-import { invoicePaidEntry, trialBalance } from "../../utils/ledger.js";
+import {
+  invoicePaidEntry, ledgerBalanceSheet, ledgerIncomeStatement, trialBalance
+} from "../../utils/ledger.js";
 import { pool } from "../../db/index.js";
 import {
   closePool, dropUser, makeBusiness, makeProduct, makeUser, one, q, skipWithoutDb
@@ -367,3 +371,123 @@ describe("catching the ledger up with older books", { skip: skipWithoutDb }, () 
 });
 
 after(async () => { await closePool(); });
+
+describe("closing a financial year", { skip: skipWithoutDb }, () => {
+  let user;
+  let business;
+  let closed;
+
+  before(async () => {
+    user = await makeUser("ledger-close");
+    business = await makeBusiness(user.id, "Closing Co");
+    // A year of trading, dated inside 2025 so the close is unambiguous.
+    await addBusinessTransaction({
+      businessId: business.id, userId: user.id, kind: "income",
+      amount: 100000, category: "Sales", note: "2025 sales", occurredOn: "2025-06-01"
+    });
+    await addBusinessTransaction({
+      businessId: business.id, userId: user.id, kind: "expense",
+      amount: 40000, category: "Rent", note: "2025 rent", occurredOn: "2025-07-01"
+    });
+  });
+  after(async () => { await dropUser(user?.id); });
+
+  test("empties income and expense into retained earnings", async () => {
+    const out = await closePeriod({
+      businessId: business.id, userId: user.id,
+      periodStart: "2025-01-01", periodEnd: "2025-12-31", label: "2025"
+    });
+    assert.equal(out.ok, true);
+    closed = out.close;
+
+    const trial = await trialFor(business.id, user.id);
+    assert.equal(balanceOf(trial, "sales_revenue"), 0, "income is closed out");
+    assert.equal(balanceOf(trial, "rent_expense"), 0, "so are expenses");
+    assert.equal(balanceOf(trial, "retained_earnings"), 60000, "the year's profit, kept");
+    assert.equal(trial.balanced, true);
+  });
+
+  test("the balance sheet still balances afterwards", async () => {
+    const trial = await trialFor(business.id, user.id);
+    const sheet = ledgerBalanceSheet(trial);
+    assert.equal(sheet.balanced, true);
+    assert.equal(sheet.equity.total, 60000);
+    assert.equal(sheet.equity.earned, 0, "nothing unclosed is left to carry");
+  });
+
+  test("★ the year's income statement still reads, because the period excludes the close", async () => {
+    const [accounts, lines] = await Promise.all([
+      listAccounts(business.id, user.id),
+      ledgerLines(business.id, user.id, {
+        from: "2025-01-01", to: "2025-12-31", withClosing: false
+      })
+    ]);
+    const income = ledgerIncomeStatement(trialBalance(accounts, lines));
+    assert.equal(income.revenue, 100000, "the closed year is still reportable");
+    assert.equal(income.netProfit, 60000);
+  });
+
+  test("and sweeping the closing entry in would zero it — which is why it does not", async () => {
+    const [accounts, lines] = await Promise.all([
+      listAccounts(business.id, user.id),
+      ledgerLines(business.id, user.id, {
+        from: "2025-01-01", to: "2025-12-31", withClosing: true
+      })
+    ]);
+    const income = ledgerIncomeStatement(trialBalance(accounts, lines));
+    assert.equal(income.revenue, 0, "the year appears to have earned nothing");
+  });
+
+  test("nothing can be posted into the closed year", async () => {
+    await assert.rejects(
+      addBusinessTransaction({
+        businessId: business.id, userId: user.id, kind: "income",
+        amount: 5000, category: "Sales", note: "backdated", occurredOn: "2025-11-30"
+      }),
+      /books are closed/
+    );
+  });
+
+  test("but the new year is open for business", async () => {
+    const posted = await addBusinessTransaction({
+      businessId: business.id, userId: user.id, kind: "income",
+      amount: 5000, category: "Sales", note: "2026 sales", occurredOn: "2026-01-15"
+    });
+    assert.ok(posted.id);
+    assert.equal(balanceOf(await trialFor(business.id, user.id), "sales_revenue"), 5000,
+      "the new year starts from zero, not from last year's total");
+  });
+
+  test("closing the same year twice is refused", async () => {
+    const out = await closePeriod({
+      businessId: business.id, userId: user.id,
+      periodStart: "2025-01-01", periodEnd: "2025-12-31", label: "2025"
+    });
+    assert.equal(out.ok, false);
+    assert.equal(out.reason, "already-closed");
+  });
+
+  test("reopening reverses rather than deletes, and unseals the books", async () => {
+    const out = await reopenPeriod({
+      businessId: business.id, userId: user.id, closeId: closed.id
+    });
+    assert.equal(out.ok, true);
+
+    const trial = await trialFor(business.id, user.id);
+    assert.equal(balanceOf(trial, "retained_earnings"), 0, "the result is handed back");
+    assert.equal(balanceOf(trial, "sales_revenue"), 105000, "2025 and 2026 standing open together");
+    assert.equal(trial.balanced, true);
+
+    const entries = await listEntries(business.id, user.id);
+    assert.equal(entries.filter((e) => e.source === "close").length, 2,
+      "the close and its reversal both remain");
+  });
+
+  test("and a backdated entry is allowed again", async () => {
+    const posted = await addBusinessTransaction({
+      businessId: business.id, userId: user.id, kind: "expense",
+      amount: 1000, category: "Rent", note: "late arrival", occurredOn: "2025-11-30"
+    });
+    assert.ok(posted.id);
+  });
+});

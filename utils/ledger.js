@@ -13,6 +13,8 @@
 //
 // Pure. Rows in, plain objects out, no database anywhere near it.
 
+import { toISODate, toLocalDate } from "./dates.js";
+
 const round = (n) => Math.round(Number(n) * 100) / 100;
 
 // Which way each kind of account increases. Debits increase what the business
@@ -116,7 +118,10 @@ export function checkLine(line) {
   if (debit < 0 || credit < 0) return "A line cannot carry a negative amount.";
   if (debit === 0 && credit === 0) return "A line must carry an amount.";
   if (debit > 0 && credit > 0) return "A line is a debit or a credit, not both.";
-  if (!line.account) return "A line must name an account.";
+  // By key or by id: the built-in accounts are addressed by name so a rename
+  // cannot break a posting, and the owner's own accounts have no key, so
+  // closing reaches those by id.
+  if (!line.account && !line.accountId) return "A line must name an account.";
   return null;
 }
 
@@ -368,6 +373,87 @@ export function ledgerBalanceSheet(trial) {
     balanced: Math.abs(round(assetTotal - (liabilityTotal + equityTotal))) < 0.01,
     difference: round(assetTotal - (liabilityTotal + equityTotal))
   };
+}
+
+// --- Closing the year ---
+
+// The financial year a date falls in, for a business whose year ends in the
+// given month. December is the ordinary case; plenty of places and plenty of
+// businesses use another, and the difference is not cosmetic — it decides which
+// year a December sale is taxed in.
+export function fiscalYear(endMonth, forDate) {
+  const month = Math.min(Math.max(Number(endMonth) || 12, 1), 12);
+  const date = toLocalDate(forDate);
+  const [year, monthIndex] = [date.getFullYear(), date.getMonth() + 1];
+
+  // Past the end month, the date belongs to the year ending NEXT time that
+  // month comes round.
+  const endYear = monthIndex > month ? year + 1 : year;
+  const end = new Date(endYear, month, 0);
+  const start = new Date(endYear - 1, month, 1);
+
+  return {
+    start: toISODate(start),
+    end: toISODate(end),
+    // "2026" when the year ends in December, "2025/26" when it straddles two.
+    label: month === 12 ? String(endYear) : `${endYear - 1}/${String(endYear).slice(2)}`
+  };
+}
+
+// The entry that closes a period.
+//
+// Income and expense accounts measure a stretch of time, not a standing
+// quantity — they are the only accounts that mean nothing without a date range
+// attached. Closing empties them into equity, where the result stops being "how
+// we did" and becomes "what the business is worth". After it, a new year starts
+// from zero, which is the whole point of a year.
+//
+// Every income and expense balance is written back to nothing and the
+// difference lands in retained earnings, so the entry balances by construction:
+// whatever the two sides came to, their difference is exactly what is left over.
+export function closingEntry(trial, memo = "Year-end closing") {
+  const lines = [];
+  let income = 0;
+  let expense = 0;
+
+  for (const row of trial.rows) {
+    if (row.type !== "income" && row.type !== "expense") continue;
+    if (row.balance === 0) continue;
+
+    // Written back by its own normal side: a credit balance is cleared with a
+    // debit, and a balance that has somehow run the other way is cleared the
+    // other way. Handled generally so a refund-heavy month cannot produce an
+    // entry that does not balance.
+    const clearingDebit = row.type === "income" ? row.balance > 0 : row.balance < 0;
+    const amount = Math.abs(row.balance);
+
+    lines.push({
+      // Closing has to reach accounts the owner added themselves, which have no
+      // key — so this addresses them by id, and postEntry accepts either.
+      account: row.key || null,
+      accountId: row.id,
+      debit: clearingDebit ? amount : 0,
+      credit: clearingDebit ? 0 : amount,
+      memo
+    });
+
+    if (row.type === "income") income = round(income + row.balance);
+    else expense = round(expense + row.balance);
+  }
+
+  const net = round(income - expense);
+  if (lines.length === 0) return { lines: [], income, expense, net, empty: true };
+
+  // The result goes to equity: a profit increases what the business is worth,
+  // a loss reduces it.
+  lines.push({
+    account: "retained_earnings",
+    debit: net < 0 ? Math.abs(net) : 0,
+    credit: net > 0 ? net : 0,
+    memo
+  });
+
+  return { lines, income, expense, net, empty: false };
 }
 
 // What the two ways of keeping these books say, side by side.

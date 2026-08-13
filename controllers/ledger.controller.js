@@ -5,14 +5,17 @@ import {
   getEntry,
   ledgerLines,
   listAccounts,
+  listCloses,
   listEntries,
   postEntryAlone,
+  reopenPeriod,
+  closePeriod,
   unpostedCount
 } from "../db/queries/ledger.js";
 import { getBusiness } from "../db/queries/business.js";
 import { backfillProvisions } from "../db/queries/tax.js";
 import { toBase } from "../services/fx.js";
-import { ACCOUNT_TYPES, checkEntry, trialBalance } from "../utils/ledger.js";
+import { ACCOUNT_TYPES, checkEntry, fiscalYear, trialBalance } from "../utils/ledger.js";
 import { today } from "../utils/dates.js";
 
 async function requireBusiness(req, res) {
@@ -38,14 +41,26 @@ export async function showLedger(req, res, next) {
     // never opened, gets it here rather than erroring on an empty page.
     await ensureChart(business.id, userId);
 
-    const [accounts, lines, entries, unposted] = await Promise.all([
+    const [accounts, lines, entries, unposted, closes] = await Promise.all([
       listAccounts(business.id, userId),
       ledgerLines(business.id, userId),
       listEntries(business.id, userId, 50),
-      unpostedCount(business.id, userId)
+      unpostedCount(business.id, userId),
+      listCloses(business.id, userId)
     ]);
 
     const trial = trialBalance(accounts, lines);
+
+    // The year on offer is the one after whatever was closed last — or the one
+    // the earliest entry falls in, for books that have never been closed.
+    const lastClosed = closes[0] || null;
+    const nextYear = fiscalYear(
+      business.fiscal_year_end_month,
+      lastClosed
+        // A day past the last close lands in the following year.
+        ? new Date(Date.parse(`${lastClosed.period_end}T00:00:00`) + 86400000)
+        : (entries.at(-1)?.entry_date || today())
+    );
 
     return res.render("ledger", {
       title: `${business.name} · General ledger`,
@@ -54,6 +69,11 @@ export async function showLedger(req, res, next) {
       trial,
       entries,
       unposted,
+      closes,
+      nextYear,
+      closedThrough: business.books_closed_through
+        ? String(business.books_closed_through).slice(0, 10)
+        : null,
       accountTypes: ACCOUNT_TYPES,
       today: today()
     });
@@ -214,6 +234,81 @@ export async function runBackfill(req, res, next) {
           : "Nothing was posted; those entries already have journals."
     );
     return res.redirect(`/business/${business.id}/ledger`);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// Close a financial year: every income and expense account is emptied into
+// retained earnings, and the books are sealed to that date.
+export async function closeYear(req, res, next) {
+  const business = await requireBusiness(req, res);
+  if (!business) return undefined;
+
+  const back = `/business/${business.id}/ledger`;
+
+  try {
+    const year = fiscalYear(business.fiscal_year_end_month, req.body.periodEnd || today());
+    const out = await closePeriod({
+      businessId: business.id,
+      userId: req.session.user.id,
+      periodStart: year.start,
+      periodEnd: year.end,
+      label: year.label
+    });
+
+    if (!out.ok) {
+      req.flash(
+        "error",
+        out.reason === "already-closed"
+          ? `${year.label} is already closed.`
+          : `There is nothing in ${year.label} to close — no income and no expenses.`
+      );
+      return res.redirect(back);
+    }
+
+    req.flash(
+      "success",
+      `${year.label} closed. ${out.close.net >= 0 ? "A profit" : "A loss"} of ` +
+      `${Math.abs(out.close.net).toFixed(2)} went to retained earnings, and the books ` +
+      `are sealed to ${year.end}.`
+    );
+    return res.redirect(back);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// And the way back out, for a year closed too early.
+export async function reopenYear(req, res, next) {
+  const business = await requireBusiness(req, res);
+  if (!business) return undefined;
+
+  const back = `/business/${business.id}/ledger`;
+
+  try {
+    const out = await reopenPeriod({
+      businessId: business.id,
+      userId: req.session.user.id,
+      closeId: Number(req.params.closeId)
+    });
+
+    if (!out.ok) {
+      req.flash(
+        "error",
+        out.reason === "not-latest"
+          ? "Only the most recently closed year can be reopened — reopen the later ones first."
+          : "That close is not here."
+      );
+      return res.redirect(back);
+    }
+
+    req.flash(
+      "success",
+      `${out.close.label} reopened. The closing entry has been reversed rather than ` +
+      "deleted, so both it and the reversal stay in the journal."
+    );
+    return res.redirect(back);
   } catch (error) {
     return next(error);
   }
