@@ -216,6 +216,14 @@ just decides the front door.
     while it is with them. Deals and cases attach to the contacts marketing
     already collected, and land on their timeline, but neither requires one: a
     walk-in with no email address is still a deal and still a complaint
+  - **Tax that accrues** — providing for tax now posts to the ledger: the charge
+    lands in the period that earned the profit and the obligation sits as a
+    liability until it is remitted. No cash moves, because setting money aside
+    and owing it are different acts. Tax appears BELOW the operating line, the
+    way an income statement reads — gross profit, operating expenses, profit
+    before tax, tax, profit after tax — since tax is charged on the profit
+    rather than incurred to earn it. Withdrawing a provision posts a reversing
+    entry rather than deleting the original, so both halves stay readable
   - **General ledger** — double-entry underneath everything else. Each business
     opens with a chart of accounts on the usual numbering (1000s assets, 2000s
     liabilities, 4000s income, 5000s expenses), and every movement is posted as

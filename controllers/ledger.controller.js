@@ -10,6 +10,7 @@ import {
   unpostedCount
 } from "../db/queries/ledger.js";
 import { getBusiness } from "../db/queries/business.js";
+import { backfillProvisions } from "../db/queries/tax.js";
 import { toBase } from "../services/fx.js";
 import { ACCOUNT_TYPES, checkEntry, trialBalance } from "../utils/ledger.js";
 import { today } from "../utils/dates.js";
@@ -199,11 +200,16 @@ export async function runBackfill(req, res, next) {
 
   try {
     const { posted, considered } = await backfillJournals(business.id, req.session.user.id);
+    // Provisions are not business_transactions, so they need their own sweep —
+    // the same button should leave nothing behind whichever kind it was.
+    const provisions = await backfillProvisions(business.id, req.session.user.id);
     req.flash(
       "success",
-      posted > 0
-        ? `Posted ${posted} historic entr${posted === 1 ? "y" : "ies"} to the ledger.`
-        : considered === 0
+      posted + provisions.posted > 0
+        ? `Posted ${posted + provisions.posted} historic entr` +
+          `${posted + provisions.posted === 1 ? "y" : "ies"} to the ledger` +
+          `${provisions.posted > 0 ? `, including ${provisions.posted} tax provision(s)` : ""}.`
+        : considered + provisions.considered === 0
           ? "Nothing to catch up — every entry in the books is already posted."
           : "Nothing was posted; those entries already have journals."
     );

@@ -31,10 +31,26 @@
     </div>
   <% }) %>
   <div class="stmt-line"><span>Total operating expenses</span><span class="negative">(<%= money(fromLedger.operatingTotal) %>)</span></div>
+  <div class="stmt-line stmt-subtotal">
+    <span>Profit before tax</span>
+    <span class="<%= fromLedger.profitBeforeTax >= 0 ? "positive" : "negative" %>">
+      <%= money(fromLedger.profitBeforeTax) %>
+    </span>
+  </div>
+  <% if (fromLedger.taxExpense !== 0) { %>
+    <div class="stmt-line"><span>Tax provided for</span><span class="negative">(<%= money(fromLedger.taxExpense) %>)</span></div>
+  <% } %>
   <div class="stmt-line stmt-total">
-    <span>Net profit</span>
+    <span>Net profit<%= fromLedger.taxExpense !== 0 ? " after tax" : "" %></span>
     <span class="<%= fromLedger.netProfit >= 0 ? "positive" : "negative" %>"><%= money(fromLedger.netProfit) %></span>
   </div>
+  <% if (fromLedger.taxExpense !== 0) { %>
+    <p class="muted" style="font-size:0.85rem;">
+      Tax sits below the operating line because it is charged on the profit, not
+      incurred to earn it. What is provided for is owed but not yet paid, so it
+      also stands as a liability on the balance sheet until it is remitted.
+    </p>
+  <% } %>
 
   <h3 style="margin-top:1.4rem;">Balance sheet</h3>
   <% ledgerBalance.assets.rows.forEach((r) => { %>
@@ -84,6 +100,16 @@
       </tbody>
     </table>
   </div>
+  <% if (reconciliation.taxExpense !== 0) { %>
+    <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0.4rem;">
+      Compared before tax on purpose: the ledger carries
+      <strong><%= money(reconciliation.taxExpense) %></strong> of tax provided
+      for, taking its net to <%= money(reconciliation.netAfterTax) %>. The
+      category column has no tax in it at all, so comparing an after-tax figure
+      against a pre-tax one would report a difference on every set of books that
+      had ever provided for tax.
+    </p>
+  <% } %>
   <p class="muted" style="font-size:0.85rem;margin:0.8rem 0 0;">
     <% if (unposted > 0) { %>
       <strong><%= unposted %> entr<%= unposted === 1 ? "y" : "ies" %> in the books have no journal yet</strong>,

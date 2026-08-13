@@ -12,6 +12,7 @@ import {
   unpostedCount
 } from "../../db/queries/ledger.js";
 import { addBusinessTransaction } from "../../db/queries/business.js";
+import { addProvision, backfillProvisions, deleteProvision } from "../../db/queries/tax.js";
 import { createBill, createInvoice, markInvoicePaid } from "../../db/queries/accounting.js";
 import { createSale } from "../../db/queries/sales.js";
 import { invoicePaidEntry, trialBalance } from "../../utils/ledger.js";
@@ -257,6 +258,64 @@ describe("what the ledger refuses", { skip: skipWithoutDb }, () => {
     } finally {
       client.release();
     }
+  });
+});
+
+describe("providing for tax", { skip: skipWithoutDb }, () => {
+  let user;
+  let business;
+  let provision;
+
+  before(async () => {
+    user = await makeUser("ledger-provision");
+    business = await makeBusiness(user.id, "Provision Co");
+  });
+  after(async () => { await dropUser(user?.id); });
+
+  test("accrues the charge and the obligation, and moves no cash", async () => {
+    provision = await addProvision({
+      businessId: business.id, userId: user.id,
+      amount: 24450, note: "Q3 estimate", setOn: TODAY
+    });
+
+    const trial = await trialFor(business.id, user.id);
+    assert.equal(balanceOf(trial, "tax_expense"), 24450);
+    assert.equal(balanceOf(trial, "tax_payable"), 24450);
+    assert.equal(balanceOf(trial, "cash"), 0, "setting aside is not paying");
+    assert.equal(trial.balanced, true);
+  });
+
+  test("withdrawing it REVERSES rather than deleting, so both remain readable", async () => {
+    assert.equal(await deleteProvision(provision.id, user.id), true);
+
+    const entries = await listEntries(business.id, user.id);
+    assert.equal(entries.length, 2, "the provision and its reversal");
+    assert.ok(entries.some((e) => e.source === "provision"));
+    assert.ok(entries.some((e) => e.source === "provision_reversed"));
+  });
+
+  test("and the two net to nothing", async () => {
+    const trial = await trialFor(business.id, user.id);
+    assert.equal(balanceOf(trial, "tax_expense"), 0);
+    assert.equal(balanceOf(trial, "tax_payable"), 0);
+    assert.equal(trial.balanced, true);
+  });
+
+  test("provisions made before this shipped are caught up, once", async () => {
+    // Written straight in, the way one recorded before provisions accrued.
+    const [old] = await q(
+      `INSERT INTO tax_provisions (business_id, user_id, amount, note, set_on)
+       VALUES ($1, $2, 5000, 'historic', $3) RETURNING *`,
+      [business.id, user.id, TODAY]
+    );
+
+    const first = await backfillProvisions(business.id, user.id);
+    assert.equal(first.posted, 1);
+    assert.equal(balanceOf(await trialFor(business.id, user.id), "tax_payable"), 5000);
+
+    const second = await backfillProvisions(business.id, user.id);
+    assert.equal(second.posted, 0, "idempotent");
+    assert.ok(old.id);
   });
 });
 

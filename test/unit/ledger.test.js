@@ -12,6 +12,8 @@ import {
   invoiceRaisedEntry,
   ledgerBalanceSheet,
   ledgerIncomeStatement,
+  provisionEntry,
+  provisionReversedEntry,
   normalBalance,
   payrollEntry,
   reconcile,
@@ -212,6 +214,13 @@ const ACCOUNTS = [
 ];
 
 // Bought 800 of stock on credit; sold goods costing 300 for 500 cash; paid 200 rent.
+// The same chart plus the two tax accounts, for the provision cases below.
+const WITH_TAX_ACCOUNTS = [
+  ...ACCOUNTS,
+  { id: 8, key: "tax_expense", code: "5800", name: "Taxes", type: "expense" },
+  { id: 9, key: "tax_payable", code: "2200", name: "Tax payable", type: "liability" }
+];
+
 const LINES = [
   { account_id: 3, debit: 800, credit: 0 },
   { account_id: 4, debit: 0, credit: 800 },
@@ -285,8 +294,65 @@ describe("the statements read off the ledger", () => {
   });
 });
 
+describe("providing for tax", () => {
+  test("charges the period and creates the obligation, moving no cash", () => {
+    const lines = provisionEntry({ amount: 24450 });
+    assert.equal(debitOn(lines, "tax_expense"), 24450);
+    assert.equal(creditOn(lines, "tax_payable"), 24450);
+    assert.equal(creditOn(lines, "cash"), 0, "setting aside is not paying");
+    assert.ok(balances(lines));
+  });
+
+  test("and withdrawing it is the same entry backwards", () => {
+    const lines = provisionReversedEntry({ amount: 24450 });
+    assert.equal(debitOn(lines, "tax_payable"), 24450);
+    assert.equal(creditOn(lines, "tax_expense"), 24450);
+    assert.ok(balances(lines));
+  });
+
+  test("so a provision made and withdrawn nets to nothing", () => {
+    const trial = trialBalance(WITH_TAX_ACCOUNTS, [
+      ...LINES,
+      { account_id: 8, debit: 100, credit: 0 },
+      { account_id: 9, debit: 0, credit: 100 },
+      { account_id: 9, debit: 100, credit: 0 },
+      { account_id: 8, debit: 0, credit: 100 }
+    ]);
+    assert.equal(trial.rows.find((r) => r.key === "tax_expense").balance, 0);
+    assert.equal(trial.rows.find((r) => r.key === "tax_payable").balance, 0);
+    assert.equal(trial.balanced, true);
+  });
+});
+
+describe("where tax sits in the income statement", () => {
+  // 100 of tax provided for, on top of the base books.
+  const trial = trialBalance(WITH_TAX_ACCOUNTS, [
+    ...LINES,
+    { account_id: 8, debit: 100, credit: 0 },
+    { account_id: 9, debit: 0, credit: 100 }
+  ]);
+  const income = ledgerIncomeStatement(trial);
+
+  test("BELOW the operating line, not among the running costs", () => {
+    assert.equal(income.operatingTotal, 200, "rent only — tax is not an operating expense");
+    assert.equal(income.taxExpense, 100);
+  });
+
+  test("so profit before tax is unchanged by providing for it", () => {
+    assert.equal(income.profitBeforeTax, 0, "same as before the provision");
+    assert.equal(income.netProfit, -100, "after tax");
+  });
+
+  test("and the obligation shows as a liability", () => {
+    const sheet = ledgerBalanceSheet(trial);
+    assert.ok(sheet.liabilities.rows.some((r) => r.name === "Tax payable"));
+    assert.equal(sheet.balanced, true, "still balances with tax accrued");
+  });
+});
+
 describe("comparing the two ways of reading the books", () => {
-  const ledger = { revenue: 500, cogs: 300, operatingTotal: 200, netProfit: 0 };
+  const ledger = { revenue: 500, cogs: 300, operatingTotal: 200,
+    profitBeforeTax: 0, taxExpense: 0, netProfit: 0 };
 
   test("says so when they agree", () => {
     const out = reconcile(ledger, { revenue: 500, cogs: 300, operatingTotal: 200, netProfit: 0 });

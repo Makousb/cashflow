@@ -231,6 +231,23 @@ export function payrollEntry({ gross, deductions = 0, memo }) {
 export const stockReceivedEntry = ({ amount, memo }) =>
   simpleEntry("inventory", "cash", amount, memo);
 
+// Providing for tax. The business recognises that it owes something and puts a
+// figure on it: the charge lands in the period that earned the profit, and the
+// obligation sits as a liability until it is actually remitted.
+//
+// No cash moves. Setting money aside is not the same act as owing it, and this
+// entry is about the owing — which is why it does not touch the cash account
+// even though the page calls it "set aside".
+export const provisionEntry = ({ amount, memo }) =>
+  simpleEntry("tax_expense", "tax_payable", amount, memo);
+
+// And the same entry backwards, for a provision the owner takes back. A ledger
+// is not corrected by deleting from it — every other posting here can be traced
+// to what caused it, and a line that can vanish is worth less than one that
+// cannot. So the reversal is itself an entry, and both remain readable.
+export const provisionReversedEntry = ({ amount, memo }) =>
+  simpleEntry("tax_payable", "tax_expense", amount, memo);
+
 // --- Reading the ledger back ---
 
 // Every account's side totals and its resulting balance, signed the way that
@@ -288,19 +305,31 @@ const sumBalances = (rows, type) =>
 // The income statement, straight off the ledger. No periodic estimate and no
 // category grouping: cost of sales is what was posted to it when goods left,
 // and stock still on the shelves was never called a cost to begin with.
+// ★ Tax sits BELOW the operating line, the way a real income statement reads:
+// gross profit, operating expenses, profit before tax, tax, profit after tax.
+// That is not only convention. Tax is charged ON the profit, so folding it in
+// with rent and wages would make "operating expenses" a figure that grows when
+// the business does well, and would leave the ledger reporting an after-tax net
+// profit against a derived statement that has no tax in it at all — a gap that
+// looks like a data problem and is not one.
 export function ledgerIncomeStatement(trial) {
   const rows = trial.rows;
   const revenue = sumBalances(rows, "income");
   const cogs = round(
     rows.filter((r) => r.key === "cogs").reduce((sum, r) => sum + r.balance, 0)
   );
+  const taxExpense = round(
+    rows.filter((r) => r.key === "tax_expense").reduce((sum, r) => sum + r.balance, 0)
+  );
   const operating = rows
-    .filter((r) => r.type === "expense" && r.key !== "cogs" && r.balance !== 0)
+    .filter((r) => r.type === "expense" && r.key !== "cogs" && r.key !== "tax_expense"
+      && r.balance !== 0)
     .map((r) => ({ code: r.code, category: r.name, total: r.balance }))
     .sort((a, b) => b.total - a.total);
 
   const operatingTotal = round(operating.reduce((sum, r) => sum + r.total, 0));
   const grossProfit = round(revenue - cogs);
+  const profitBeforeTax = round(grossProfit - operatingTotal);
 
   return {
     revenue,
@@ -308,8 +337,10 @@ export function ledgerIncomeStatement(trial) {
     grossProfit,
     operating,
     operatingTotal,
-    netProfit: round(grossProfit - operatingTotal),
-    margin: revenue > 0 ? round((round(grossProfit - operatingTotal) / revenue) * 100) : 0
+    profitBeforeTax,
+    taxExpense,
+    netProfit: round(profitBeforeTax - taxExpense),
+    margin: revenue > 0 ? round((profitBeforeTax / revenue) * 100) : 0
   };
 }
 
@@ -359,8 +390,19 @@ export function reconcile(ledger, derived) {
     line("Revenue", ledger.revenue, derived.revenue),
     line("Cost of sales", ledger.cogs, derived.cogs),
     line("Operating expenses", ledger.operatingTotal, derived.operatingTotal),
-    line("Net profit", ledger.netProfit, derived.netProfit)
+    // Compared BEFORE tax, deliberately. The derived statement has no tax in it
+    // — provisions are not ledger transactions over there — so comparing an
+    // after-tax figure against a pre-tax one would report a difference on every
+    // set of books that had ever provided for tax.
+    line("Profit before tax", ledger.profitBeforeTax, derived.netProfit)
   ];
 
-  return { lines, agrees: lines.every((l) => l.agrees) };
+  return {
+    lines,
+    agrees: lines.every((l) => l.agrees),
+    // Carried alongside rather than compared, so the page can say what the
+    // ledger knows and the other column simply does not.
+    taxExpense: round(ledger.taxExpense),
+    netAfterTax: round(ledger.netProfit)
+  };
 }
