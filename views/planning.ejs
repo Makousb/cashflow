@@ -10,7 +10,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">🎯</span>
+    <span class="stat-icon"><%- icon("target") %></span>
     <span class="stat-body">
       <span class="stat-label">Revenue target</span>
       <span class="stat-value positive"><%= money(budgetedRevenue) %></span>
@@ -18,7 +18,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon tint-red">📉</span>
+    <span class="stat-icon tint-red"><%- icon("trendingDown") %></span>
     <span class="stat-body">
       <span class="stat-label">Expense budget</span>
       <span class="stat-value negative"><%= money(budgetedExpenses) %></span>
@@ -26,7 +26,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📈</span>
+    <span class="stat-icon"><%- icon("trendingUp") %></span>
     <span class="stat-body">
       <span class="stat-label">Projected monthly net</span>
       <span class="stat-value <%= projectedNet >= 0 ? "positive" : "negative" %>"><%= money(projectedNet) %></span>
@@ -41,7 +41,7 @@
       <label>
         Budget for
         <select name="target">
-          <option value="Revenue">🎯 Revenue (monthly target)</option>
+          <option value="Revenue">Revenue (monthly target)</option>
           <% expenseCategories.forEach((c) => { %>
             <option value="<%= c %>"><%= c %></option>
           <% }) %>
@@ -60,7 +60,7 @@
     <% } else { %>
       <% if (revenueBudget) { %>
         <div class="budget-row">
-          <span>🎯 Revenue</span>
+          <span class="row-icon-label"><%- icon("target") %> Revenue</span>
           <span class="muted"><%= money(revenueActual) %> of <%= money(revenueBudget.amount) %></span>
         </div>
         <div class="progress"><div class="progress-fill goal" style="width: <%= Math.round(revenueRatio) %>%"></div></div>
@@ -101,7 +101,7 @@
   <ul class="tx-list">
     <% forecast.forEach((f) => { %>
       <li class="tx-row">
-        <span class="tx-icon">📅</span>
+        <span class="tx-icon"><%- icon("calendar") %></span>
         <span class="tx-meta">
           <strong><%= f.label %></strong>
           <small class="muted">projected net <%= money(f.projectedNet) %></small>

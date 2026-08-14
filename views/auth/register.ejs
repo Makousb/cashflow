@@ -11,7 +11,7 @@
         <label class="side-option">
           <input type="radio" name="accountType" value="<%= key %>" <%= i === 0 ? "checked" : "" %> />
           <span class="side-body">
-            <span class="side-icon"><%= t.icon %></span>
+            <span class="side-icon"><%- icon(t.icon) %></span>
             <strong><%= t.label %></strong>
             <small><%= t.blurb %></small>
           </span>

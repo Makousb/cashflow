@@ -15,11 +15,11 @@
       <div class="segmented" role="radiogroup" aria-label="Transaction type">
         <label>
           <input type="radio" name="kind" value="expense" checked />
-          <span>💸 Expense</span>
+          <span>Expense</span>
         </label>
         <label>
           <input type="radio" name="kind" value="income" />
-          <span>💰 Income</span>
+          <span>Income</span>
         </label>
       </div>
       <label>
@@ -93,8 +93,8 @@
             </span>
             <form action="/recurring/<%= r.id %>/toggle" method="POST" class="inline-form">
               <input type="hidden" name="active" value="<%= r.active ? "false" : "true" %>" />
-              <button type="submit" class="btn btn-ghost btn-sm" title="<%= r.active ? "Pause" : "Resume" %>">
-                <%= r.active ? "⏸" : "▶" %>
+              <button type="submit" class="btn btn-ghost btn-sm" title="<%= r.active ? "Pause" : "Resume" %>" aria-label="<%= r.active ? "Pause" : "Resume" %>">
+                <%- r.active ? icon("pause") : icon("play") %>
               </button>
             </form>
             <form action="/recurring/<%= r.id %>/delete" method="POST" class="inline-form">

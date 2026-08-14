@@ -23,7 +23,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">🌍</span>
+    <span class="stat-icon"><%- icon("globe") %></span>
     <span class="stat-body">
       <span class="stat-label">Group revenue</span>
       <span class="stat-value"><%= fmt(group.totals.revenue, reportingCurrency) %></span>
@@ -31,7 +31,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📈</span>
+    <span class="stat-icon"><%- icon("trendingUp") %></span>
     <span class="stat-body">
       <span class="stat-label">Group net profit</span>
       <span class="stat-value <%= group.totals.netProfit >= 0 ? "positive" : "negative" %>">
@@ -41,7 +41,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">🏛️</span>
+    <span class="stat-icon"><%- icon("building") %></span>
     <span class="stat-body">
       <span class="stat-label">Group equity</span>
       <span class="stat-value"><%= fmt(group.totals.equity, reportingCurrency) %></span>
@@ -52,7 +52,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">🧾</span>
+    <span class="stat-icon"><%- icon("receipt") %></span>
     <span class="stat-body">
       <span class="stat-label">This entity pays</span>
       <span class="stat-value"><%= rates.incomeTax.rate %>%</span>
@@ -65,7 +65,7 @@
 
 <% if (group.multiCurrency) { %>
   <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
-    <span class="alert-icon">💱</span>
+    <span class="alert-icon"><%- icon("swap") %></span>
     <div class="alert-body">
       <strong>This group keeps books in more than one currency</strong>
       <div class="alert-detail">

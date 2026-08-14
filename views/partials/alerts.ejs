@@ -2,7 +2,7 @@
   <section class="alerts">
     <% alerts.forEach((a) => { %>
       <div class="alert-card <%= a.severity === "critical" ? "alert-critical" : "alert-warning" %>">
-        <span class="alert-icon"><%= a.severity === "critical" ? "🚨" : "⏰" %></span>
+        <span class="alert-icon"><%- a.severity === "critical" ? icon("alertCircle") : icon("clock") %></span>
         <div class="alert-body">
           <strong><%= a.message %></strong>
           <div class="alert-detail">
@@ -17,7 +17,7 @@
 
     <% if (goalImpact) { %>
       <div class="alert-card alert-impact">
-        <span class="alert-icon">📉</span>
+        <span class="alert-icon"><%- icon("trendingDown") %></span>
         <div class="alert-body">
           <strong>What this means for your goals</strong>
           <ul>

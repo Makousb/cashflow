@@ -25,7 +25,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">🎯</span>
+    <span class="stat-icon"><%- icon("target") %></span>
     <span class="stat-body">
       <span class="stat-label">Open pipeline</span>
       <span class="stat-value"><%= money(funnel.open.value) %></span>
@@ -33,7 +33,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📈</span>
+    <span class="stat-icon"><%- icon("trendingUp") %></span>
     <span class="stat-body">
       <span class="stat-label">Weighted forecast</span>
       <span class="stat-value positive"><%= money(funnel.open.weighted) %></span>
@@ -41,7 +41,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">🏆</span>
+    <span class="stat-icon"><%- icon("trophy") %></span>
     <span class="stat-body">
       <span class="stat-label">Win rate</span>
       <span class="stat-value"><%= funnel.winRate === null ? "—" : funnel.winRate + "%" %></span>
@@ -53,7 +53,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon <%= board.counts.late > 0 ? "tint-red" : "" %>">🎧</span>
+    <span class="stat-icon <%= board.counts.late > 0 ? "tint-red" : "" %>"><%- icon("chat") %></span>
     <span class="stat-body">
       <span class="stat-label">Cases open</span>
       <span class="stat-value <%= board.counts.late > 0 ? "negative" : "" %>">

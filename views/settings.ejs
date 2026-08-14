@@ -66,7 +66,7 @@
 
     <ul class="tx-list" style="margin-top: 0.5rem;">
       <li class="tx-row">
-        <span class="tx-icon">🕒</span>
+        <span class="tx-icon"><%- icon("clock") %></span>
         <span class="tx-meta">
           <strong>Rates updated</strong>
           <small class="muted">
@@ -84,7 +84,7 @@
     </ul>
 
     <form action="/settings/fx/refresh" method="POST" class="inline-form" style="margin-top: 0.75rem;">
-      <button type="submit" class="btn btn-ghost btn-sm">🔄 Refresh rates</button>
+      <button type="submit" class="btn btn-ghost btn-sm"><%- icon("refresh") %> Refresh rates</button>
     </form>
 
     <p class="muted" style="margin-top: 0.9rem;">
@@ -104,7 +104,7 @@
     <ul class="tx-list">
       <% if (!showBusinessNav) { %>
         <li class="tx-row">
-          <span class="tx-icon">🏪</span>
+          <span class="tx-icon"><%- icon("storefront") %></span>
           <span class="tx-meta">
             <strong>Run a business</strong>
             <small class="muted">Books, stock, sales, payroll and tax.</small>
@@ -114,7 +114,7 @@
       <% } %>
       <% if (!showSupplierNav) { %>
         <li class="tx-row">
-          <span class="tx-icon">🏭</span>
+          <span class="tx-icon"><%- icon("factory") %></span>
           <span class="tx-meta">
             <strong>Sell as a supplier</strong>
             <small class="muted">Publish a catalog and fulfil orders from businesses.</small>

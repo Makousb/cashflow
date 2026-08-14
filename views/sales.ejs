@@ -17,7 +17,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">💳</span>
+    <span class="stat-icon"><%- icon("card") %></span>
     <span class="stat-body">
       <span class="stat-label">Sold today</span>
       <span class="stat-value positive"><%= money(summary.today_total) %></span>
@@ -25,7 +25,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📅</span>
+    <span class="stat-icon"><%- icon("calendar") %></span>
     <span class="stat-body">
       <span class="stat-label">This month</span>
       <span class="stat-value"><%= money(monthTotal) %></span>
@@ -33,7 +33,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📈</span>
+    <span class="stat-icon"><%- icon("trendingUp") %></span>
     <span class="stat-body">
       <span class="stat-label">Gross margin this month</span>
       <span class="stat-value <%= monthMargin >= 0 ? "positive" : "negative" %>"><%= money(monthMargin) %></span>
@@ -41,7 +41,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon <%= lowStock.length > 0 ? "tint-red" : "" %>">⚠️</span>
+    <span class="stat-icon <%= lowStock.length > 0 ? "tint-red" : "" %>"><%- icon("alertTriangle") %></span>
     <span class="stat-body">
       <span class="stat-label">Low or out of stock</span>
       <span class="stat-value <%= lowStock.length > 0 ? "negative" : "" %>"><%= lowStock.length %></span>
@@ -52,7 +52,7 @@
 
 <% if (lowStock.length) { %>
   <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
-    <span class="alert-icon">🛒</span>
+    <span class="alert-icon"><%- icon("box") %></span>
     <div class="alert-body" style="flex:1;">
       <strong><%= lowStock.length %> item(s) need reordering</strong>
       <div class="alert-detail">
@@ -153,11 +153,11 @@
         <div class="segmented" role="radiogroup" aria-label="Payment" style="margin:0.75rem 0;">
           <label>
             <input type="radio" name="payment" value="cash" id="pay-cash" checked />
-            <span>💵 Paid now</span>
+            <span>Paid now</span>
           </label>
           <label>
             <input type="radio" name="payment" value="credit" id="pay-credit" />
-            <span>🧾 On credit</span>
+            <span>On credit</span>
           </label>
         </div>
         <div class="stacked-form">
@@ -187,7 +187,7 @@
             const pct = Number(s.total) > 0 ? (margin / Number(s.total)) * 100 : 0;
           %>
           <li class="tx-row">
-            <span class="tx-icon"><%= s.payment === "credit" ? "🧾" : "💵" %></span>
+            <span class="tx-icon"><%- s.payment === "credit" ? icon("receipt") : icon("moneyIn") %></span>
             <span class="tx-meta">
               <strong>
                 Sale #<%= s.id %>

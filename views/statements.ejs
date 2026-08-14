@@ -12,7 +12,7 @@
 <!-- Straight off the ledger -->
 <section class="card statement" style="margin-bottom:1.5rem;">
   <div class="budget-row" style="margin-top:0;">
-    <h2 style="margin:0;">⚖️ From the general ledger</h2>
+    <h2 style="margin:0;">From the general ledger</h2>
     <span class="badge <%= trial.balanced ? "badge-done" : "badge-danger" %>">
       <%= trial.balanced ? "in balance" : "out of balance" %>
     </span>
@@ -139,7 +139,7 @@
 
 <!-- Income statement -->
 <section class="card statement">
-  <h2>📑 Income statement</h2>
+  <h2>Income statement</h2>
   <p class="muted">
     Revenue less costs — your profit or loss to date. Stock counts as a cost
     when it sells, not when you buy it.
@@ -154,7 +154,7 @@
   </div>
   <% if (income.stock.unpurchasedStock) { %>
     <div class="stmt-line stmt-indent muted">
-      <span>⚠️ Some stock was entered by hand rather than purchased, so it is
+      <span>Some stock was entered by hand rather than purchased, so it is
       held at <%= money(income.stock.closingInventory) %> on the balance sheet
       with no purchase behind it.</span>
       <span></span>
@@ -178,7 +178,7 @@
 <div class="two-col">
   <!-- Balance sheet -->
   <section class="card statement">
-    <h2>⚖️ Balance sheet</h2>
+    <h2>Balance sheet</h2>
     <p class="muted">What you own, owe, and the owner's stake — as of today.</p>
     <div class="stmt-heading">Assets</div>
     <div class="stmt-line stmt-indent"><span>Cash on hand</span><span><%= money(balance.assets.cash) %></span></div>
@@ -195,14 +195,14 @@
       <span class="<%= balance.equity >= 0 ? "positive" : "negative" %>"><%= money(balance.equity) %></span>
     </div>
     <p class="muted" style="margin-top:0.6rem;font-size:0.85rem;">
-      <%= balance.balanced ? "✅" : "⚠️" %> Assets <%= money(balance.assets.total) %>
+      <%- balance.balanced ? icon("checkCircle", "icon-inline") : icon("alertTriangle", "icon-inline") %> Assets <%= money(balance.assets.total) %>
       = Liabilities + Equity <%= money(balance.liabilities.total + balance.equity) %>
     </p>
   </section>
 
   <!-- Cash flow statement -->
   <section class="card statement">
-    <h2>💵 Cash flow statement</h2>
+    <h2>Cash flow statement</h2>
     <p class="muted">Actual cash in and out from operations.</p>
     <div class="stmt-heading">Operating activities</div>
     <div class="stmt-line stmt-indent"><span>Cash from customers</span><span class="positive"><%= money(cash.inflows) %></span></div>

@@ -14,7 +14,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">💷</span>
+    <span class="stat-icon"><%- icon("wallet") %></span>
     <span class="stat-body">
       <span class="stat-label">Spare each month</span>
       <span class="stat-value <%= means.disposable > 0 ? "positive" : "" %>"><%= money(means.disposable) %></span>
@@ -25,7 +25,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon tint-red">📄</span>
+    <span class="stat-icon tint-red"><%- icon("document") %></span>
     <span class="stat-body">
       <span class="stat-label">Outstanding here</span>
       <span class="stat-value <%= owed > 0 ? "negative" : "" %>"><%= money(owed) %></span>
@@ -33,7 +33,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">💳</span>
+    <span class="stat-icon"><%- icon("card") %></span>
     <span class="stat-body">
       <span class="stat-label">Card left to spend</span>
       <%

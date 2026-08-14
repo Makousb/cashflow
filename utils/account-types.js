@@ -7,23 +7,24 @@
 // all three sides to everyone rather than being cut down to the type chosen
 // here. (It said otherwise for a while; the navigation has never read this.)
 
+// icon names key into utils/icons.js.
 export const ACCOUNT_TYPES = {
   personal: {
     label: "Personal",
     blurb: "Track your own money — wallets, budgets, goals and loans.",
-    icon: "👤",
+    icon: "wallet",
     home: "/dashboard"
   },
   business: {
     label: "Business",
     blurb: "Run a small business — books, stock, sales, payroll and tax.",
-    icon: "🏪",
+    icon: "storefront",
     home: "/business"
   },
   supplier: {
     label: "Supplier",
     blurb: "Sell to businesses — publish a catalog and fulfil their orders.",
-    icon: "🏭",
+    icon: "factory",
     home: "/supplier"
   }
 };

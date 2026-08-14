@@ -13,7 +13,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon tint-red">📄</span>
+    <span class="stat-icon tint-red"><%- icon("document") %></span>
     <span class="stat-body">
       <span class="stat-label">Owed now</span>
       <span class="stat-value <%= history.owed > 0 ? "negative" : "" %>"><%= money(history.owed) %></span>
@@ -24,7 +24,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📆</span>
+    <span class="stat-icon"><%- icon("calendar") %></span>
     <span class="stat-body">
       <span class="stat-label">Payments missed</span>
       <span class="stat-value <%= history.record.missed > 0 ? "negative" : "positive" %>"><%= history.record.missed %></span>
@@ -35,7 +35,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📅</span>
+    <span class="stat-icon"><%- icon("calendar") %></span>
     <span class="stat-body">
       <span class="stat-label">History here</span>
       <span class="stat-value"><%= history.historyMonths %></span>

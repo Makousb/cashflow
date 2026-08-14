@@ -14,7 +14,7 @@
         Receipt photo
         <input type="file" name="receipt" accept="image/*" capture="environment" required />
       </label>
-      <button type="submit" class="btn btn-primary">📸 Upload &amp; read</button>
+      <button type="submit" class="btn btn-primary">Upload &amp; read</button>
     </form>
     <p class="muted" style="margin-top: 0.75rem;">
       After reading, you'll review what was found before it's saved as an expense.
@@ -29,7 +29,7 @@
       <ul class="tx-list">
         <% receipts.forEach((r) => { %>
           <li class="tx-row">
-            <a href="/receipts/<%= r.id %>/image" target="_blank" class="receipt-thumb-link" title="View photo">🧾</a>
+            <a href="/receipts/<%= r.id %>/image" target="_blank" class="receipt-thumb-link" title="View photo" aria-label="View photo"><%- icon("receipt") %></a>
             <span class="tx-meta">
               <strong><%= r.merchant || "Unknown merchant" %></strong>
               <small class="muted">

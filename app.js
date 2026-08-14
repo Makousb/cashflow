@@ -32,6 +32,7 @@ import transactionRoutes from "./routes/transactions.js";
 import { formatCurrency } from "./utils/currency.js";
 import { DEFAULT_CURRENCY } from "./utils/currencies.js";
 import { formatDate } from "./utils/dates.js";
+import { icon } from "./utils/icons.js";
 import { convert, getRate, getRatesInfo, refreshRates } from "./services/fx.js";
 
 const app = express();
@@ -138,6 +139,7 @@ app.use(async (req, res, next) => {
   res.locals.currentPath = req.path;
   res.locals.formatCurrency = formatCurrency;
   res.locals.formatDate = formatDate;
+  res.locals.icon = icon;
 
   res.locals.baseCurrency = base;
   res.locals.displayCurrency = display;

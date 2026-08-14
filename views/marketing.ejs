@@ -25,7 +25,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">👀</span>
+    <span class="stat-icon"><%- icon("eye") %></span>
     <span class="stat-body">
       <span class="stat-label">Funnel views</span>
       <span class="stat-value"><%= overall.views %></span>
@@ -33,7 +33,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📇</span>
+    <span class="stat-icon"><%- icon("tag") %></span>
     <span class="stat-body">
       <span class="stat-label">Contacts</span>
       <span class="stat-value"><%= overall.captured %></span>
@@ -41,7 +41,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">✅</span>
+    <span class="stat-icon"><%- icon("checkCircle") %></span>
     <span class="stat-body">
       <span class="stat-label">Reachable</span>
       <span class="stat-value positive"><%= overall.subscribed %></span>
@@ -49,7 +49,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">🛍️</span>
+    <span class="stat-icon"><%- icon("card") %></span>
     <span class="stat-body">
       <span class="stat-label">Became customers</span>
       <span class="stat-value"><%= overall.customers %></span>
@@ -60,7 +60,7 @@
 
 <% if (!mailReady) { %>
   <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
-    <span class="alert-icon">✉️</span>
+    <span class="alert-icon"><%- icon("mail") %></span>
     <div class="alert-body" style="flex:1;">
       <strong>No mail server configured</strong>
       <div class="alert-detail">
@@ -159,7 +159,7 @@
       <ul class="tx-list">
         <% campaigns.forEach((c) => { %>
           <li class="tx-row" id="campaign-<%= c.id %>">
-            <span class="tx-icon"><%= c.status === "sent" ? "📤" : "📝" %></span>
+            <span class="tx-icon"><%- c.status === "sent" ? icon("arrowUpBox") : icon("document") %></span>
             <span class="tx-meta">
               <strong>
                 <%= c.name %>
@@ -209,7 +209,7 @@
       <ul class="tx-list">
         <% contacts.slice(0, 25).forEach((c) => { %>
           <li class="tx-row">
-            <span class="tx-icon"><%= c.status === "unsubscribed" ? "🚫" : c.stage === "customer" ? "🛍️" : "📇" %></span>
+            <span class="tx-icon"><%- c.status === "unsubscribed" ? icon("xCircle") : c.stage === "customer" ? icon("card") : icon("tag") %></span>
             <span class="tx-meta">
               <strong>
                 <a class="link" href="/business/<%= business.id %>/marketing/contacts/<%= c.id %>">

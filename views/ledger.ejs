@@ -26,7 +26,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">⚖️</span>
+    <span class="stat-icon"><%- icon("scale") %></span>
     <span class="stat-body">
       <span class="stat-label">Total debits</span>
       <span class="stat-value"><%= money(trial.debits) %></span>
@@ -34,7 +34,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">⚖️</span>
+    <span class="stat-icon"><%- icon("scale") %></span>
     <span class="stat-body">
       <span class="stat-label">Total credits</span>
       <span class="stat-value"><%= money(trial.credits) %></span>
@@ -44,7 +44,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📓</span>
+    <span class="stat-icon"><%- icon("document") %></span>
     <span class="stat-body">
       <span class="stat-label">Journal entries</span>
       <span class="stat-value"><%= entries.length %></span>
@@ -52,7 +52,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon <%= unposted > 0 ? "tint-red" : "" %>">🗂️</span>
+    <span class="stat-icon <%= unposted > 0 ? "tint-red" : "" %>"><%- icon("folder") %></span>
     <span class="stat-body">
       <span class="stat-label">Not yet posted</span>
       <span class="stat-value <%= unposted > 0 ? "negative" : "positive" %>"><%= unposted %></span>
@@ -65,7 +65,7 @@
 
 <% if (!trial.balanced) { %>
   <section class="alert-card alert-critical" style="margin-bottom:1.5rem;">
-    <span class="alert-icon">⚠️</span>
+    <span class="alert-icon"><%- icon("alertTriangle") %></span>
     <div class="alert-body">
       <strong>The ledger does not balance</strong>
       <div class="alert-detail">
@@ -81,7 +81,7 @@
 
 <% if (unposted > 0) { %>
   <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
-    <span class="alert-icon">🗂️</span>
+    <span class="alert-icon"><%- icon("folder") %></span>
     <div class="alert-body" style="flex:1;">
       <strong><%= unposted %> entr<%= unposted === 1 ? "y" : "ies" %> in the books have no journal</strong>
       <div class="alert-detail">

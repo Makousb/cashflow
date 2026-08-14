@@ -18,21 +18,21 @@
 <!-- Profit & loss -->
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">💰</span>
+    <span class="stat-icon"><%- icon("moneyIn") %></span>
     <span class="stat-body">
       <span class="stat-label">Revenue</span>
       <span class="stat-value positive"><%= money(pnl.revenue) %></span>
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon tint-red">🧾</span>
+    <span class="stat-icon tint-red"><%- icon("moneyOut") %></span>
     <span class="stat-body">
       <span class="stat-label">Expenses</span>
       <span class="stat-value negative"><%= money(pnl.expenses) %></span>
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">📈</span>
+    <span class="stat-icon"><%- icon("trendingUp") %></span>
     <span class="stat-body">
       <%# Cash in less cash out. Profit is the accrual figure on the statements
           page, which holds unsold stock back as an asset — so the two differ
@@ -56,7 +56,7 @@
       <<%= link ? "a" : "div" %>
         <% if (link) { %>href="/business/<%= business.id %>/<%= m.href %>"<% } %>
         class="card feature-card module-card <%= m.status %><%= link ? " module-link" : "" %>">
-        <span class="feature-icon"><%= m.icon %></span>
+        <span class="feature-icon"><%- icon(m.icon) %></span>
         <h3>
           <%= m.name %>
           <% if (m.status === "active") { %>
@@ -79,11 +79,11 @@
       <div class="segmented" role="radiogroup" aria-label="Type">
         <label>
           <input type="radio" name="kind" value="income" id="biz-income" checked />
-          <span>💰 Income</span>
+          <span>Income</span>
         </label>
         <label>
           <input type="radio" name="kind" value="expense" id="biz-expense" />
-          <span>🧾 Expense</span>
+          <span>Expense</span>
         </label>
       </div>
       <label>
@@ -123,7 +123,7 @@
       <ul class="tx-list">
         <% entries.forEach((e) => { %>
           <li class="tx-row">
-            <span class="tx-icon"><%= e.kind === "income" ? "💰" : "🧾" %></span>
+            <span class="tx-icon"><%- e.kind === "income" ? icon("moneyIn") : icon("moneyOut") %></span>
             <span class="tx-meta">
               <strong><%= e.category %></strong>
               <small class="muted"><%= formatDate(e.occurred_on) %><%= e.note ? " · " + e.note : "" %></small>

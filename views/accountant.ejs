@@ -90,7 +90,7 @@
 
   <section class="stat-grid">
     <div class="card stat-card">
-      <span class="stat-icon <%= latest.findings_high > 0 ? "tint-red" : "" %>">🧮</span>
+      <span class="stat-icon <%= latest.findings_high > 0 ? "tint-red" : "" %>"><%- icon("calculator") %></span>
       <span class="stat-body">
         <span class="stat-label">Findings</span>
         <span class="stat-value <%= latest.findings_high > 0 ? "negative" : "" %>"><%= latest.findings_total %></span>
@@ -98,7 +98,7 @@
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">📊</span>
+      <span class="stat-icon"><%- icon("barChart") %></span>
       <span class="stat-body">
         <span class="stat-label">Taxable profit</span>
         <span class="stat-value"><%= money(position.taxableProfit) %></span>
@@ -106,7 +106,7 @@
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">🧾</span>
+      <span class="stat-icon"><%- icon("receipt") %></span>
       <span class="stat-body">
         <span class="stat-label">Tax owed</span>
         <span class="stat-value"><%= money(position.totalOwed) %></span>
@@ -114,7 +114,7 @@
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon <%= position.shortfall > 0 ? "tint-red" : "" %>">🏦</span>
+      <span class="stat-icon <%= position.shortfall > 0 ? "tint-red" : "" %>"><%- icon("bank") %></span>
       <span class="stat-body">
         <span class="stat-label">Not yet set aside</span>
         <span class="stat-value <%= position.shortfall > 0 ? "negative" : "positive" %>">
@@ -127,7 +127,7 @@
 
   <% if (stale) { %>
     <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
-      <span class="alert-icon">🔄</span>
+      <span class="alert-icon"><%- icon("refresh") %></span>
       <div class="alert-body" style="flex:1;">
         <strong>The books have changed since this review</strong>
         <div class="alert-detail">
@@ -261,7 +261,7 @@
         <ul class="tx-list">
           <% history.forEach((r) => { %>
             <li class="tx-row">
-              <span class="tx-icon"><%= r.findings_high > 0 ? "⚠️" : "✅" %></span>
+              <span class="tx-icon"><%- r.findings_high > 0 ? icon("alertTriangle") : icon("checkCircle") %></span>
               <span class="tx-meta">
                 <strong><%= r.findings_total %> finding(s)</strong>
                 <small class="muted">

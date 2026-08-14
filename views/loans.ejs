@@ -11,21 +11,21 @@
 <% if (loans.length) { %>
   <section class="stat-grid">
     <div class="card stat-card">
-      <span class="stat-icon tint-red">🏦</span>
+      <span class="stat-icon tint-red"><%- icon("bank") %></span>
       <span class="stat-body">
         <span class="stat-label">Total owed</span>
         <span class="stat-value negative"><%= money(totals.owed) %></span>
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">✅</span>
+      <span class="stat-icon"><%- icon("checkCircle") %></span>
       <span class="stat-body">
         <span class="stat-label">Total paid</span>
         <span class="stat-value positive"><%= money(totals.paid) %></span>
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon tint-red">📈</span>
+      <span class="stat-icon tint-red"><%- icon("trendingUp") %></span>
       <span class="stat-body">
         <span class="stat-label">Interest / month</span>
         <span class="stat-value"><%= money(totals.monthlyInterest) %></span>

@@ -10,14 +10,14 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon tint-red">🧾</span>
+    <span class="stat-icon tint-red"><%- icon("receipt") %></span>
     <span class="stat-body">
       <span class="stat-label">Estimated tax owed</span>
       <span class="stat-value negative"><%= money(totalOwed) %></span>
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">🏦</span>
+    <span class="stat-icon"><%- icon("bank") %></span>
     <span class="stat-body">
       <span class="stat-label">Set aside</span>
       <span class="stat-value positive"><%= money(setAside) %></span>
@@ -25,7 +25,7 @@
   </div>
   <div class="card stat-card">
     <span class="stat-icon <%= remaining > 0 ? "tint-red" : "" %>">
-      <%= remaining > 0 ? "⚠️" : "✅" %>
+      <%- remaining > 0 ? icon("alertTriangle") : icon("checkCircle") %>
     </span>
     <span class="stat-body">
       <span class="stat-label"><%= remaining > 0 ? "Still to set aside" : "Fully covered" %></span>
@@ -93,7 +93,7 @@
   </div>
   <ul class="tx-list">
     <li class="tx-row">
-      <span class="tx-icon">📈</span>
+      <span class="tx-icon"><%- icon("trendingUp") %></span>
       <span class="tx-meta">
         <strong>Income tax</strong>
         <small class="muted"><%= rate %>% of <%= money(taxableProfit) %> taxable profit
@@ -102,7 +102,7 @@
       <span class="tx-amount negative"><%= money(incomeTax) %></span>
     </li>
     <li class="tx-row">
-      <span class="tx-icon">👥</span>
+      <span class="tx-icon"><%- icon("users") %></span>
       <span class="tx-meta">
         <strong>Payroll deductions to remit</strong>
         <small class="muted">PAYE and statutory amounts withheld from staff pay</small>
@@ -110,7 +110,7 @@
       <span class="tx-amount negative"><%= money(payrollDeductions) %></span>
     </li>
     <li class="tx-row">
-      <span class="tx-icon">🧮</span>
+      <span class="tx-icon"><%- icon("calculator") %></span>
       <span class="tx-meta"><strong>Total estimated tax</strong></span>
       <span class="tx-amount negative"><%= money(totalOwed) %></span>
     </li>
@@ -146,7 +146,7 @@
       <ul class="tx-list">
         <% provisions.forEach((p) => { %>
           <li class="tx-row">
-            <span class="tx-icon">🏦</span>
+            <span class="tx-icon"><%- icon("bank") %></span>
             <span class="tx-meta">
               <strong><%= p.note || "Tax reserve" %></strong>
               <small class="muted"><%= formatDate(p.set_on) %></small>

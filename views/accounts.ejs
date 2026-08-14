@@ -34,7 +34,7 @@
         <% accounts.forEach((a) => { %>
           <li class="tx-row">
             <span class="tx-icon">
-              <%= { cash: "💵", bank: "🏦", mobile_money: "📱", credit_card: "💳" }[a.type] || "👛" %>
+              <%- icon({ cash: "wallet", bank: "bank", mobile_money: "phone", credit_card: "card" }[a.type] || "wallet") %>
             </span>
             <span class="tx-meta">
               <strong><%= a.name %></strong>

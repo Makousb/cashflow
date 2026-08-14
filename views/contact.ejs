@@ -3,8 +3,8 @@
   const stamp = (v) => new Date(v).toLocaleString("en-US", {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
   });
-  const icons = { captured: "📇", emailed: "✉️", unsubscribed: "🚫",
-                  purchased: "🛍️", note: "📝", stage: "🔀" };
+  const eventIcons = { captured: "tag", emailed: "mail", unsubscribed: "xCircle",
+                        purchased: "card", note: "document", stage: "swap" };
 %>
 
 <section class="page-head">
@@ -63,7 +63,7 @@
       <ul class="tx-list">
         <% events.forEach((e) => { %>
           <li class="tx-row">
-            <span class="tx-icon"><%= icons[e.kind] || "•" %></span>
+            <span class="tx-icon"><%- eventIcons[e.kind] ? icon(eventIcons[e.kind]) : "•" %></span>
             <span class="tx-meta">
               <strong><%= e.detail || e.kind %></strong>
               <small class="muted">

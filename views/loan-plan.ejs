@@ -25,26 +25,26 @@
   </section>
 <% } else if (!plan.has_debt) { %>
   <section class="card">
-    <p class="empty-state">🎉 You're debt-free — nothing to pay off. Nice work!</p>
+    <p class="empty-state"><%- icon("checkCircle") %> You're debt-free — nothing to pay off. Nice work!</p>
   </section>
 <% } else { %>
   <section class="stat-grid">
     <div class="card stat-card">
-      <span class="stat-icon tint-red">🏦</span>
+      <span class="stat-icon tint-red"><%- icon("bank") %></span>
       <span class="stat-body">
         <span class="stat-label">Total debt</span>
         <span class="stat-value negative"><%= formatCurrency(plan.total_debt, displayCurrency) %></span>
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">✂️</span>
+      <span class="stat-icon"><%- icon("scissors") %></span>
       <span class="stat-body">
         <span class="stat-label">Freed by cuts / mo</span>
         <span class="stat-value positive"><%= formatCurrency(plan.freed_monthly, displayCurrency) %></span>
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">🎯</span>
+      <span class="stat-icon"><%- icon("target") %></span>
       <span class="stat-body">
         <span class="stat-label">Debt-free by</span>
         <span class="stat-value"><%= plan.debt_free_date || "—" %></span>
@@ -112,7 +112,7 @@
 
       <% if (plan.interest_saved != null && plan.interest_saved > 0) { %>
         <div class="alert-card alert-impact" style="margin-top: 1rem;">
-          <span class="alert-icon">💡</span>
+          <span class="alert-icon"><%- icon("bulb") %></span>
           <div class="alert-body">
             <strong>You save <%= formatCurrency(plan.interest_saved, displayCurrency) %> in interest</strong>
             versus paying only the minimums.

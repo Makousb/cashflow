@@ -184,13 +184,13 @@
       <ul class="plain-list">
         <% if (role === "supplier" && order.invoice_id) { %>
           <li>
-            📥 Invoice #<%= order.invoice_id %> raised for this order —
+            <%- icon("arrowDownBox", "icon-inline") %> Invoice #<%= order.invoice_id %> raised for this order —
             <a class="link" href="/business/<%= business.id %>/invoices">accounts receivable</a>
           </li>
         <% } %>
         <% if (role === "buyer" && order.bill_id) { %>
           <li>
-            📤 Bill #<%= order.bill_id %> raised for this order —
+            <%- icon("arrowUpBox", "icon-inline") %> Bill #<%= order.bill_id %> raised for this order —
             <a class="link" href="/business/<%= business.id %>/bills">accounts payable</a>
           </li>
         <% } %>
@@ -200,7 +200,7 @@
 
   <section class="card" data-live-detail="<%= order.id %>" data-current-status="<%= order.status %>">
     <div class="advisor-head">
-      <span><strong>💬 Order chat</strong></span>
+      <span class="row-icon-label"><%- icon("chat") %> <strong>Order chat</strong></span>
       <span class="muted" style="font-size:0.85rem;">with <%= counterparty %></span>
     </div>
 

@@ -17,7 +17,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">📤</span>
+    <span class="stat-icon"><%- icon("arrowUpBox") %></span>
     <span class="stat-body">
       <span class="stat-label">Open orders placed</span>
       <span class="stat-value"><%= buying.openCount %></span>
@@ -25,7 +25,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">🚚</span>
+    <span class="stat-icon"><%- icon("truck") %></span>
     <span class="stat-body">
       <span class="stat-label">In transit</span>
       <span class="stat-value"><%= buying.inTransitCount %></span>
@@ -35,7 +35,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon <%= buying.lateCount > 0 ? "tint-red" : "" %>">⏰</span>
+    <span class="stat-icon <%= buying.lateCount > 0 ? "tint-red" : "" %>"><%- icon("clock") %></span>
     <span class="stat-body">
       <span class="stat-label">Running late</span>
       <span class="stat-value <%= buying.lateCount > 0 ? "negative" : "" %>"><%= buying.lateCount %></span>
@@ -90,7 +90,7 @@
       <ul class="tx-list">
         <% suppliers.forEach((s) => { %>
           <li class="tx-row">
-            <span class="tx-icon">🏭</span>
+            <span class="tx-icon"><%- icon("factory") %></span>
             <span class="tx-meta">
               <strong>
                 <%= s.name %>

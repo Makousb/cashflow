@@ -34,7 +34,7 @@
         <% const ratio = Math.min(Number(g.saved_amount) / Number(g.target_amount), 1); %>
         <div class="goal-block">
           <div class="budget-row">
-            <span>🎯 <strong><%= g.name %></strong></span>
+            <span class="row-icon-label"><%- icon("target") %> <strong><%= g.name %></strong></span>
             <span class="muted">
               <%= money(g.saved_amount) %> of <%= money(g.target_amount) %>
               <%= g.target_date ? " · by " + formatDate(g.target_date) : "" %>
@@ -51,7 +51,7 @@
                 <option value="<%= a.id %>"><%= a.name %></option>
               <% }) %>
             </select>
-            <button type="submit" class="btn btn-ghost btn-sm">Add 💧</button>
+            <button type="submit" class="btn btn-ghost btn-sm">Add</button>
           </form>
           <small class="muted">Picking an account logs it as an expense there, so the money actually moves.</small>
         </div>

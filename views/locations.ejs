@@ -19,7 +19,7 @@
 <section class="stat-grid">
   <% report.perLocation.forEach((l) => { %>
     <div class="card stat-card">
-      <span class="stat-icon"><%= l.is_default ? "🏬" : "🏪" %></span>
+      <span class="stat-icon"><%- l.is_default ? icon("building") : icon("storefront") %></span>
       <span class="stat-body">
         <span class="stat-label">
           <%= l.name %><%= l.is_default ? " (default)" : "" %>
@@ -35,7 +35,7 @@
 
 <% if (report.overPlacedCount > 0) { %>
   <section class="alert-card alert-critical" style="margin-bottom:1.5rem;">
-    <span class="alert-icon">⚠️</span>
+    <span class="alert-icon"><%- icon("alertTriangle") %></span>
     <div class="alert-body">
       <strong><%= report.overPlacedCount %> product(s) show more at locations than you own</strong>
       <div class="alert-detail">
@@ -49,7 +49,7 @@
 
 <% if (report.unplacedCount > 0) { %>
   <section class="alert-card alert-warning" style="margin-bottom:1.5rem;">
-    <span class="alert-icon">📦</span>
+    <span class="alert-icon"><%- icon("box") %></span>
     <div class="alert-body" style="flex:1;">
       <strong><%= report.unplacedCount %> product(s) have stock nobody has placed</strong>
       <div class="alert-detail">

@@ -27,7 +27,7 @@
       <ul class="tx-list">
         <% suppliers.forEach((s) => { %>
           <li class="tx-row">
-            <span class="tx-icon">🏭</span>
+            <span class="tx-icon"><%- icon("factory") %></span>
             <span class="tx-meta">
               <strong>
                 <a class="link" href="/supplier/<%= s.id %>"><%= s.name %></a>

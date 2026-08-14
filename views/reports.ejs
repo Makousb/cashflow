@@ -24,21 +24,21 @@ uvicorn app:app --port 8000</pre>
 <% } else { %>
   <section class="stat-grid">
     <div class="card stat-card">
-      <span class="stat-icon tint-red">💸</span>
+      <span class="stat-icon tint-red"><%- icon("moneyOut") %></span>
       <span class="stat-body">
         <span class="stat-label">Spent so far</span>
         <span class="stat-value negative"><%= formatCurrency(report.forecast.total_spent, displayCurrency) %></span>
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">📅</span>
+      <span class="stat-icon"><%- icon("calendar") %></span>
       <span class="stat-body">
         <span class="stat-label">Daily average</span>
         <span class="stat-value"><%= formatCurrency(report.forecast.daily_average, displayCurrency) %></span>
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">🔮</span>
+      <span class="stat-icon"><%- icon("trendingUp") %></span>
       <span class="stat-body">
         <span class="stat-label">Projected month-end</span>
         <span class="stat-value"><%= formatCurrency(report.forecast.projected, displayCurrency) %></span>
@@ -88,7 +88,7 @@ uvicorn app:app --port 8000</pre>
             <ul class="pattern-list">
               <% shopping.frequent_merchants.forEach((m) => { %>
                 <li>
-                  🏪 <strong><%= m.merchant %></strong> — <%= m.visits %> visits<%=
+                  <strong><%= m.merchant %></strong> — <%= m.visits %> visits<%=
                     m.avg_total != null ? ", avg " + formatCurrency(m.avg_total, displayCurrency) : "" %><%=
                     m.every_days ? ", about every " + m.every_days + " days" : "" %>
                 </li>
@@ -102,7 +102,7 @@ uvicorn app:app --port 8000</pre>
             <ul class="pattern-list">
               <% shopping.frequent_items.forEach((item) => { %>
                 <li>
-                  🛒 <strong><%= item.name %></strong> — bought <%= item.count %> times<%=
+                  <strong><%= item.name %></strong> — bought <%= item.count %> times<%=
                     item.avg_price != null ? ", avg " + formatCurrency(item.avg_price, displayCurrency) : "" %>
                 </li>
               <% }) %>
@@ -114,7 +114,7 @@ uvicorn app:app --port 8000</pre>
             <h3 class="items-heading">Patterns &amp; correlations</h3>
             <ul class="pattern-list">
               <% shopping.patterns.forEach((line) => { %>
-                <li>🔍 <%= line %></li>
+                <li><%= line %></li>
               <% }) %>
             </ul>
           </div>

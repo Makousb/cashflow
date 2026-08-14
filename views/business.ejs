@@ -33,7 +33,7 @@
         <% businesses.forEach((b) => { %>
           <% const net = Number(b.revenue) - Number(b.expenses); %>
           <li class="tx-row">
-            <span class="tx-icon">🏢</span>
+            <span class="tx-icon"><%- icon("building") %></span>
             <span class="tx-meta">
               <strong><a href="/business/<%= b.id %>"><%= b.name %></a></strong>
               <small class="muted"><%= b.industry || "Business" %></small>

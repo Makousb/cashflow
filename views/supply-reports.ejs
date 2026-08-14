@@ -26,7 +26,7 @@
   <h2 class="section-title">Buying</h2>
   <section class="stat-grid">
     <div class="card stat-card">
-      <span class="stat-icon tint-red">💸</span>
+      <span class="stat-icon tint-red"><%- icon("moneyOut") %></span>
       <span class="stat-body">
         <span class="stat-label">Received &amp; billed</span>
         <span class="stat-value"><%= money(buying.settledValue) %></span>
@@ -34,7 +34,7 @@
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">📦</span>
+      <span class="stat-icon"><%- icon("box") %></span>
       <span class="stat-body">
         <span class="stat-label">Open commitments</span>
         <span class="stat-value"><%= money(buying.openValue) %></span>
@@ -42,7 +42,7 @@
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">⏱️</span>
+      <span class="stat-icon"><%- icon("clock") %></span>
       <span class="stat-body">
         <span class="stat-label">Delivered on time</span>
         <span class="stat-value"><%= pct(buying.onTimeRate) %></span>
@@ -50,7 +50,7 @@
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon <%= buying.lateCount > 0 ? "tint-red" : "" %>">⚠️</span>
+      <span class="stat-icon <%= buying.lateCount > 0 ? "tint-red" : "" %>"><%- icon("alertTriangle") %></span>
       <span class="stat-body">
         <span class="stat-label">Running late now</span>
         <span class="stat-value <%= buying.lateCount > 0 ? "negative" : "" %>"><%= buying.lateCount %></span>
@@ -61,7 +61,7 @@
 
   <% if (lateOrders.length) { %>
     <section class="alert-card alert-critical" style="margin-bottom:1.5rem;">
-      <span class="alert-icon">⏰</span>
+      <span class="alert-icon"><%- icon("clock") %></span>
       <div class="alert-body" style="flex:1;">
         <strong><%= lateOrders.length %> order(s) past their promised date</strong>
         <div class="alert-detail">
@@ -154,7 +154,7 @@
   <h2 class="section-title" style="margin-top:2rem;">Selling</h2>
   <section class="stat-grid">
     <div class="card stat-card">
-      <span class="stat-icon">💰</span>
+      <span class="stat-icon"><%- icon("moneyIn") %></span>
       <span class="stat-body">
         <span class="stat-label">Order value won</span>
         <span class="stat-value positive"><%= money(selling.totalValue) %></span>
@@ -162,7 +162,7 @@
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">🚚</span>
+      <span class="stat-icon"><%- icon("truck") %></span>
       <span class="stat-body">
         <span class="stat-label">To ship</span>
         <span class="stat-value"><%= selling.openCount %></span>
@@ -170,7 +170,7 @@
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">⏱️</span>
+      <span class="stat-icon"><%- icon("clock") %></span>
       <span class="stat-body">
         <span class="stat-label">Your on-time rate</span>
         <span class="stat-value"><%= pct(selling.onTimeRate) %></span>
@@ -178,7 +178,7 @@
       </span>
     </div>
     <div class="card stat-card">
-      <span class="stat-icon">✅</span>
+      <span class="stat-icon"><%- icon("checkCircle") %></span>
       <span class="stat-body">
         <span class="stat-label">Orders fulfilled</span>
         <span class="stat-value"><%= pct(selling.fulfillmentRate) %></span>

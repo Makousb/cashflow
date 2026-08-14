@@ -15,7 +15,7 @@
 
 <section class="stat-grid">
   <div class="card stat-card">
-    <span class="stat-icon">📥</span>
+    <span class="stat-icon"><%- icon("arrowDownBox") %></span>
     <span class="stat-body">
       <span class="stat-label">To fulfil</span>
       <span class="stat-value"><%= ledger.to_fulfil %></span>
@@ -23,7 +23,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">💰</span>
+    <span class="stat-icon"><%- icon("moneyIn") %></span>
     <span class="stat-body">
       <span class="stat-label">Order value won</span>
       <span class="stat-value positive"><%= money(ledger.won) %></span>
@@ -31,7 +31,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon <%= Number(ledger.outstanding) > 0 ? "tint-red" : "" %>">🧾</span>
+    <span class="stat-icon <%= Number(ledger.outstanding) > 0 ? "tint-red" : "" %>"><%- icon("receipt") %></span>
     <span class="stat-body">
       <span class="stat-label">Awaiting payment</span>
       <span class="stat-value"><%= money(ledger.outstanding) %></span>
@@ -39,7 +39,7 @@
     </span>
   </div>
   <div class="card stat-card">
-    <span class="stat-icon">⏱️</span>
+    <span class="stat-icon"><%- icon("clock") %></span>
     <span class="stat-body">
       <span class="stat-label">On time</span>
       <span class="stat-value">
@@ -62,7 +62,7 @@
     <ul class="tx-list">
       <% requests.forEach((r) => { %>
         <li class="tx-row">
-          <span class="tx-icon">🏪</span>
+          <span class="tx-icon"><%- icon("storefront") %></span>
           <span class="tx-meta">
             <strong><%= r.name %></strong>
             <small class="muted">
@@ -171,7 +171,7 @@
     <ul class="tx-list">
       <% orders.forEach((o) => { %>
         <li class="tx-row">
-          <span class="tx-icon"><%= o.paid_at ? "✅" : "📦" %></span>
+          <span class="tx-icon"><%- o.paid_at ? icon("checkCircle") : icon("box") %></span>
           <span class="tx-meta">
             <strong>
               Order #<%= o.id %>
