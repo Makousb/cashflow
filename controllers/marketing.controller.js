@@ -48,8 +48,7 @@ import {
   slugify
 } from "../utils/marketing.js";
 import { today } from "../utils/dates.js";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isEmailShaped } from "../utils/validation.js";
 
 function appUrl() {
   return config.appUrl || `http://localhost:${config.port}`;
@@ -251,7 +250,7 @@ export async function captureLead(req, res, next) {
 
     // No address, no consent, no contact. The tick is not decorative: it is the
     // record that this person agreed to be written to.
-    if (!EMAIL_RE.test(email) || !consented) {
+    if (!isEmailShaped(email) || !consented) {
       return res.redirect(`/f/${funnel.slug}?err=1`);
     }
 

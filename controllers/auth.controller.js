@@ -12,6 +12,7 @@ import {
   DEFAULT_CURRENCY,
   isSupportedCurrency
 } from "../utils/currencies.js";
+import { isEmailShaped } from "../utils/validation.js";
 
 const SALT_ROUNDS = 10;
 
@@ -59,6 +60,18 @@ export async function register(req, res, next) {
       "error",
       "Name, email, and a password of at least 8 characters are required."
     );
+    return res.redirect("/auth/register");
+  }
+
+  // The form's own type="email" catches a typo for anyone using the form as
+  // given, but that attribute is not a guarantee — nothing stops a direct
+  // POST — and this was the one signup-shaped path in the app that skipped a
+  // real check. A garbage address here is not undone by anything downstream:
+  // there is no confirmation email, so it is stored and then quietly reused
+  // wherever this account is later written to (the card agent, a credit
+  // check, a monthly review) with no error and no delivery, forever.
+  if (!isEmailShaped(email)) {
+    req.flash("error", "Enter a valid email address.");
     return res.redirect("/auth/register");
   }
 

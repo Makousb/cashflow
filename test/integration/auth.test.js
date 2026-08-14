@@ -37,6 +37,57 @@ function flashText(html) {
   return m ? m[1].trim() : null;
 }
 
+describe("registering", { skip: skipWithoutDb }, () => {
+  let server;
+  let base;
+
+  before(async () => {
+    const { default: app } = await import("../../app.js");
+    server = app.listen(0);
+    await new Promise((resolve) => server.once("listening", resolve));
+    base = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  after(async () => {
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  async function post(path, form) {
+    const res = await fetch(base + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(form).toString(),
+      redirect: "manual"
+    });
+    return { status: res.status, location: res.headers.get("location") };
+  }
+
+  test("a garbage email is refused, not stored", async () => {
+    const email = "not-an-email-at-all";
+    const r = await post("/auth/register", {
+      name: "Bad Email", email, password: "a good long password", currency: "KES"
+    });
+    assert.equal(r.status, 302);
+    assert.equal(r.location, "/auth/register", "a refusal stays on the register page, not through to /dashboard");
+
+    const rows = await q("SELECT id FROM users WHERE email = $1", [email]);
+    assert.equal(rows.length, 0, "the malformed address must not have been written");
+  });
+
+  test("an ordinary email still registers", async () => {
+    const email = `valid-${Date.now()}@example.test`;
+    const r = await post("/auth/register", {
+      name: "Good Email", email, password: "a good long password", currency: "KES"
+    });
+    assert.equal(r.status, 302);
+    assert.equal(r.location, "/dashboard");
+
+    const rows = await q("SELECT id FROM users WHERE email = $1", [email]);
+    assert.equal(rows.length, 1);
+    await dropUser(rows[0].id);
+  });
+});
+
 describe("signing in", { skip: skipWithoutDb }, () => {
   const email = `auth-timing-${Date.now()}@example.test`;
   const password = "a good long password";
