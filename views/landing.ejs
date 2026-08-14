@@ -1,39 +1,113 @@
 <%- include("partials/header") %>
 
-<section class="hero">
-  <span class="hero-badge">📈 Budgeting that keeps up with you</span>
-  <h1>Know where it goes, <span class="grow">down to the last shilling</span>.</h1>
-  <p class="hero-sub">
-    Cashflow is a simple budgeting and financial planning app. Follow every
-    shilling in and out, scan receipts, set monthly budgets, and watch your
-    savings goals close in.
-  </p>
-  <div class="hero-actions">
-    <a href="/auth/register" class="btn btn-primary btn-lg">Start for free</a>
-    <a href="/auth/login" class="btn btn-ghost btn-lg">I already have an account</a>
+<!--
+  Photos in public/img/landing/ are from Unsplash (unsplash.com), used under
+  the Unsplash License — free for commercial use, no permission required.
+    hero-shop-phone(-sm).jpg  Ali Mkumbwa       unsplash.com/photos/5dFuO02OHh0
+    feature-savings.jpg       Towfiqu barbhuiya unsplash.com/photos/joqWSI9u_XM
+    business-banner.jpg       Ali Mkumbwa       unsplash.com/photos/uk3ey_vhDKA
+-->
+<section class="hero hero-split">
+  <div class="hero-copy">
+    <p class="eyebrow">Personal &amp; business budgeting</p>
+    <h1>Know where it goes, <span class="grow">down to the last shilling</span>.</h1>
+    <p class="hero-sub">
+      Cashflow is a simple budgeting and financial planning app. Follow every
+      shilling in and out, scan receipts, set monthly budgets, and watch your
+      savings goals close in.
+    </p>
+    <div class="hero-actions">
+      <a href="/auth/register" class="btn btn-primary btn-lg">Start for free</a>
+      <a href="/auth/login" class="btn btn-ghost btn-lg">I already have an account</a>
+    </div>
+  </div>
+  <div class="hero-media">
+    <img
+      src="/img/landing/hero-shop-phone.jpg"
+      srcset="/img/landing/hero-shop-phone-sm.jpg 600w, /img/landing/hero-shop-phone.jpg 1000w"
+      sizes="(max-width: 780px) 92vw, 460px"
+      width="1000" height="714"
+      alt="A shopkeeper smiles while checking her phone at her market stall"
+      class="hero-photo"
+    />
+    <div class="hero-callout">
+      <strong>15</strong>
+      <span>currencies, converted at the live rate</span>
+    </div>
   </div>
 </section>
 
-<section class="feature-grid">
-  <div class="card feature-card">
-    <span class="feature-icon">📸</span>
-    <h3>Scan receipts</h3>
-    <p>Snap a photo — Cashflow reads it, fills in the amount, and picks the category for you.</p>
+<section class="feature-list">
+  <div class="feature-row">
+    <span class="feature-list-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 2.5h12v18.3l-2.4-1.4-1.9 1.4-1.9-1.4-1.9 1.4-1.9-1.4-1.9 1.4-2.1-1.4V2.5Z"/>
+        <path d="M9 8h6M9 11.5h6M9 15h3.5"/>
+      </svg>
+    </span>
+    <div>
+      <h3>Scan receipts</h3>
+      <p>Snap a photo — Cashflow reads it, fills in the amount, and picks the category for you.</p>
+    </div>
   </div>
-  <div class="card feature-card">
-    <span class="feature-icon">📊</span>
-    <h3>Monthly budgets</h3>
-    <p>Set a limit per category and see exactly how much month is left in your money.</p>
+  <div class="feature-row">
+    <span class="feature-list-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 20.5h18"/>
+        <path d="M6 20.5v-7M12 20.5V6M18 20.5v-4.5"/>
+      </svg>
+    </span>
+    <div>
+      <h3>Monthly budgets</h3>
+      <p>Set a limit per category and see exactly how much month is left in your money.</p>
+    </div>
   </div>
-  <div class="card feature-card">
-    <span class="feature-icon">⏰</span>
-    <h3>Smart alerts</h3>
-    <p>Get warned before you blow a budget — with the projected damage and what it means for your goals.</p>
+  <div class="feature-row">
+    <span class="feature-list-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6.5 10a5.5 5.5 0 0 1 11 0c0 4.2 1.4 5.7 2 6.3H4.5c.6-.6 2-2.1 2-6.3Z"/>
+        <path d="M10.3 19a1.9 1.9 0 0 0 3.4 0"/>
+      </svg>
+    </span>
+    <div>
+      <h3>Smart alerts</h3>
+      <p>Get warned before you blow a budget — with the projected damage and what it means for your goals.</p>
+    </div>
   </div>
-  <div class="card feature-card">
-    <span class="feature-icon">🎯</span>
-    <h3>Savings goals</h3>
-    <p>Plan for the big things — an emergency fund, a trip, a laptop — and close in on them.</p>
+  <div class="feature-row">
+    <span class="feature-list-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.2"/>
+        <circle cx="12" cy="12" r="4.6"/>
+        <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+      </svg>
+    </span>
+    <div>
+      <h3>Savings goals</h3>
+      <p>Plan for the big things — an emergency fund, a trip, a laptop — and close in on them.</p>
+    </div>
+  </div>
+</section>
+
+<section class="visual-break">
+  <div class="visual-break-media">
+    <img
+      src="/img/landing/feature-savings.jpg"
+      width="760" height="507"
+      loading="lazy"
+      alt="Coins and a growing plant inside a glass jar"
+      class="visual-break-photo"
+    />
+  </div>
+  <div class="visual-break-copy">
+    <p class="eyebrow">Savings goals</p>
+    <h2>Watch your goals get closer, not just further away.</h2>
+    <p class="muted">
+      Every contribution moves a real shilling out of a real wallet and into
+      the goal it's meant for — no guessing whether the money you "saved" is
+      still sitting in your spending account.
+    </p>
+    <a href="/auth/register" class="btn btn-primary">Set your first goal</a>
   </div>
 </section>
 
@@ -54,6 +128,28 @@
     <span class="step-num">3</span>
     <h3>See it add up</h3>
     <p class="muted">Insights, trends, and savings goals show your progress — and what your habits cost you per year.</p>
+  </div>
+</section>
+
+<section class="business-banner">
+  <div class="business-banner-media">
+    <img
+      src="/img/landing/business-banner.jpg"
+      width="1000" height="667"
+      loading="lazy"
+      alt="A food vendor checks his phone while running his stall"
+      class="business-banner-photo"
+    />
+  </div>
+  <div class="business-banner-copy">
+    <p class="eyebrow eyebrow-light">For business owners</p>
+    <h2>The books, the stock, and the tax — handled in the same place.</h2>
+    <p>
+      Sign up as a business and Cashflow opens a full set of books alongside
+      your personal budget: sales, invoices, payroll, stock, and an
+      accountant that reviews it all for you.
+    </p>
+    <a href="/auth/register" class="btn btn-primary btn-lg">Set up your business</a>
   </div>
 </section>
 
