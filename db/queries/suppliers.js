@@ -32,6 +32,17 @@ export async function createSupplier({ userId, name, industry, leadTimeDays }) {
   }
 }
 
+// Whether the "Supplier" link belongs in the nav for this login. Cheap on
+// purpose, like hasAnyBusiness: it runs on every authenticated page, unlike
+// listSuppliers, which carries three correlated subqueries this does not need.
+export async function hasAnySupplier(userId) {
+  const { rows } = await pool.query(
+    "SELECT EXISTS(SELECT 1 FROM suppliers WHERE user_id = $1) AS exists",
+    [userId]
+  );
+  return rows[0].exists;
+}
+
 export async function listSuppliers(userId) {
   const { rows } = await pool.query(
     `SELECT s.*,

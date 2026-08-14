@@ -94,6 +94,38 @@
   </section>
 </div>
 
+<% if (!showBusinessNav || !showSupplierNav) { %>
+  <section class="card" style="margin-top: 1.5rem;">
+    <h2>Other sides of Cashflow</h2>
+    <p class="muted">
+      One login can hold all three. Set one up and it joins the bar above
+      for good.
+    </p>
+    <ul class="tx-list">
+      <% if (!showBusinessNav) { %>
+        <li class="tx-row">
+          <span class="tx-icon">🏪</span>
+          <span class="tx-meta">
+            <strong>Run a business</strong>
+            <small class="muted">Books, stock, sales, payroll and tax.</small>
+          </span>
+          <a href="/business" class="btn btn-ghost btn-sm">Set up →</a>
+        </li>
+      <% } %>
+      <% if (!showSupplierNav) { %>
+        <li class="tx-row">
+          <span class="tx-icon">🏭</span>
+          <span class="tx-meta">
+            <strong>Sell as a supplier</strong>
+            <small class="muted">Publish a catalog and fulfil orders from businesses.</small>
+          </span>
+          <a href="/supplier" class="btn btn-ghost btn-sm">Set up →</a>
+        </li>
+      <% } %>
+    </ul>
+  </section>
+<% } %>
+
 <script>
   // Live-preview the selected currency before saving.
   (function () {

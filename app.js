@@ -10,6 +10,8 @@ import { config } from "./config/env.js";
 import { pool } from "./db/index.js";
 import { ensureSchema } from "./db/ensureSchema.js";
 import { handleError, notFound } from "./middlewares/error.middleware.js";
+import { hasAnyBusiness } from "./db/queries/business.js";
+import { hasAnySupplier } from "./db/queries/suppliers.js";
 import accountRoutes from "./routes/accounts.js";
 import authRoutes from "./routes/auth.js";
 import budgetRoutes from "./routes/budgets.js";
@@ -83,7 +85,7 @@ app.use(
 
 app.use(flash());
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   const user = req.session.user;
   // Amounts are stored in the user's base currency; everything is shown in
   // their display currency, converted at the current live rate.
@@ -92,6 +94,32 @@ app.use((req, res, next) => {
 
   // Keep rates warm without blocking the request.
   refreshRates().catch(() => {});
+
+  // Whether the nav offers Business and Supplier: every account gets a
+  // personal wallet at signup, so the personal links are universal, but these
+  // two are only worth a permanent place in the bar once the login actually
+  // has one — or was signed up as one, so a business owner who has deleted
+  // their only business does not lose the link that would let them add
+  // another. A login with neither still reaches both from Settings.
+  //
+  // Best-effort like refreshRates above: this decides a nav hint, not what
+  // the page renders, so a database hiccup here should not turn every page a
+  // logged-in visitor opens into a 500 — it degrades to hiding both links for
+  // this one request rather than failing it.
+  let hasBusiness = false;
+  let hasSupplier = false;
+  if (user) {
+    try {
+      [hasBusiness, hasSupplier] = await Promise.all([
+        hasAnyBusiness(user.id),
+        hasAnySupplier(user.id)
+      ]);
+    } catch {
+      // Left false; the request carries on.
+    }
+  }
+  res.locals.showBusinessNav = hasBusiness || user?.account_type === "business";
+  res.locals.showSupplierNav = hasSupplier || user?.account_type === "supplier";
 
   res.locals.currentUser = user || null;
   res.locals.success = req.flash("success");

@@ -31,8 +31,12 @@
         <a href="/credit" class="<%= navClass("/credit") %>">Credit</a>
         <a href="/reports" class="<%= navClass("/reports") %>">Reports</a>
         <a href="/accounts" class="<%= navClass("/accounts") %>">Accounts</a>
-        <a href="/business" class="<%= navClass("/business") %>">Business</a>
-        <a href="/supplier" class="<%= navClass("/supplier") %>">Supplier</a>
+        <% if (showBusinessNav) { %>
+          <a href="/business" class="<%= navClass("/business") %>">Business</a>
+        <% } %>
+        <% if (showSupplierNav) { %>
+          <a href="/supplier" class="<%= navClass("/supplier") %>">Supplier</a>
+        <% } %>
         <a href="/settings" class="<%= navClass("/settings") %>" title="Settings">⚙️</a>
         <form action="/auth/logout" method="POST" class="inline-form">
           <button type="submit" class="btn btn-ghost btn-sm">Log out</button>

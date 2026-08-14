@@ -177,6 +177,12 @@ const SCHEMA_SQL = `
   ALTER TABLE businesses
     ADD COLUMN IF NOT EXISTS income_tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 30;
 
+  -- Backs hasAnyBusiness, which runs on every authenticated page load to
+  -- decide whether "Business" belongs in the nav — a plain FK column is not
+  -- indexed on its own, and this one is now read far more often than it is
+  -- written.
+  CREATE INDEX IF NOT EXISTS idx_businesses_user ON businesses (user_id);
+
   CREATE TABLE IF NOT EXISTS business_transactions (
     id SERIAL PRIMARY KEY,
     business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
@@ -388,6 +394,11 @@ const SCHEMA_SQL = `
   );
 
   CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_code ON suppliers (supply_code);
+
+  -- Backs hasAnySupplier, for the same reason idx_businesses_user backs
+  -- hasAnyBusiness: read on every authenticated page now, not just when a
+  -- supplier account's own pages are open.
+  CREATE INDEX IF NOT EXISTS idx_suppliers_user ON suppliers (user_id);
 
   -- What a supplier sells. Separate from products, which are a business's own
   -- stock: the two are priced differently and answer to different owners.

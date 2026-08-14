@@ -2,6 +2,17 @@ import { pool } from "../index.js";
 import { ensureChart, postEntry } from "./ledger.js";
 import { cashMovementEntry } from "../../utils/ledger.js";
 
+// Whether the "Business" link belongs in the nav for this login. Cheap on
+// purpose: it runs on every authenticated page, unlike listBusinesses, which
+// carries a join and an aggregate this question does not need.
+export async function hasAnyBusiness(userId) {
+  const { rows } = await pool.query(
+    "SELECT EXISTS(SELECT 1 FROM businesses WHERE user_id = $1) AS exists",
+    [userId]
+  );
+  return rows[0].exists;
+}
+
 export async function listBusinesses(userId) {
   const { rows } = await pool.query(
     `SELECT b.*,
