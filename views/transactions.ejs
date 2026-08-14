@@ -34,6 +34,7 @@
             <option value="<%= c.id %>"><%= c.icon %> <%= c.name %> (<%= c.kind %>)</option>
           <% }) %>
         </select>
+        <small class="muted">Left uncategorized, it won't count toward any budget.</small>
       </label>
       <label>
         Account
@@ -63,22 +64,74 @@
     <% } else { %>
       <ul class="tx-list">
         <% transactions.forEach((tx) => { %>
-          <li class="tx-row">
-            <span class="tx-icon"><%= tx.category_icon || "🧾" %></span>
-            <span class="tx-meta">
-              <strong><%= tx.category_name || "Uncategorized" %></strong>
-              <small class="muted">
-                <%= formatDate(tx.occurred_on) %>
-                <%= tx.account_name ? " · " + tx.account_name : "" %>
-                <%= tx.note ? " · " + tx.note : "" %>
-              </small>
-            </span>
-            <span class="tx-amount <%= tx.kind === "income" ? "positive" : "negative" %>">
-              <%= tx.kind === "income" ? "+" : "−" %><%= money(tx.amount) %>
-            </span>
-            <form action="/transactions/<%= tx.id %>/delete" method="POST" class="inline-form">
-              <button type="submit" class="btn btn-ghost btn-sm" title="Delete">✕</button>
-            </form>
+          <li>
+            <details class="tx-edit">
+              <summary class="tx-row">
+                <span class="tx-icon"><%= tx.category_icon || "🧾" %></span>
+                <span class="tx-meta">
+                  <strong><%= tx.category_name || "Uncategorized" %></strong>
+                  <small class="muted">
+                    <%= formatDate(tx.occurred_on) %>
+                    <%= tx.account_name ? " · " + tx.account_name : "" %>
+                    <%= tx.note ? " · " + tx.note : "" %>
+                  </small>
+                </span>
+                <span class="tx-amount <%= tx.kind === "income" ? "positive" : "negative" %>">
+                  <%= tx.kind === "income" ? "+" : "−" %><%= money(tx.amount) %>
+                </span>
+                <span class="btn btn-ghost btn-sm" title="Click to edit" aria-hidden="true">✎</span>
+                <form action="/transactions/<%= tx.id %>/delete" method="POST" class="inline-form">
+                  <button type="submit" class="btn btn-ghost btn-sm" title="Delete">✕</button>
+                </form>
+              </summary>
+              <div class="tx-edit-panel">
+                <form action="/transactions/<%= tx.id %>/edit" method="POST" class="stacked-form">
+                  <div class="segmented" role="radiogroup" aria-label="Transaction type">
+                    <label>
+                      <input type="radio" name="kind" value="expense" <%= tx.kind === "expense" ? "checked" : "" %> />
+                      <span>💸 Expense</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="kind" value="income" <%= tx.kind === "income" ? "checked" : "" %> />
+                      <span>💰 Income</span>
+                    </label>
+                  </div>
+                  <label>
+                    Amount
+                    <input type="number" name="amount" step="0.01" min="0.01" required value="<%= toDisplayNumber(tx.amount) %>" />
+                  </label>
+                  <label>
+                    Category
+                    <select name="categoryId">
+                      <option value="">Uncategorized</option>
+                      <% categories.forEach((c) => { %>
+                        <option value="<%= c.id %>" <%= tx.category_id === c.id ? "selected" : "" %>>
+                          <%= c.icon %> <%= c.name %> (<%= c.kind %>)
+                        </option>
+                      <% }) %>
+                    </select>
+                  </label>
+                  <label>
+                    Account
+                    <select name="accountId">
+                      <option value="">No account</option>
+                      <% accounts.forEach((a) => { %>
+                        <option value="<%= a.id %>" <%= tx.account_id === a.id ? "selected" : "" %>><%= a.name %></option>
+                      <% }) %>
+                    </select>
+                  </label>
+                  <label>
+                    Date
+                    <input type="date" name="occurredOn" value="<%= tx.occurred_on_iso %>" />
+                  </label>
+                  <label>
+                    Note (optional)
+                    <input type="text" name="note" maxlength="200" value="<%= tx.note || "" %>" />
+                  </label>
+                  <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
+                </form>
+              </div>
+            </details>
           </li>
         <% }) %>
       </ul>

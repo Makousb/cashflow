@@ -52,6 +52,39 @@
   </div>
 </section>
 
+<% if (requests.length) { %>
+  <section class="card">
+    <h2>Buyers waiting to connect</h2>
+    <p class="muted" style="margin-top:-0.4rem;">
+      They used your code. Until you accept, they cannot see your catalog or
+      order from you.
+    </p>
+    <ul class="tx-list">
+      <% requests.forEach((r) => { %>
+        <li class="tx-row">
+          <span class="tx-icon">🏪</span>
+          <span class="tx-meta">
+            <strong><%= r.name %></strong>
+            <small class="muted">
+              <%= r.industry || "Business" %> · asked <%= formatDate(r.created_at) %>
+            </small>
+          </span>
+          <span class="inline-form">
+            <form action="/supplier/<%= supplier.id %>/requests/<%= r.id %>/respond" method="POST" class="inline-form">
+              <input type="hidden" name="decision" value="accept" />
+              <button type="submit" class="btn btn-primary btn-sm">Accept</button>
+            </form>
+            <form action="/supplier/<%= supplier.id %>/requests/<%= r.id %>/respond" method="POST" class="inline-form">
+              <input type="hidden" name="decision" value="decline" />
+              <button type="submit" class="btn btn-ghost btn-sm">Decline</button>
+            </form>
+          </span>
+        </li>
+      <% }) %>
+    </ul>
+  </section>
+<% } %>
+
 <div class="two-col">
   <section class="card">
     <h2>Your trade profile</h2>

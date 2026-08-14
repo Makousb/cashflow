@@ -1,4 +1,5 @@
 import { pool } from "../index.js";
+import { ownedAccountId, ownedCategoryId } from "./transactions.js";
 
 export async function listRecurring(userId) {
   const { rows } = await pool.query(
@@ -17,6 +18,10 @@ export async function listRecurring(userId) {
   return rows;
 }
 
+// The wallet and category are checked here as well as in createTransaction,
+// because a rule is stored now and spent later: an id that is not the owner's
+// would otherwise sit in the table until it came due, and then fail on a page
+// load rather than on the form that set it.
 export async function createRecurring({
   userId,
   accountId,
@@ -27,12 +32,15 @@ export async function createRecurring({
   frequency,
   nextRun
 }) {
+  const account = await ownedAccountId(pool, accountId, userId);
+  const category = await ownedCategoryId(pool, categoryId, userId);
+
   const { rows } = await pool.query(
     `INSERT INTO recurring_transactions
        (user_id, account_id, category_id, kind, amount, note, frequency, next_run)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
-    [userId, accountId, categoryId, kind, amount, note, frequency, nextRun]
+    [userId, account, category, kind, amount, note, frequency, nextRun]
   );
   return rows[0];
 }

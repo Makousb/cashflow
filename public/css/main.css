@@ -205,6 +205,29 @@ h1, h2, h3 {
   .two-col {
     grid-template-columns: 1fr;
   }
+
+  /* The navigation is one long row that scrolls sideways, which on a narrow
+     screen left exactly one item — "Dashboard" — in view, with 1,200px of
+     destinations behind a scroll that shows no sign of being there. Budgets,
+     Goals, Loans and the rest were unreachable to anyone who did not think to
+     swipe a bar that looked like it ended.
+
+     Wrapping costs a taller header on a phone and shows every destination,
+     which is the better trade while the nav is a flat list of thirteen. */
+  .site-header {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .site-nav {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    row-gap: 0.15rem;
+  }
+
+  .site-nav .btn {
+    margin-left: 0;
+  }
 }
 
 /* --- Cards --- */
@@ -875,6 +898,37 @@ input[type="file"] {
   font-weight: 800;
   white-space: nowrap;
   font-size: 0.97rem;
+}
+
+/* A transaction row wrapped in <details> so it can expand into an edit form
+   with no JavaScript. The row itself is the <summary>, so .tx-row's own
+   border moves to the wrapper — otherwise opening it would leave a stray
+   line between the row and its own edit panel. */
+.tx-edit {
+  border-bottom: 1px solid var(--line);
+}
+
+.tx-edit:last-child {
+  border-bottom: none;
+}
+
+.tx-edit > summary.tx-row {
+  border-bottom: none;
+  cursor: pointer;
+  list-style: none;
+}
+
+.tx-edit > summary.tx-row::-webkit-details-marker,
+.tx-edit > summary.tx-row::marker {
+  display: none;
+}
+
+.tx-edit-panel {
+  padding: 0 0.6rem 1rem calc(40px + 0.6rem + 0.85rem);
+}
+
+.tx-edit-panel .stacked-form {
+  gap: 0.65rem;
 }
 
 /* --- Progress bars (budgets & goals) --- */

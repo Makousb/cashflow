@@ -61,7 +61,6 @@ import {
   placeOrder,
   postMessage,
   receiveOrder as receiveSupplyOrder,
-  respondToRequest,
   saveSupplyProfile,
   shipOrder,
   showNewOrder,
@@ -226,7 +225,6 @@ router.get("/:id/supply/stream", streamUpdates);
 router.get("/:id/supply/reports", showSupplyReports);
 router.post("/:id/supply/profile", saveSupplyProfile);
 router.post("/:id/supply/partners", connectSupplier);
-router.post("/:id/supply/partners/:partnerId/respond", respondToRequest);
 router.post("/:id/supply/partners/:partnerId/delete", disconnectPartner);
 router.get("/:id/supply/new", showNewOrder);
 router.post("/:id/supply/orders", placeOrder);

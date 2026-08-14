@@ -143,8 +143,11 @@ export async function recordSale(req, res, next) {
       soldIds.includes(p.id)
     );
     if (nowLow.length > 0) {
+      // A heads-up, not a failure — the sale went through. It was flashed as an
+      // error, which put a red "something went wrong" banner above the green
+      // confirmation of a sale that had gone perfectly well.
       req.flash(
-        "error",
+        "warn",
         `Low on stock after this sale: ${nowLow
           .map((p) => `${p.name} (${Number(p.quantity)} left)`)
           .join(", ")}. Reorder from Inventory or the supply chain.`

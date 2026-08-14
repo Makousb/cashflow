@@ -18,6 +18,14 @@ export async function createGoal({ userId, name, targetAmount, targetDate }) {
   return rows[0];
 }
 
+export async function getGoal(id, userId) {
+  const { rows } = await pool.query(
+    "SELECT * FROM goals WHERE id = $1 AND user_id = $2",
+    [id, userId]
+  );
+  return rows[0] || null;
+}
+
 export async function addToGoal(id, userId, amount) {
   const { rows } = await pool.query(
     `UPDATE goals

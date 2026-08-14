@@ -37,7 +37,12 @@ export async function listSuppliers(userId) {
     `SELECT s.*,
             (SELECT COUNT(*)::int FROM supplier_products p WHERE p.supplier_id = s.id) AS catalog_size,
             (SELECT COUNT(*)::int FROM supply_orders o
-              WHERE o.supplier_id = s.id AND o.status IN ('placed','confirmed','shipped','delivered')) AS open_orders
+              WHERE o.supplier_id = s.id AND o.status IN ('placed','confirmed','shipped','delivered')) AS open_orders,
+            -- A buyer waiting on an answer is the one thing here that needs
+            -- the owner to do something, so it is counted on the list rather
+            -- than only on the page they would have to open to find it.
+            (SELECT COUNT(*)::int FROM trade_partners t
+              WHERE t.supplier_id = s.id AND t.status = 'pending') AS pending_requests
      FROM suppliers s
      WHERE s.user_id = $1
      ORDER BY s.created_at`,

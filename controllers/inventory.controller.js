@@ -112,8 +112,24 @@ export async function restockProduct(req, res, next) {
   }
 
   try {
-    await adjustProductStock(Number(req.params.pid), req.session.user.id, delta);
-    req.flash("success", "Stock updated.");
+    const result = await adjustProductStock(
+      Number(req.params.pid), req.session.user.id, delta
+    );
+
+    if (result.missing) {
+      req.flash("error", "Product not found.");
+    } else if (result.available !== undefined) {
+      req.flash(
+        "error",
+        `There are only ${result.available} in stock, so ${Math.abs(delta)} cannot ` +
+        "come off. Count what is on the shelf and enter that instead."
+      );
+    } else {
+      req.flash(
+        "success",
+        `Stock updated — ${Number(result.product.quantity)} now on hand.`
+      );
+    }
     return res.redirect(`/business/${business.id}/inventory`);
   } catch (error) {
     return next(error);

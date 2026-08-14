@@ -45,8 +45,15 @@
           </div>
           <form action="/goals/<%= g.id %>/contribute" method="POST" class="inline-form contribute-form">
             <input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount" required />
+            <select name="accountId" title="From">
+              <option value="">No account</option>
+              <% accounts.forEach((a) => { %>
+                <option value="<%= a.id %>"><%= a.name %></option>
+              <% }) %>
+            </select>
             <button type="submit" class="btn btn-ghost btn-sm">Add 💧</button>
           </form>
+          <small class="muted">Picking an account logs it as an expense there, so the money actually moves.</small>
         </div>
       <% }) %>
     <% } %>

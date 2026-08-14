@@ -3,13 +3,15 @@ import {
   getBusiness
 } from "../db/queries/business.js";
 import {
+  attachPayRunTransaction,
+  claimPayRun,
   createEmployee,
-  createPayRun,
   deleteEmployee,
   deletePayRun,
   listEmployees,
   listPayRuns,
-  listPayslips
+  listPayslips,
+  releasePayRun
 } from "../db/queries/payroll.js";
 import { toBase } from "../services/fx.js";
 import { payrollEntry } from "../utils/ledger.js";
@@ -147,6 +149,25 @@ export async function runPayroll(req, res, next) {
       return res.redirect(`/business/${business.id}/payroll`);
     }
 
+    // Claim the period before any money moves. Whoever gets the row runs the
+    // payroll; anybody else — the second click, the reloaded tab — is told it
+    // is already done rather than quietly paying everyone twice.
+    const run = await claimPayRun({
+      businessId: business.id,
+      userId,
+      period,
+      runOn: today(),
+      payslips
+    });
+
+    if (!run) {
+      req.flash(
+        "error",
+        `${period} has already been run. Delete that pay run first if you need to do it again.`
+      );
+      return res.redirect(`/business/${business.id}/payroll`);
+    }
+
     // The employer's cost is the gross; post it to the business ledger.
     //
     // The journal says more than the cash book can. The whole gross is the cost,
@@ -155,29 +176,29 @@ export async function runPayroll(req, res, next) {
     // gross straight against cash would claim the deductions were already paid
     // over, which is exactly the money a business gets caught short on.
     const deductionTotal = payslips.reduce((sum, p) => sum + p.deductions, 0);
-    const transaction = await addBusinessTransaction({
-      businessId: business.id,
-      userId,
-      kind: "expense",
-      amount: grossTotal,
-      category: "Payroll",
-      note: `Payroll: ${period}`,
-      occurredOn: today(),
-      entry: payrollEntry({
-        gross: grossTotal,
-        deductions: deductionTotal,
-        memo: `Payroll: ${period}`
-      })
-    });
-
-    await createPayRun({
-      businessId: business.id,
-      userId,
-      transactionId: transaction.id,
-      period,
-      runOn: today(),
-      payslips
-    });
+    try {
+      const transaction = await addBusinessTransaction({
+        businessId: business.id,
+        userId,
+        kind: "expense",
+        amount: grossTotal,
+        category: "Payroll",
+        note: `Payroll: ${period}`,
+        occurredOn: today(),
+        entry: payrollEntry({
+          gross: grossTotal,
+          deductions: deductionTotal,
+          memo: `Payroll: ${period}`
+        })
+      });
+      await attachPayRunTransaction(run.id, transaction.id);
+    } catch (error) {
+      // The claim was taken on the promise of posting the cost. Posting can
+      // still refuse — a closed year, most likely — and a period left claimed
+      // for a payroll that never happened would block the real one.
+      await releasePayRun(run.id);
+      throw error;
+    }
 
     req.flash("success", `Payroll run for ${period} — ${payslips.length} employee(s) paid.`);
     return res.redirect(`/business/${business.id}/payroll`);

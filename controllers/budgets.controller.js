@@ -1,4 +1,8 @@
-import { listBudgetsWithSpend, upsertBudget } from "../db/queries/budgets.js";
+import {
+  listBudgetsWithSpend,
+  uncategorizedSpend,
+  upsertBudget
+} from "../db/queries/budgets.js";
 import { listCategories } from "../db/queries/categories.js";
 import { listGoals } from "../db/queries/goals.js";
 import {
@@ -13,10 +17,11 @@ export async function listBudgetsPage(req, res, next) {
   try {
     const user = req.session.user;
 
-    const [budgets, categories, goals] = await Promise.all([
+    const [budgets, categories, goals, uncategorized] = await Promise.all([
       listBudgetsWithSpend(user.id, monthStart()),
       listCategories(user.id),
-      listGoals(user.id)
+      listGoals(user.id),
+      uncategorizedSpend(user.id, monthStart())
     ]);
 
     // Burn-rate alerts from the analytics service; null when it's offline.
@@ -33,6 +38,7 @@ export async function listBudgetsPage(req, res, next) {
       monthLabel: monthLabel(),
       budgets,
       expenseCategories: categories.filter((c) => c.kind === "expense"),
+      uncategorized,
       alerts: alertsData ? alertsData.alerts : [],
       goalImpact: alertsData ? alertsData.goal_impact : null
     });

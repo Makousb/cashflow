@@ -1,10 +1,17 @@
-import { addToGoal, createGoal, listGoals } from "../db/queries/goals.js";
+import { listAccounts } from "../db/queries/accounts.js";
+import { getDefaultCategoryId } from "../db/queries/categories.js";
+import { addToGoal, createGoal, getGoal, listGoals } from "../db/queries/goals.js";
+import { createTransaction } from "../db/queries/transactions.js";
 import { toBase } from "../services/fx.js";
+import { today } from "../utils/dates.js";
 
 export async function listGoalsPage(req, res, next) {
   try {
-    const goals = await listGoals(req.session.user.id);
-    res.render("goals", { title: "Savings Goals", goals });
+    const [goals, accounts] = await Promise.all([
+      listGoals(req.session.user.id),
+      listAccounts(req.session.user.id)
+    ]);
+    res.render("goals", { title: "Savings Goals", goals, accounts });
   } catch (error) {
     next(error);
   }
@@ -43,16 +50,40 @@ export async function contributeToGoal(req, res, next) {
   }
 
   try {
-    const goal = await addToGoal(
-      Number(req.params.id),
-      req.session.user.id,
-      toBase(req.session.user, amount)
-    );
+    const userId = req.session.user.id;
+    const goal = await getGoal(Number(req.params.id), userId);
 
-    req.flash(
-      goal ? "success" : "error",
-      goal ? "Contribution added." : "Goal not found."
-    );
+    if (!goal) {
+      req.flash("error", "Goal not found.");
+      return res.redirect("/goals");
+    }
+
+    const baseAmount = toBase(req.session.user, amount);
+
+    // Money set aside for a goal has to leave a wallet, or the same shilling
+    // counts as both spendable and saved — the balance shown for the wallet it
+    // supposedly left never moves. Recorded as an expense against the chosen
+    // account, the same way a loan payment is: it shows up in the ordinary
+    // transaction history rather than a separate ledger only this page knows
+    // about, and the wallet select follows the loan payment form's own
+    // pattern — an explicit "No account" choice for a rough figure logged
+    // with nothing behind it, rather than that being the unlabelled default.
+    if (req.body.accountId) {
+      const categoryId = await getDefaultCategoryId("Savings");
+      await createTransaction({
+        userId,
+        accountId: req.body.accountId,
+        categoryId,
+        kind: "expense",
+        amount: baseAmount,
+        note: `Savings: ${goal.name}`,
+        occurredOn: today()
+      });
+    }
+
+    await addToGoal(goal.id, userId, baseAmount);
+
+    req.flash("success", "Contribution added.");
     return res.redirect("/goals");
   } catch (error) {
     return next(error);

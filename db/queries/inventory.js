@@ -44,15 +44,37 @@ export async function createProduct({
 }
 
 // Change stock on hand by a signed delta, never below zero.
+// Add to a shelf, or take off it. Returns { product } when the count moved,
+// { available } when there was not enough to take, and { missing: true } when
+// there is no such product.
+//
+// Taking more than is there used to clamp to zero and report success, so
+// asking to remove 9,999 from a shelf holding 50 emptied the shelf and said
+// "Stock updated." The count is the one number an inventory has to be honest
+// about — a sale asks it whether it can sell — so it now refuses and says what
+// is actually there. The guard is in the WHERE rather than in JavaScript so
+// that two people counting at once cannot both pass it.
 export async function adjustProductStock(id, userId, delta) {
   const { rows } = await pool.query(
     `UPDATE products
-     SET quantity = GREATEST(quantity + $1, 0)
-     WHERE id = $2 AND user_id = $3
+     SET quantity = quantity + $1
+     WHERE id = $2 AND user_id = $3 AND quantity + $1 >= 0
      RETURNING *`,
     [delta, id, userId]
   );
-  return rows[0] || null;
+
+  if (rows[0]) {
+    return { product: rows[0] };
+  }
+
+  const { rows: existing } = await pool.query(
+    "SELECT quantity FROM products WHERE id = $1 AND user_id = $2",
+    [id, userId]
+  );
+  if (!existing[0]) {
+    return { missing: true };
+  }
+  return { available: Number(existing[0].quantity) };
 }
 
 export async function deleteProduct(id, userId) {

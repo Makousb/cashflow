@@ -95,6 +95,9 @@ app.use((req, res, next) => {
 
   res.locals.currentUser = user || null;
   res.locals.success = req.flash("success");
+  // Between the two: something the person should know about that did not stop
+  // what they asked for — stock running low behind a sale that went through.
+  res.locals.warn = req.flash("warn");
   res.locals.error = req.flash("error");
   res.locals.dbReady = dbReady;
   res.locals.currentPath = req.path;

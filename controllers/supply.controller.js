@@ -24,7 +24,6 @@ import {
   listSuppliersFor,
   receiveSupplyOrder,
   requestPartnership,
-  setPartnershipStatus,
   shipSupplyOrder,
   supplierCatalog,
   updateSupplyProfile
@@ -251,40 +250,6 @@ export async function connectSupplier(req, res, next) {
         : `Request sent to ${supplier.name}. You can order once they accept.`
     );
     return res.redirect(back);
-  } catch (error) {
-    return next(error);
-  }
-}
-
-export async function respondToRequest(req, res, next) {
-  const business = await requireBusiness(req, res);
-  if (!business) return undefined;
-
-  const accept = req.body.decision === "accept";
-
-  try {
-    const partnership = await setPartnershipStatus(
-      Number(req.params.partnerId),
-      business.id,
-      accept ? "active" : "declined"
-    );
-
-    if (partnership) {
-      publish(partnership.buyer_business_id, "partner", {
-        status: partnership.status,
-        supplierName: business.name
-      });
-    }
-
-    req.flash(
-      partnership ? "success" : "error",
-      partnership
-        ? accept
-          ? "Buyer connected — they can now order from your catalog."
-          : "Request declined."
-        : "Request not found."
-    );
-    return res.redirect(`/business/${business.id}/supply`);
   } catch (error) {
     return next(error);
   }

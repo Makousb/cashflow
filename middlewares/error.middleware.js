@@ -9,14 +9,19 @@ export function handleError(err, req, res, next) {
     return next(err);
   }
 
-  // Posting into a closed period is a refusal, not a fault. It reaches here as
-  // an exception because it is thrown deep inside a transaction — where a
-  // return value would be ignored by half a dozen callers — but a person who
-  // dated something wrong should be told so on the page they were on, not shown
-  // a server error.
-  if (err?.code === "BOOKS_CLOSED" && req.flash) {
+  // Some errors are somebody being told no rather than something going wrong:
+  // posting into a closed period, or naming a wallet that is not yours. Both
+  // reach here as exceptions because they are thrown deep inside a database
+  // transaction — where a return value would be ignored by half a dozen
+  // callers — but the person should be told on the page they were on rather
+  // than shown a server error.
+  const refusals = {
+    BOOKS_CLOSED: "/business",
+    NOT_YOURS: "/dashboard"
+  };
+  if (refusals[err?.code] && req.flash) {
     req.flash("error", err.message);
-    return res.redirect(req.get("referer") || "/business");
+    return res.redirect(req.get("referer") || refusals[err.code]);
   }
 
   console.error(err);

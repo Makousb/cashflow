@@ -70,13 +70,26 @@
       <% budgets.forEach((b) => { %>
         <% const ratio = Number(b.amount) > 0 ? Math.min(Number(b.spent) / Number(b.amount), 1) : 0; %>
         <div class="budget-row">
-          <span><%= b.category_icon %> <%= b.category_name %></span>
+          <span>
+            <%= b.category_icon %> <%= b.category_name %>
+            <% if (ratio >= 1) { %>
+              <span class="badge badge-danger">Over</span>
+            <% } %>
+          </span>
           <span class="muted">
             <%= money(b.spent) %> / <%= money(b.amount) %>
           </span>
         </div>
         <div class="progress">
-          <div class="progress-fill <%= ratio >= 1 ? "over" : "" %>" style="width: <%= Math.round(ratio * 100) %>%"></div>
+          <div
+            class="progress-fill <%= ratio >= 1 ? "over" : "" %>"
+            style="width: <%= Math.round(ratio * 100) %>%"
+            role="progressbar"
+            aria-valuenow="<%= Math.round(ratio * 100) %>"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-label="<%= b.category_name %>: <%= ratio >= 1 ? "over budget" : Math.round(ratio * 100) + "% of budget spent" %>"
+          ></div>
         </div>
       <% }) %>
     <% } %>

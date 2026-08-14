@@ -52,6 +52,9 @@
   <% if (success && success.length) { %>
     <div class="flash flash-success"><%= success[0] %></div>
   <% } %>
+  <% if (typeof warn !== "undefined" && warn && warn.length) { %>
+    <div class="flash flash-warn"><%= warn[0] %></div>
+  <% } %>
   <% if (error && error.length) { %>
     <div class="flash flash-error"><%= error[0] %></div>
   <% } %>

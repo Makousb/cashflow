@@ -1369,6 +1369,26 @@ const SCHEMA_SQL = `
 
   CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_partners_pair
     ON trade_partners (buyer_business_id, supplier_id);
+
+  -- One pay run per period. This is what makes claiming a period atomic, so
+  -- that two clicks on "Run payroll" cannot pay everybody twice: see
+  -- claimPayRun in db/queries/payroll.js.
+  --
+  -- Wrapped, because unlike every other index here this one can legitimately
+  -- fail: a database that has already been double-run carries the very rows it
+  -- forbids. An unguarded failure would abort this whole batch and leave a
+  -- fresh install with no schema at all. Those books need a person to decide
+  -- which run was real, so the duplicates are reported rather than deleted —
+  -- the claim's own NOT EXISTS still stops the ordinary second click meanwhile.
+  DO $$
+  BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_pay_runs_period
+      ON pay_runs (business_id, period);
+  EXCEPTION WHEN unique_violation THEN
+    RAISE WARNING 'pay_runs already holds more than one run for a period, so the '
+      'one-run-per-period index was not created. Delete the duplicate pay runs '
+      'and restart to have it enforced.';
+  END $$;
 `;
 
 const DEFAULT_CATEGORIES = [
@@ -1382,6 +1402,7 @@ const DEFAULT_CATEGORIES = [
   ["Education", "expense", "📚"],
   ["Other", "expense", "🧾"],
   ["Loan Payment", "expense", "🏦"],
+  ["Savings", "expense", "🎯"],
   ["Salary", "income", "💼"],
   ["Business", "income", "🏪"],
   ["Gifts", "income", "🎁"],

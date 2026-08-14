@@ -13,9 +13,12 @@ import {
 import {
   advanceOrder,
   getOrder,
+  listBuyersFor,
   listOrdersForSupplier,
+  setPartnershipStatus,
   shipSupplyOrder
 } from "../db/queries/supply.js";
+import { publish } from "../services/realtime.js";
 import { toBase } from "../services/fx.js";
 import { addDays, summarizeOrders } from "../utils/supply.js";
 import { today } from "../utils/dates.js";
@@ -69,10 +72,11 @@ export async function showSupplier(req, res, next) {
     const supplier = await requireSupplier(req, res);
     if (!supplier) return undefined;
 
-    const [catalog, orders, ledger] = await Promise.all([
+    const [catalog, orders, ledger, buyers] = await Promise.all([
       listCatalog(supplier.id),
       listOrdersForSupplier(supplier.id),
-      supplierLedger(supplier.id)
+      supplierLedger(supplier.id),
+      listBuyersFor(supplier.id)
     ]);
 
     return res.render("supplier", {
@@ -81,8 +85,57 @@ export async function showSupplier(req, res, next) {
       catalog,
       orders,
       ledger,
+      buyers,
+      // A buyer who has asked to connect is waiting on this page and nowhere
+      // else, so they are pulled out rather than left to be spotted in a list.
+      requests: buyers.filter((b) => b.status === "pending"),
       summary: summarizeOrders(orders)
     });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// Accept or decline a buyer's request to connect.
+//
+// This lives here, on the supplier, because the supplier is who decides — and
+// because it is the only side that can. A partnership row points at
+// suppliers(id); the business-side route that used to answer these was left
+// behind when suppliers stopped being businesses, and matched the request's
+// supplier_id against a businesses(id). Those are different id spaces, so it
+// could never match, no page ever linked to it, and every request a real buyer
+// sent stayed pending for good.
+export async function respondToRequest(req, res, next) {
+  const supplier = await requireSupplier(req, res);
+  if (!supplier) return undefined;
+
+  const accept = req.body.decision === "accept";
+
+  try {
+    const partnership = await setPartnershipStatus(
+      Number(req.params.partnerId),
+      supplier.id,
+      accept ? "active" : "declined"
+    );
+
+    // The buyer's supply page is watching a live stream; tell it either way so
+    // the request stops reading "pending" without them reloading.
+    if (partnership) {
+      publish(partnership.buyer_business_id, "partner", {
+        status: partnership.status,
+        supplierName: supplier.name
+      });
+    }
+
+    req.flash(
+      partnership ? "success" : "error",
+      partnership
+        ? accept
+          ? "Buyer connected — they can now order from your catalog."
+          : "Request declined."
+        : "Request not found."
+    );
+    return res.redirect(`/supplier/${supplier.id}`);
   } catch (error) {
     return next(error);
   }

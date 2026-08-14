@@ -38,12 +38,23 @@ export async function deleteEmployee(id, userId) {
   return rowCount > 0;
 }
 
-// Create a pay run with its payslips and link it to the ledger expense, all in
-// one transaction. `payslips` is [{ employeeId, name, gross, deductions, net }].
-export async function createPayRun({
+// Claim a pay period, and write the run and its payslips if the claim lands.
+// Returns null when the period has already been run.
+//
+// A period is claimed BEFORE the money is posted, rather than the run being
+// written afterwards, for the reason every other scheduled thing in this app
+// claims first: paying the same month twice is not a duplicate row, it is
+// twice the wages on the income statement and twice the deductions on the tax
+// position. Two clicks on a slow connection did exactly that.
+//
+// The claim is the INSERT itself. `ON CONFLICT DO NOTHING` against the unique
+// index on (business_id, period) is what makes it atomic — the NOT EXISTS
+// beside it only spares the common case a wasted error, and cannot decide the
+// race on its own, because two page loads can both find nothing there.
+// `payslips` is [{ employeeId, name, gross, deductions, net }].
+export async function claimPayRun({
   businessId,
   userId,
-  transactionId,
   period,
   runOn,
   payslips
@@ -64,16 +75,25 @@ export async function createPayRun({
 
     const { rows } = await client.query(
       `INSERT INTO pay_runs
-         (business_id, user_id, transaction_id, period, gross_total,
+         (business_id, user_id, period, gross_total,
           deduction_total, net_total, employee_count, run_on)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       SELECT $1, $2, $3, $4, $5, $6, $7, $8
+       WHERE NOT EXISTS (
+         SELECT 1 FROM pay_runs WHERE business_id = $1 AND period = $3
+       )
+       ON CONFLICT DO NOTHING
        RETURNING *`,
       [
-        businessId, userId, transactionId, period,
+        businessId, userId, period,
         totals.gross, totals.deductions, totals.net, payslips.length, runOn
       ]
     );
     const run = rows[0];
+
+    if (!run) {
+      await client.query("ROLLBACK");
+      return null;
+    }
 
     for (const p of payslips) {
       await client.query(
@@ -91,6 +111,20 @@ export async function createPayRun({
   } finally {
     client.release();
   }
+}
+
+// Link a claimed run to the ledger expense it posted.
+export async function attachPayRunTransaction(id, transactionId) {
+  await pool.query(
+    "UPDATE pay_runs SET transaction_id = $2 WHERE id = $1",
+    [id, transactionId]
+  );
+}
+
+// Give the period back when the posting that follows the claim fails, so a
+// month that was never actually paid is not left looking as though it was.
+export async function releasePayRun(id) {
+  await pool.query("DELETE FROM pay_runs WHERE id = $1", [id]);
 }
 
 export async function listPayRuns(businessId, userId) {

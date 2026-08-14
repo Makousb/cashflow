@@ -76,7 +76,17 @@
             <button type="submit" class="btn btn-ghost btn-sm" title="Remove target">✕</button>
           </form>
         </div>
-        <div class="progress"><div class="progress-fill <%= b.over ? "over" : "" %>" style="width: <%= Math.round(b.ratio) %>%"></div></div>
+        <div class="progress">
+          <div
+            class="progress-fill <%= b.over ? "over" : "" %>"
+            style="width: <%= Math.round(b.ratio) %>%"
+            role="progressbar"
+            aria-valuenow="<%= Math.round(b.ratio) %>"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-label="<%= b.category %>: <%= b.over ? "over budget" : Math.round(b.ratio) + "% of budget spent" %>"
+          ></div>
+        </div>
       <% }) %>
     <% } %>
   </section>
