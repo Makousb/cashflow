@@ -1,3 +1,5 @@
+import crypto from "crypto";
+
 import bcrypt from "bcrypt";
 
 import { createAccount } from "../db/queries/accounts.js";
@@ -12,6 +14,16 @@ import {
 } from "../utils/currencies.js";
 
 const SALT_ROUNDS = 10;
+
+// bcrypt.compare costs real time; skipping it when the email is not found is
+// what a short-circuiting `!user ||` would do, and that gap is measurable —
+// an unknown email returns in microseconds, a real one in the ~100ms bcrypt
+// takes. Comparing against this hash on every attempt, known email or not,
+// costs the same either way, so timing carries nothing about whether the
+// email exists. The hash is of a password nobody could ever enter (a random
+// value fixed at process start), so no real credential is compared against
+// it and it can never itself succeed.
+const DUMMY_HASH = bcrypt.hashSync(crypto.randomUUID(), SALT_ROUNDS);
 
 export function showRegister(req, res) {
   res.render("auth/register", {
@@ -101,8 +113,10 @@ export async function login(req, res, next) {
 
   try {
     const user = await findUserByEmail(email);
+    // Always compare against something, known email or not — see DUMMY_HASH.
+    const valid = await bcrypt.compare(password, user?.password_hash || DUMMY_HASH);
 
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    if (!user || !valid) {
       req.flash("error", "Invalid email or password.");
       return res.redirect("/auth/login");
     }

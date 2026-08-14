@@ -22,11 +22,20 @@ const storage = multer.diskStorage({
   }
 });
 
+// A photo of a paper receipt is never a vector graphic, so SVG is refused
+// along with everything non-image — not only because it is the wrong kind of
+// file here, but because an SVG can carry a <script>, and this one is served
+// straight back to its own uploader (see serveReceiptImage) behind a link
+// that opens it directly rather than inside an <img>. mimetype is a header
+// the uploader wrote, not a fact about the bytes, so this narrows what gets
+// past the filter; it is not proof of what is actually in the file.
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    cb(null, file.mimetype.startsWith("image/"));
+    cb(null, ALLOWED_TYPES.has(file.mimetype));
   }
 });
 
