@@ -10,6 +10,7 @@ import { config } from "./config/env.js";
 import { pool } from "./db/index.js";
 import { ensureSchema } from "./db/ensureSchema.js";
 import { handleError, notFound } from "./middlewares/error.middleware.js";
+import { requireSameOrigin } from "./middlewares/csrf.middleware.js";
 import { hasAnyBusiness } from "./db/queries/business.js";
 import { hasAnySupplier } from "./db/queries/suppliers.js";
 import accountRoutes from "./routes/accounts.js";
@@ -60,6 +61,12 @@ app.use(
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(appRoot, "public")));
+
+// Rejects a mutating request whose Origin/Referer names a different host,
+// before any session lookup — a request this refuses has no legitimate
+// reason to touch the session store anyway. See the middleware for why this
+// stands beside SameSite=Lax rather than a per-form token.
+app.use(requireSameOrigin);
 
 app.use(
   session({
