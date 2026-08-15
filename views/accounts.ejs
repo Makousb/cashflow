@@ -37,8 +37,19 @@
               <%- icon({ cash: "wallet", bank: "bank", mobile_money: "phone", credit_card: "card" }[a.type] || "wallet") %>
             </span>
             <span class="tx-meta">
-              <strong><%= a.name %></strong>
-              <small class="muted"><%= a.type.replace("_", " ") %></small>
+              <strong>
+                <%= a.mono_account_id ? (a.institution_name || a.name) : a.name %>
+                <% if (a.mono_account_id) { %>
+                  <span class="badge badge-done">linked</span>
+                <% } %>
+              </strong>
+              <small class="muted">
+                <% if (a.mono_account_id) { %>
+                  <%= a.account_number_mask || "bank" %><% if (a.mono_synced_at) { %> · synced <%= formatDate(a.mono_synced_at) %><% } %>
+                <% } else { %>
+                  <%= a.type.replace("_", " ") %>
+                <% } %>
+              </small>
             </span>
             <span class="tx-amount <%= Number(a.balance) >= 0 ? "positive" : "negative" %>">
               <%= money(a.balance) %>
@@ -49,5 +60,22 @@
     <% } %>
   </section>
 </div>
+
+<% if (monoEnabled) { %>
+  <section class="card" style="margin-top: 1.5rem;">
+    <h2>Connect a bank</h2>
+    <p class="muted" style="margin-top: -0.4rem;">
+      Link a real bank account and Cashflow imports its transactions and
+      keeps its balance current automatically — nothing to type by hand.
+      Your bank login is entered on your bank/Mono's own page, never on
+      Cashflow.
+    </p>
+    <form action="/accounts/mono/connect" method="POST" class="inline-form">
+      <button type="submit" class="btn btn-primary">
+        <%- icon("bank") %> Connect a bank account
+      </button>
+    </form>
+  </section>
+<% } %>
 
 <%- include("partials/footer") %>

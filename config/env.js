@@ -49,6 +49,15 @@ export const config = {
     baseUrl: process.env.AI_BASE_URL || "",
     model: process.env.AI_MODEL || ""
   },
+  // Optional bank-linking (Mono Connect). Without a secret key the "Connect a
+  // bank" card on Accounts simply doesn't render — everything else works as
+  // it always has. webhookSecret authenticates Mono's callback: it is the
+  // literal value Mono sends back in the `mono-webhook-secret` header, not an
+  // HMAC key.
+  mono: {
+    secretKey: process.env.MONO_SECRET_KEY || "",
+    webhookSecret: process.env.MONO_WEBHOOK_SECRET || ""
+  },
   // Outgoing mail. Without a host nothing is sent and nothing fails — the
   // monthly close simply records that it notified nobody. SMTP rather than one
   // vendor's HTTP API, because every provider speaks it.

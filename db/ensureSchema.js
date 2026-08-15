@@ -1400,6 +1400,27 @@ const SCHEMA_SQL = `
       'one-run-per-period index was not created. Delete the duplicate pay runs '
       'and restart to have it enforced.';
   END $$;
+
+  -- Bank linking (Mono Connect). A linked wallet is still an ordinary row in
+  -- accounts — same balance, same type — these columns just remember which
+  -- Mono account it is and what to show instead of the free-typed name.
+  ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mono_account_id TEXT UNIQUE;
+  ALTER TABLE accounts ADD COLUMN IF NOT EXISTS institution_name TEXT;
+  ALTER TABLE accounts ADD COLUMN IF NOT EXISTS account_number_mask TEXT;
+  ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mono_link_ref TEXT;
+  ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mono_synced_at TIMESTAMPTZ;
+
+  -- Where a transaction came from, and the id it had there. NULL source_id
+  -- covers every hand-typed transaction there has ever been, so the index
+  -- below is partial: only an imported row (a real source_id) is ever
+  -- required to be unique, which is what stops a replayed webhook or an
+  -- overlapping sync from posting the same purchase twice. Same idiom as
+  -- idx_journal_entries_source on the business side, applied to personal
+  -- transactions.
+  ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
+  ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source_id TEXT;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_source
+    ON transactions (user_id, source, source_id) WHERE source_id IS NOT NULL;
 `;
 
 const DEFAULT_CATEGORIES = [

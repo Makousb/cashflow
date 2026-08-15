@@ -137,6 +137,63 @@ export async function createTransaction({
   }
 }
 
+// One transaction, arriving from a bank sync rather than a form. accountId
+// and userId come from a row this app already looked up by its own stored
+// mono_account_id (see db/queries/accounts.js), never from the sync payload
+// directly, so — unlike createTransaction — there is no foreign id to
+// re-validate here.
+//
+// The insert is the idempotency boundary: ON CONFLICT on
+// (user_id, source, source_id) makes a replayed webhook or an overlapping
+// sync a no-op rather than a duplicate. The balance UPDATE only runs when a
+// row actually came back, which is why this is two statements rather than
+// one clever one reading back what it just wrote — the same rule
+// createTransaction's insert-then-adjust already follows.
+export async function importMonoTransaction({
+  userId,
+  accountId,
+  sourceId,
+  kind,
+  amount,
+  note,
+  occurredOn
+}) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Postgres only infers a partial unique index for ON CONFLICT when the
+    // predicate is repeated verbatim here — idx_transactions_source is
+    // WHERE source_id IS NOT NULL, so this must be too, or conflict
+    // resolution has no index to match against and simply fails to insert.
+    const { rows } = await client.query(
+      `INSERT INTO transactions (user_id, account_id, kind, amount, note, occurred_on, source, source_id)
+       VALUES ($1, $2, $3, $4, $5, $6, 'mono', $7)
+       ON CONFLICT (user_id, source, source_id) WHERE source_id IS NOT NULL DO NOTHING
+       RETURNING *`,
+      [userId, accountId, kind, amount, note, occurredOn, sourceId]
+    );
+
+    const inserted = rows[0] || null;
+    if (inserted) {
+      const delta = kind === "income" ? amount : -amount;
+      await client.query(
+        "UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3",
+        [delta, accountId, userId]
+      );
+    }
+
+    await client.query("COMMIT");
+    return inserted;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function getTransaction(id, userId) {
   const { rows } = await pool.query(
     "SELECT * FROM transactions WHERE id = $1 AND user_id = $2",
