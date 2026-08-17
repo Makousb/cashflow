@@ -17,7 +17,8 @@ export function handleError(err, req, res, next) {
   // than shown a server error.
   const refusals = {
     BOOKS_CLOSED: "/business",
-    NOT_YOURS: "/dashboard"
+    NOT_YOURS: "/dashboard",
+    IS_A_TRANSFER: "/transactions"
   };
   if (refusals[err?.code] && req.flash) {
     req.flash("error", err.message);

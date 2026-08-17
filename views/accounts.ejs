@@ -61,6 +61,41 @@
   </section>
 </div>
 
+<% if (accounts.length >= 2) { %>
+  <section class="card" style="margin-top: 1.5rem;">
+    <h2>Transfer between wallets</h2>
+    <p class="muted" style="margin-top: -0.4rem;">
+      Moving your own money doesn't count as spending or income — a
+      transfer never shows up in your budgets or totals.
+    </p>
+    <form action="/transfers" method="POST" class="stacked-form">
+      <label>
+        From
+        <select name="fromAccountId" required>
+          <% accounts.forEach((a) => { %>
+            <option value="<%= a.id %>"><%= a.mono_account_id ? (a.institution_name || a.name) : a.name %></option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
+        To
+        <select name="toAccountId" required>
+          <% accounts.forEach((a) => { %>
+            <option value="<%= a.id %>"><%= a.mono_account_id ? (a.institution_name || a.name) : a.name %></option>
+          <% }) %>
+        </select>
+      </label>
+      <label>Amount<input type="number" name="amount" step="0.01" min="0.01" required /></label>
+      <label>
+        Date
+        <input type="date" name="occurredOn" value="<%= today %>" />
+      </label>
+      <label>Note (optional)<input type="text" name="note" maxlength="200" /></label>
+      <button type="submit" class="btn btn-primary"><%- icon("swap") %> Transfer</button>
+    </form>
+  </section>
+<% } %>
+
 <% if (monoEnabled) { %>
   <section class="card" style="margin-top: 1.5rem;">
     <h2>Connect a bank</h2>

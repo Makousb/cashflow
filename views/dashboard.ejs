@@ -44,6 +44,16 @@
     <% } else { %>
       <ul class="tx-list">
         <% recent.forEach((tx) => { %>
+          <% if (tx.kind === "transfer") { %>
+            <li class="tx-row">
+              <span class="tx-icon"><%- icon("swap") %></span>
+              <span class="tx-meta">
+                <strong>Transfer: <%= tx.transfer_from_name || "?" %> → <%= tx.transfer_to_name || "?" %></strong>
+                <small class="muted"><%= formatDate(tx.occurred_on) %><%= tx.note ? " · " + tx.note : "" %></small>
+              </span>
+              <span class="tx-amount"><%= money(tx.amount) %></span>
+            </li>
+          <% } else { %>
           <li class="tx-row">
             <span class="tx-icon"><%= tx.category_icon || "🧾" %></span>
             <span class="tx-meta">
@@ -54,6 +64,7 @@
               <%= tx.kind === "income" ? "+" : "−" %><%= money(tx.amount) %>
             </span>
           </li>
+          <% } %>
         <% }) %>
       </ul>
     <% } %>

@@ -1,6 +1,7 @@
 import { config } from "../config/env.js";
 import { createAccount, listAccounts } from "../db/queries/accounts.js";
 import { syncAllMonoAccounts } from "../services/mono.js";
+import { today } from "../utils/dates.js";
 
 const ACCOUNT_TYPES = ["cash", "bank", "mobile_money", "credit_card"];
 
@@ -18,7 +19,8 @@ export async function listAccountsPage(req, res, next) {
       title: "Accounts",
       accounts,
       accountTypes: ACCOUNT_TYPES,
-      monoEnabled: Boolean(config.mono.secretKey)
+      monoEnabled: Boolean(config.mono.secretKey),
+      today: today()
     });
   } catch (error) {
     next(error);

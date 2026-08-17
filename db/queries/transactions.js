@@ -10,10 +10,17 @@ export async function listRecentTransactions(userId, limit = 50) {
             to_char(t.occurred_on, 'YYYY-MM-DD') AS occurred_on_iso,
             c.name AS category_name,
             c.icon AS category_icon,
-            a.name AS account_name
+            a.name AS account_name,
+            -- Only populated for a transfer leg (t.transfer_id set); every
+            -- plain expense/income row simply carries nulls through here.
+            from_acct.name AS transfer_from_name,
+            to_acct.name AS transfer_to_name
      FROM transactions t
      LEFT JOIN categories c ON c.id = t.category_id
      LEFT JOIN accounts a ON a.id = t.account_id
+     LEFT JOIN transfers tr ON tr.id = t.transfer_id
+     LEFT JOIN accounts from_acct ON from_acct.id = tr.from_account_id
+     LEFT JOIN accounts to_acct ON to_acct.id = tr.to_account_id
      WHERE t.user_id = $1
      ORDER BY t.occurred_on DESC, t.id DESC
      LIMIT $2`,
@@ -46,6 +53,19 @@ export function notYours(what) {
   // not something going wrong, so it reaches them as a message rather than a
   // 500. See middlewares/error.middleware.js.
   refusal.code = "NOT_YOURS";
+  return refusal;
+}
+
+// A transfer's two legs move together or not at all — see
+// db/queries/transfers.js. Editing or deleting one through this generic
+// path would fix one wallet's balance and leave the other stranded, so
+// both updateTransaction and deleteTransaction refuse a kind='transfer' row
+// up front rather than acting on half of it.
+function refuseTransferEdit() {
+  const refusal = new Error(
+    "This is one leg of a transfer — delete the whole transfer from Accounts instead."
+  );
+  refusal.code = "IS_A_TRANSFER";
   return refusal;
 }
 
@@ -236,6 +256,10 @@ export async function updateTransaction({
       await client.query("ROLLBACK");
       return null;
     }
+    if (existing.kind === "transfer") {
+      await client.query("ROLLBACK");
+      throw refuseTransferEdit();
+    }
 
     const ownedAccount = await ownedAccountId(client, accountId, userId);
     const ownedCategory = await ownedCategoryId(client, categoryId, userId);
@@ -282,30 +306,43 @@ export async function deleteTransaction(id, userId) {
   try {
     await client.query("BEGIN");
 
-    const { rows } = await client.query(
-      `DELETE FROM transactions
-       WHERE id = $1 AND user_id = $2
-       RETURNING account_id, kind, amount`,
+    // Locked and checked before deleting, same as updateTransaction, so a
+    // transfer leg can be refused rather than half-reversed as if it were a
+    // plain expense.
+    const { rows: existingRows } = await client.query(
+      "SELECT * FROM transactions WHERE id = $1 AND user_id = $2 FOR UPDATE",
+      [id, userId]
+    );
+    const existing = existingRows[0];
+    if (!existing) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    if (existing.kind === "transfer") {
+      await client.query("ROLLBACK");
+      throw refuseTransferEdit();
+    }
+
+    await client.query(
+      "DELETE FROM transactions WHERE id = $1 AND user_id = $2",
       [id, userId]
     );
 
-    const removed = rows[0];
-
-    if (removed && removed.account_id) {
-      const amount = Number(removed.amount);
-      const delta = removed.kind === "income" ? -amount : amount;
+    if (existing.account_id) {
+      const amount = Number(existing.amount);
+      const delta = existing.kind === "income" ? -amount : amount;
       // Scoped by owner like the insert above. Every account_id written from
       // now on belongs to this user, so the clause changes nothing for them —
       // it is here so that a row left over from before this was enforced
       // cannot reverse itself against a stranger's wallet.
       await client.query(
         "UPDATE accounts SET balance = balance + $1 WHERE id = $2 AND user_id = $3",
-        [delta, removed.account_id, userId]
+        [delta, existing.account_id, userId]
       );
     }
 
     await client.query("COMMIT");
-    return Boolean(removed);
+    return true;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -326,6 +363,7 @@ export async function listTransactionsForAnalytics(userId, months = 6) {
      FROM transactions t
      LEFT JOIN categories c ON c.id = t.category_id
      WHERE t.user_id = $1
+       AND t.kind <> 'transfer'
        AND t.occurred_on >= date_trunc('month', CURRENT_DATE) - make_interval(months => $2)
      ORDER BY t.occurred_on`,
     [userId, months - 1]

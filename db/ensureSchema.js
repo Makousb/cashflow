@@ -1421,6 +1421,46 @@ const SCHEMA_SQL = `
   ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source_id TEXT;
   CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_source
     ON transactions (user_id, source, source_id) WHERE source_id IS NOT NULL;
+
+  -- Moving money between your own wallets, not earning or spending it.
+  -- Mirrors stock_transfers on the business side: a header row for what
+  -- moved where, plus two ordinary transactions rows (kind='transfer',
+  -- tagged source='transfer'/source_id=this row's id via the columns just
+  -- above) that carry the actual balance effect and show up in history.
+  -- Every existing income/expense total is an exact kind='expense' or
+  -- kind='income' match, so a transfer leg is invisible to all of them
+  -- without those queries needing to know transfers exist at all.
+  CREATE TABLE IF NOT EXISTS transfers (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    from_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    to_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+    note TEXT,
+    occurred_on DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (from_account_id <> to_account_id)
+  );
+
+  -- A CHECK cannot be widened in place, so the original inline one (named
+  -- by Postgres's own {table}_{column}_check convention) is dropped and
+  -- rewritten to allow the third kind. IF EXISTS covers a database created
+  -- after this migration, which never had the narrower constraint.
+  ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_kind_check;
+  ALTER TABLE transactions ADD CONSTRAINT transactions_kind_check
+    CHECK (kind IN ('expense', 'income', 'transfer'));
+
+  -- Which transfer this leg belongs to, so the pair can be found and priced
+  -- from the transfers row without matching strings — deliberately its own
+  -- column rather than source/source_id above: that pair's uniqueness is
+  -- one row per key, but a transfer is always exactly two transactions rows
+  -- sharing the same key, which would collide with it. ON DELETE CASCADE
+  -- means removing the transfers row removes both legs in the same
+  -- statement; deleteTransfer still reads the transfers row first for the
+  -- amounts to reverse, since the cascade only removes rows, it does not
+  -- hand them back.
+  ALTER TABLE transactions ADD COLUMN IF NOT EXISTS transfer_id INTEGER
+    REFERENCES transfers(id) ON DELETE CASCADE;
 `;
 
 const DEFAULT_CATEGORIES = [
