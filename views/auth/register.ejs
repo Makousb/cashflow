@@ -7,9 +7,9 @@
   <form action="/auth/register" method="POST" class="stacked-form">
     <fieldset class="side-picker">
       <legend>What are you here for?</legend>
-      <% Object.entries(accountTypes).forEach(([key, t], i) => { %>
+      <% Object.entries(accountTypes).forEach(([key, t]) => { %>
         <label class="side-option">
-          <input type="radio" name="accountType" value="<%= key %>" <%= i === 0 ? "checked" : "" %> />
+          <input type="radio" name="accountType" value="<%= key %>" <%= key === preselected ? "checked" : "" %> />
           <span class="side-body">
             <span class="side-icon"><%- icon(t.icon) %></span>
             <strong><%= t.label %></strong>
@@ -19,7 +19,7 @@
       <% }) %>
     </fieldset>
 
-    <label id="org-name-field" hidden>
+    <label id="org-name-field" <%= preselected === "personal" ? "hidden" : "" %>>
       Business or supplier name
       <input type="text" name="orgName" maxlength="120" placeholder="e.g. Mama Njeri Grocers" />
     </label>

@@ -27,8 +27,15 @@ const SALT_ROUNDS = 10;
 const DUMMY_HASH = bcrypt.hashSync(crypto.randomUUID(), SALT_ROUNDS);
 
 export function showRegister(req, res) {
+  // Lets the landing page's two paths land here with the matching side
+  // already picked, rather than a visitor who just chose "Run my business"
+  // seeing Personal checked and wondering if the click did anything.
+  // Anything other than a real account type is ignored rather than trusted.
+  const preselected = isAccountType(req.query.type) ? req.query.type : "personal";
+
   res.render("auth/register", {
     accountTypes: ACCOUNT_TYPES,
+    preselected,
     title: "Create account",
     currencies: CURRENCIES,
     defaultCurrency: DEFAULT_CURRENCY

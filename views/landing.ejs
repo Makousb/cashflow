@@ -12,14 +12,29 @@
     <p class="eyebrow">Personal &amp; business budgeting</p>
     <h1>Know where it goes, <span class="grow">down to the last shilling</span>.</h1>
     <p class="hero-sub">
-      Cashflow is a simple budgeting and financial planning app. Follow every
-      shilling in and out, scan receipts, set monthly budgets, and watch your
-      savings goals close in.
+      Cashflow is a simple budgeting and financial planning app — for your
+      own money, your business, or both under one login.
     </p>
-    <div class="hero-actions">
-      <a href="/auth/register" class="btn btn-primary btn-lg">Start for free</a>
-      <a href="/auth/login" class="btn btn-ghost btn-lg">I already have an account</a>
+    <div class="hero-paths">
+      <a href="/auth/register?type=personal" class="hero-path">
+        <span class="hero-path-icon"><%- icon("wallet") %></span>
+        <span class="hero-path-body">
+          <strong>Track my own money</strong>
+          <small>Budgets, goals and receipts, all in one place.</small>
+        </span>
+        <span class="hero-path-arrow">→</span>
+      </a>
+      <a href="/auth/register?type=business" class="hero-path">
+        <span class="hero-path-icon"><%- icon("storefront") %></span>
+        <span class="hero-path-body">
+          <strong>Run my business</strong>
+          <small>Books, stock, payroll and tax, handled together.</small>
+        </span>
+        <span class="hero-path-arrow">→</span>
+      </a>
     </div>
+    <p class="hero-note">Free to start — add the other side anytime.</p>
+    <a href="/auth/login" class="hero-login-link">I already have an account →</a>
   </div>
   <div class="hero-media">
     <img

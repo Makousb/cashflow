@@ -358,6 +358,93 @@ h1, h2, h3 {
   flex-wrap: wrap;
 }
 
+/* Two ways in, side by side, echoing the icon+title+blurb shape the
+   registration page's own account-type picker already uses (.side-option
+   below) — the same choice, asked once here in miniature before it's asked
+   for real, rather than a new pattern this page invents on its own. */
+.hero-paths {
+  display: flex;
+  gap: 0.85rem;
+  margin-bottom: 0.85rem;
+}
+
+.hero-path {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 1rem 1.1rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.hero-path:hover {
+  border-color: var(--brand-200);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.hero-path-icon {
+  color: var(--brand-700);
+  flex: none;
+  margin-top: 0.1rem;
+}
+
+.hero-path-icon .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.hero-path-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.hero-path-body strong {
+  font-size: 0.96rem;
+  color: var(--brand-950);
+}
+
+.hero-path-body small {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.hero-path-arrow {
+  color: var(--ink-faint);
+  font-weight: 700;
+  flex: none;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.hero-path:hover .hero-path-arrow {
+  transform: translateX(3px);
+  color: var(--brand-700);
+}
+
+.hero-note {
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+  margin: 0 0 1.5rem;
+}
+
+.hero-login-link {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--brand-800);
+  text-decoration: none;
+}
+
+.hero-login-link:hover {
+  text-decoration: underline;
+}
+
 /* --- Feature & steps sections (landing) --- */
 .section-title {
   text-align: center;
@@ -693,6 +780,10 @@ a.module-link:hover {
 
   .hero-split .hero-actions {
     justify-content: center;
+  }
+
+  .hero-paths {
+    flex-direction: column;
   }
 
   .hero-media {
