@@ -71,7 +71,8 @@ const ICONS = {
   trophy: '<path d="M7 4.5h10v5a5 5 0 0 1-10 0Z"/><path d="M7 6H4.5A2.5 2.5 0 0 0 7 10.5M17 6h2.5A2.5 2.5 0 0 1 17 10.5"/><path d="M12 14.5V18"/><path d="M8.5 20.5h7"/>',
   calculator: '<rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8 6.5h8"/><path d="M8.2 11h.01M12 11h.01M15.8 11h.01M8.2 14.6h.01M12 14.6h.01M15.8 14.6h.01M8.2 18.2h.01M12 18.2h.01M15.8 18.2h.01"/>',
   megaphone: '<path d="M3 10.5v3l4 1v-5Z"/><path d="M7 9.2v6.6l9 3V6.2Z"/><path d="M16 8.5a4 4 0 0 1 0 7"/><path d="M8.5 16.5 10 21"/>',
-  link: '<path d="M9.5 14.5 14.5 9.5"/><path d="M11 6.5 13 4.5a3.5 3.5 0 0 1 5 5l-2 2"/><path d="M13 17.5l-2 2a3.5 3.5 0 0 1-5-5l2-2"/>'
+  link: '<path d="M9.5 14.5 14.5 9.5"/><path d="M11 6.5 13 4.5a3.5 3.5 0 0 1 5 5l-2 2"/><path d="M13 17.5l-2 2a3.5 3.5 0 0 1-5-5l2-2"/>',
+  menu: '<path d="M4 6.5h16M4 12h16M4 17.5h16"/>'
 };
 
 export function icon(name, className = "") {

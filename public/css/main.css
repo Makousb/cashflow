@@ -197,6 +197,25 @@ h1, h2, h3 {
   height: 18px;
 }
 
+/* Hidden until the ≤780px query below turns it on — at desktop widths the
+   nav has room to lay out flat and this button has nothing to do. */
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem;
+  color: var(--brand-800);
+  cursor: pointer;
+}
+
+.nav-toggle .icon {
+  width: 20px;
+  height: 20px;
+}
+
 /* --- Layout --- */
 .container {
   width: min(1040px, 100% - 2.5rem);
@@ -236,17 +255,30 @@ h1, h2, h3 {
      Goals, Loans and the rest were unreachable to anyone who did not think to
      swipe a bar that looked like it ended.
 
-     Wrapping costs a taller header on a phone and shows every destination,
-     which is the better trade while the nav is a flat list of thirteen. */
+     A toggle button reveals the nav as a full-width panel instead: closed by
+     default so the header stays a single compact row, open on demand rather
+     than a flat list of thirteen wrapping onto several rows whether the
+     visitor wanted to see all of them right now or not. See public/js/main.js
+     for the click/Escape/outside-click handling. */
   .site-header {
     flex-wrap: wrap;
     row-gap: 0.5rem;
   }
 
+  .nav-toggle {
+    display: inline-flex;
+  }
+
   .site-nav {
+    display: none;
+    flex-basis: 100%;
     flex-wrap: wrap;
     overflow-x: visible;
     row-gap: 0.15rem;
+  }
+
+  .site-nav.is-open {
+    display: flex;
   }
 
   .site-nav .btn {
@@ -500,6 +532,7 @@ a.module-link:hover {
 
 .stmt-line {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 1rem;
   padding: 0.4rem 0;
@@ -1568,6 +1601,16 @@ input[type="file"] {
 
 .charts-col {
   grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 780px) {
+  /* Declared after .two-col's own mobile rule above, so without this it
+     wins the cascade at every width and keeps two ~150px charts squeezed
+     side by side on a phone instead of collapsing like every other
+     .two-col card does. */
+  .charts-col {
+    grid-template-columns: 1fr;
+  }
 }
 
 .code-block {

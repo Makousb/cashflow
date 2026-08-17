@@ -19,7 +19,16 @@
       <img src="/img/logo.svg" alt="" class="brand-mark" width="30" height="30" />
       Cashflow
     </a>
-    <nav class="site-nav">
+    <% if (currentUser) { %>
+      <button
+        type="button"
+        class="nav-toggle"
+        aria-expanded="false"
+        aria-controls="site-nav"
+        aria-label="Open menu"
+      ><%- icon("menu") %></button>
+    <% } %>
+    <nav class="site-nav" id="site-nav">
       <% if (currentUser) { %>
         <a href="/dashboard" class="<%= navClass("/dashboard") %>">Dashboard</a>
         <a href="/transactions" class="<%= navClass("/transactions") %>">Transactions</a>
