@@ -186,19 +186,10 @@ h1, h2, h3 {
   margin-left: 0.5rem;
 }
 
-.nav-icon-link {
-  display: inline-flex !important;
-  align-items: center;
-  padding: 0.5rem !important;
-}
-
-.nav-icon-link .icon {
-  width: 18px;
-  height: 18px;
-}
-
-/* Hidden until the ≤780px query below turns it on — at desktop widths the
-   nav has room to lay out flat and this button has nothing to do. */
+/* Hidden until the sidebar's own ≤780px query turns it on — at desktop
+   widths the sidebar is a persistent column and this button has nothing to
+   do. Used inside .mobile-topbar (see below) and, at desktop widths, on
+   the logged-out header would never need it either. */
 .nav-toggle {
   display: none;
   align-items: center;
@@ -214,6 +205,207 @@ h1, h2, h3 {
 .nav-toggle .icon {
   width: 20px;
   height: 20px;
+}
+
+/* --- Sidebar (authenticated app) ---
+   Replaces the top bar once there's a real session: thirteen destinations
+   fit a vertical list far better than a horizontal one, the same reason
+   QuickBooks/Xero/Stripe's own dashboard/Linear all use a left sidebar
+   rather than a top nav once a product has this many sections. The public
+   pages (.site-header/.site-nav above) are unaffected — a two-link header
+   has no problem a sidebar would solve. */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  flex: none;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--card);
+  border-right: 1px solid var(--line);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar .brand {
+  margin-bottom: 1.5rem;
+  padding: 0 0.5rem;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.sidebar-nav a:hover {
+  color: var(--brand-800);
+  background: var(--brand-50);
+}
+
+.sidebar-nav a.active {
+  color: var(--brand-800);
+  background: var(--brand-100);
+}
+
+.sidebar-nav .icon {
+  width: 19px;
+  height: 19px;
+  flex: none;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 0.6rem 0.65rem;
+}
+
+/* Settings and Log out sit apart from the destinations above, the standard
+   place for account-level actions in this pattern (Notion, Linear do the
+   same) rather than one more item in the flowing list. */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sidebar-footer a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-decoration: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-footer a:hover {
+  color: var(--brand-800);
+  background: var(--brand-50);
+}
+
+.sidebar-footer a.active {
+  color: var(--brand-800);
+  background: var(--brand-100);
+}
+
+.sidebar-footer .icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.app-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-topbar {
+  display: none;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 780px) {
+  /* Off-canvas instead of a persistent column: the sidebar is taken out of
+     flow (position: fixed) and translated past the left edge by default, so
+     .app-content already fills the width .sidebar would otherwise reserve.
+     A slim topbar carries the toggle in its place, and a backdrop makes
+     tapping outside the open drawer close it — the same open/close/Escape/
+     outside-click JS built for the old top-nav hamburger, retargeted from
+     #site-nav to #app-sidebar in public/js/main.js. */
+  /* .sidebar is taken out of flow below (position: fixed), but
+     .mobile-topbar and .app-content are both still ordinary in-flow flex
+     items of .app-shell — without this they sit side by side in the same
+     row instead of the topbar stacking above the content, which is what
+     was actually forcing the layout wide enough to overflow the real
+     375px viewport rather than the sidebar's own hidden width doing it. */
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    width: 260px;
+    z-index: 100;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .sidebar {
+      transition: transform 0.2s ease;
+    }
+  }
+
+  .sidebar .brand {
+    display: none;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    padding: 0.7rem clamp(1rem, 4vw, 2.5rem);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .sidebar-backdrop.is-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(33, 29, 20, 0.35);
+  }
 }
 
 /* --- Layout --- */
@@ -244,46 +436,25 @@ h1, h2, h3 {
   align-items: start;
 }
 
+/* Grid items default to min-width: auto, which refuses to shrink below the
+   content's own natural width — a long transaction amount or note was
+   forcing its card (and the whole page) wider than the viewport on a
+   phone, once collapsed to the single column below actually had to do
+   real shrinking rather than just existing in a wide second column. */
+.two-col > * {
+  min-width: 0;
+}
+
 @media (max-width: 780px) {
   .two-col {
     grid-template-columns: 1fr;
   }
 
-  /* The navigation is one long row that scrolls sideways, which on a narrow
-     screen left exactly one item — "Dashboard" — in view, with 1,200px of
-     destinations behind a scroll that shows no sign of being there. Budgets,
-     Goals, Loans and the rest were unreachable to anyone who did not think to
-     swipe a bar that looked like it ended.
-
-     A toggle button reveals the nav as a full-width panel instead: closed by
-     default so the header stays a single compact row, open on demand rather
-     than a flat list of thirteen wrapping onto several rows whether the
-     visitor wanted to see all of them right now or not. See public/js/main.js
-     for the click/Escape/outside-click handling. */
-  .site-header {
-    flex-wrap: wrap;
-    row-gap: 0.5rem;
-  }
-
-  .nav-toggle {
-    display: inline-flex;
-  }
-
-  .site-nav {
-    display: none;
-    flex-basis: 100%;
-    flex-wrap: wrap;
-    overflow-x: visible;
-    row-gap: 0.15rem;
-  }
-
-  .site-nav.is-open {
-    display: flex;
-  }
-
-  .site-nav .btn {
-    margin-left: 0;
-  }
+  /* The logged-out header is just Log in + a Sign up button — two items
+     have never needed wrapping or a toggle, unlike the authenticated app's
+     sidebar (see .sidebar / .mobile-topbar below), which used to be this
+     same top bar carrying thirteen destinations before that grew into its
+     own layout entirely. */
 }
 
 /* --- Cards --- */

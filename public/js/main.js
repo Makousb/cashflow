@@ -7,20 +7,23 @@ document.querySelectorAll(".flash-success, .flash-error").forEach((flash) => {
   }, 4000);
 });
 
-// The mobile nav toggle (see .nav-toggle / .site-nav in main.css). Only
-// present when logged in, so both elements are absent on the public pages —
-// this whole block is a no-op there rather than an error.
+// The mobile sidebar toggle (see .sidebar / .mobile-topbar in main.css).
+// Only present when logged in, so both elements are absent on the public
+// pages — this whole block is a no-op there rather than an error.
 (function () {
   const toggle = document.querySelector(".nav-toggle");
-  const nav = document.getElementById("site-nav");
+  const nav = document.getElementById("app-sidebar");
+  const backdrop = document.getElementById("sidebar-backdrop");
   if (!toggle || !nav) return;
 
   function close() {
     nav.classList.remove("is-open");
+    backdrop?.classList.remove("is-open");
     toggle.setAttribute("aria-expanded", "false");
   }
   function open() {
     nav.classList.add("is-open");
+    backdrop?.classList.add("is-open");
     toggle.setAttribute("aria-expanded", "true");
   }
 
@@ -29,10 +32,12 @@ document.querySelectorAll(".flash-success, .flash-error").forEach((flash) => {
   });
 
   // Following a link is the point of opening it — leave it open and the next
-  // page loads behind a panel still covering it.
+  // page loads behind a drawer still covering it.
   nav.addEventListener("click", (event) => {
     if (event.target.closest("a")) close();
   });
+
+  backdrop?.addEventListener("click", close);
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") close();

@@ -14,48 +14,68 @@
 </head>
 <body>
   <% const navClass = (href) => (currentPath === href || (href !== "/" && currentPath.startsWith(href)) ? "active" : ""); %>
-  <header class="site-header">
-    <a class="brand" href="/">
-      <img src="/img/logo.svg" alt="" class="brand-mark" width="30" height="30" />
-      Cashflow
-    </a>
-    <% if (currentUser) { %>
-      <button
-        type="button"
-        class="nav-toggle"
-        aria-expanded="false"
-        aria-controls="site-nav"
-        aria-label="Open menu"
-      ><%- icon("menu") %></button>
-    <% } %>
-    <nav class="site-nav" id="site-nav">
-      <% if (currentUser) { %>
-        <a href="/dashboard" class="<%= navClass("/dashboard") %>">Dashboard</a>
-        <a href="/transactions" class="<%= navClass("/transactions") %>">Transactions</a>
-        <a href="/recurring" class="<%= navClass("/recurring") %>">Recurring</a>
-        <a href="/receipts" class="<%= navClass("/receipts") %>">Receipts</a>
-        <a href="/budgets" class="<%= navClass("/budgets") %>">Budgets</a>
-        <a href="/goals" class="<%= navClass("/goals") %>">Goals</a>
-        <a href="/loans" class="<%= navClass("/loans") %>">Loans</a>
-        <a href="/credit" class="<%= navClass("/credit") %>">Credit</a>
-        <a href="/reports" class="<%= navClass("/reports") %>">Reports</a>
-        <a href="/accounts" class="<%= navClass("/accounts") %>">Accounts</a>
-        <% if (showBusinessNav) { %>
-          <a href="/business" class="<%= navClass("/business") %>">Business</a>
-        <% } %>
-        <% if (showSupplierNav) { %>
-          <a href="/supplier" class="<%= navClass("/supplier") %>">Supplier</a>
-        <% } %>
-        <a href="/settings" class="<%= navClass("/settings") %> nav-icon-link" title="Settings" aria-label="Settings"><%- icon("gear") %></a>
-        <form action="/auth/logout" method="POST" class="inline-form">
-          <button type="submit" class="btn btn-ghost btn-sm">Log out</button>
-        </form>
-      <% } else { %>
+  <% if (currentUser) { %>
+    <div class="app-shell">
+      <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+      <aside class="sidebar" id="app-sidebar">
+        <a class="brand" href="/">
+          <img src="/img/logo.svg" alt="" class="brand-mark" width="30" height="30" />
+          Cashflow
+        </a>
+        <nav class="sidebar-nav">
+          <a href="/dashboard" class="<%= navClass("/dashboard") %>"><%- icon("home") %><span>Dashboard</span></a>
+          <a href="/transactions" class="<%= navClass("/transactions") %>"><%- icon("document") %><span>Transactions</span></a>
+          <a href="/recurring" class="<%= navClass("/recurring") %>"><%- icon("refresh") %><span>Recurring</span></a>
+          <a href="/receipts" class="<%= navClass("/receipts") %>"><%- icon("receipt") %><span>Receipts</span></a>
+          <a href="/budgets" class="<%= navClass("/budgets") %>"><%- icon("barChart") %><span>Budgets</span></a>
+          <a href="/goals" class="<%= navClass("/goals") %>"><%- icon("target") %><span>Goals</span></a>
+          <a href="/loans" class="<%= navClass("/loans") %>"><%- icon("bank") %><span>Loans</span></a>
+          <a href="/credit" class="<%= navClass("/credit") %>"><%- icon("card") %><span>Credit</span></a>
+          <a href="/reports" class="<%= navClass("/reports") %>"><%- icon("trendingUp") %><span>Reports</span></a>
+          <a href="/accounts" class="<%= navClass("/accounts") %>"><%- icon("wallet") %><span>Accounts</span></a>
+          <% if (showBusinessNav || showSupplierNav) { %>
+            <div class="sidebar-divider"></div>
+          <% } %>
+          <% if (showBusinessNav) { %>
+            <a href="/business" class="<%= navClass("/business") %>"><%- icon("storefront") %><span>Business</span></a>
+          <% } %>
+          <% if (showSupplierNav) { %>
+            <a href="/supplier" class="<%= navClass("/supplier") %>"><%- icon("factory") %><span>Supplier</span></a>
+          <% } %>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="/settings" class="<%= navClass("/settings") %>"><%- icon("gear") %><span>Settings</span></a>
+          <form action="/auth/logout" method="POST" class="inline-form">
+            <button type="submit" class="btn btn-ghost btn-sm">Log out</button>
+          </form>
+        </div>
+      </aside>
+      <div class="mobile-topbar">
+        <button
+          type="button"
+          class="nav-toggle"
+          aria-expanded="false"
+          aria-controls="app-sidebar"
+          aria-label="Open menu"
+        ><%- icon("menu") %></button>
+        <a class="brand" href="/">
+          <img src="/img/logo.svg" alt="" class="brand-mark" width="26" height="26" />
+          Cashflow
+        </a>
+      </div>
+      <div class="app-content">
+  <% } else { %>
+    <header class="site-header">
+      <a class="brand" href="/">
+        <img src="/img/logo.svg" alt="" class="brand-mark" width="30" height="30" />
+        Cashflow
+      </a>
+      <nav class="site-nav">
         <a href="/auth/login" class="<%= navClass("/auth/login") %>">Log in</a>
         <a href="/auth/register" class="btn btn-primary">Sign up</a>
-      <% } %>
-    </nav>
-  </header>
+      </nav>
+    </header>
+  <% } %>
 
   <% if (!dbReady) { %>
     <div class="flash flash-warn">
