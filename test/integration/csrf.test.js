@@ -67,20 +67,58 @@ describe("cross-origin state changes", { skip: skipWithoutDb }, () => {
     assert.equal(rows.length, 0, "the forged request must not have created anything");
   });
 
-  test("a literal Origin: null is refused, not treated as absent", async () => {
-    // This is not a hypothetical: a sandboxed iframe with nothing more than
-    // `allow-forms` makes a real browser send this exact value, on command,
-    // and it is a documented technique for getting past a naive same-origin
-    // check that only refuses a header it can see is wrong. Absent and
-    // "null" are different claims — one says nothing, the other says
-    // something a legitimate top-level form post to this app never does.
-    const r = await post("/accounts", { name: "Hijacked3", type: "cash" }, {
+  test("a literal Origin: null with no Referer either is let through, not treated as an attack", async () => {
+    // A real report against this app's own signup form: a Chrome ad blocker
+    // strips Origin down to this opaque value AND strips Referer entirely on
+    // an otherwise completely ordinary same-origin POST. This used to be
+    // refused outright on the theory that "null" uniquely marks a sandboxed
+    // iframe attack — but SameSite=Lax is what actually stops that attack in
+    // any browser new enough to matter, and this exact header pattern turns
+    // out to come from real, non-malicious browsers often enough that
+    // blocking it categorically refuses more real visitors than attacks.
+    const r = await post("/accounts", { name: "Ad Blocker Wallet", type: "cash" }, {
       Origin: "null"
+    });
+    assert.equal(r.status, 302);
+
+    const rows = await q(
+      "SELECT id FROM accounts WHERE user_id = $1 AND name = 'Ad Blocker Wallet'", [userId]
+    );
+    assert.equal(rows.length, 1);
+  });
+
+  test("Origin: null with a Referer that matches this app is let through", async () => {
+    // A real report against this app's own signup form: Opera's built-in
+    // privacy features send Origin: null on an entirely ordinary same-origin
+    // POST. What tells that apart from the sandboxed-iframe attack the test
+    // above guards against is Referer — an opaque, sandboxed origin has
+    // nothing legitimate to put there, so the attack arrives with no usable
+    // Referer either, while a browser suppressing only Origin still carries
+    // an honest one.
+    const r = await post("/accounts", { name: "Opera Wallet", type: "cash" }, {
+      Origin: "null",
+      Referer: base + "/accounts"
+    });
+    assert.equal(r.status, 302);
+
+    const rows = await q(
+      "SELECT id FROM accounts WHERE user_id = $1 AND name = 'Opera Wallet'", [userId]
+    );
+    assert.equal(rows.length, 1);
+  });
+
+  test("Origin: null with a Referer pointing elsewhere is still refused", async () => {
+    // The fallback above only rescues a same-origin Referer — a forged or
+    // cross-site one must not slip through just because Origin happens to
+    // also be null.
+    const r = await post("/accounts", { name: "Hijacked4", type: "cash" }, {
+      Origin: "null",
+      Referer: "https://evil.example/attack.html"
     });
     assert.equal(r.status, 403);
 
     const rows = await q(
-      "SELECT id FROM accounts WHERE user_id = $1 AND name = 'Hijacked3'", [userId]
+      "SELECT id FROM accounts WHERE user_id = $1 AND name = 'Hijacked4'", [userId]
     );
     assert.equal(rows.length, 0);
   });
